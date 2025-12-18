@@ -31,6 +31,9 @@ func main() {
 	// NHÓM 1: CÔNG KHAI (Ai cũng vào được)
 	public := r.Group("/api/v1")
 	{
+		public.GET("/ping", func(c *gin.Context) {
+			c.JSON(200, gin.H{"message": "Welcome to MoneyPod API!"})
+		})
 		public.POST("/register", authHandler.Register)
 		public.POST("/login", authHandler.Login)
 	}
