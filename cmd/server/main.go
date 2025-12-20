@@ -25,6 +25,9 @@ func main() {
 	transService := services.NewTransactionService(db.DB)
 	transHandler := handlers.NewTransactionHandler(transService)
 
+	groupService := services.NewGroupService(db.DB)
+	groupHandler := handlers.NewGroupHandler(groupService)
+
 	// --- SETUP ROUTER ---
 	r := gin.Default()
 
@@ -57,6 +60,10 @@ func main() {
 		protected.GET("/wallets", walletHandler.GetList)       // Xem danh sách ví
 		protected.POST("/transactions", transHandler.Create)
 		protected.POST("/transfer", transHandler.Transfer)
+		protected.POST("/groups", groupHandler.Create)    // Tạo nhóm
+		protected.GET("/groups", groupHandler.GetList)    // Xem danh sách nhóm
+		protected.POST("/groups/join", groupHandler.Join) // Tham gia nhóm
+		protected.POST("/groups/expenses", groupHandler.AddExpense)
 	}
 
 	r.Run(":8080")

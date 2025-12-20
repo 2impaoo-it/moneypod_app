@@ -25,7 +25,15 @@ func ConnectDatabase() {
 	fmt.Println("✅ Kết nối thành công đến PostgreSQL (Docker)!")
 
 	// Tự động tạo bảng dựa trên Struct
-	err = database.AutoMigrate(&models.User{}, &models.Wallet{}, &models.Transaction{})
+	err = database.AutoMigrate(
+		&models.User{},
+		&models.Wallet{},
+		&models.Transaction{},
+		&models.Group{},
+		&models.GroupMember{},
+		&models.GroupExpense{},
+		&models.ExpenseSplit{},
+	)
 	if err != nil {
 		log.Fatal("❌ Không thể khởi tạo bảng: ", err)
 	}
