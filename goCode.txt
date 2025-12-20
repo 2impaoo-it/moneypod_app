@@ -1,5 +1,6 @@
 go mod init github.com/2impaoo-it/MoneyPod_Backend
---> github.com/2impaoo-it/MoneyPod_Backend là Tên định danh (Module Path) của dự án. Theo chuẩn quốc tế, người ta thường đặt theo đường dẫn GitHub để sau này người khác có thể tải về dùng.
+--> github.com/2impaoo-it/MoneyPod_Backend là Tên định danh (Module Path) của dự án.
+Theo chuẩn quốc tế, người ta thường đặt theo đường dẫn GitHub để sau này người khác có thể tải về dùng.
 
 go get -u github.com/gin-gonic/gin
 --> lệnh import thư viện 
