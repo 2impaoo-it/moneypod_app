@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/models"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
 )
 
 type WalletService struct {

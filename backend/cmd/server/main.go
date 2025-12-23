@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/handlers"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/middleware"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/repositories"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/services"
-	"github.com/2impaoo-it/MoneyPod_Backend/pkg/db"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/handlers"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/middleware"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/backend/pkg/db"
 	"github.com/gin-gonic/gin"
 )
 

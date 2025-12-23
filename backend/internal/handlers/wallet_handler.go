@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
 	"github.com/gin-gonic/gin"
 )
 

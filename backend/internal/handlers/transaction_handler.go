@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/models"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
 	"github.com/gin-gonic/gin"
 )
 

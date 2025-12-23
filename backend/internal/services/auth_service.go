@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/models"
-	"github.com/2impaoo-it/MoneyPod_Backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -61,7 +61,7 @@ func (s *AuthService) Login(email, password string) (string, error) {
 
 	// 3. Tạo JWT Token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,                           // Subject: ID người dùng
+		"sub": user.ID,                               // Subject: ID người dùng
 		"exp": time.Now().Add(time.Hour * 72).Unix(), // Hết hạn sau 3 ngày
 	})
 
