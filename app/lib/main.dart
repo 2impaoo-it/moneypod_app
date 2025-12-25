@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/transactions_screen.dart'; // Import màn hình Dashboard
 
-// --- MOCK DATA ---
+// --- IMPORTS MÀN HÌNH & WIDGETS ---
+// Đảm bảo bạn đã tạo các file này trong thư mục tương ứng
+import 'screens/dashboard_screen.dart';
+import 'screens/transactions_screen.dart';
+import 'screens/groups_screen.dart';
+import 'screens/savings_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'widgets/add_transaction_modal.dart'; // Import Modal đã tạo ở bước trước
+
+// --- MOCK DATA (Giữ nguyên để test) ---
 class Transaction {
   final String id;
   final String title;
@@ -77,7 +85,7 @@ final mockTransactions = [
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
   static const primary = Color(0xFF14B8A6); // Teal-500
-  static const primaryDark = Color(0xFF0D9488); // Teal-600
+  static const primaryDark = Color(0xFF0F766E); // Teal-700
   static const background = Color(0xFFF8FAFC); // Slate-50
   static const cardBg = Color(0xFFFFFFFF);
   static const textPrimary = Color(0xFF0F172A); // Slate-900
@@ -91,13 +99,27 @@ class AppColors {
 
 // --- MAIN APP SETUP ---
 void main() {
+  // Cấu hình thanh trạng thái trong suốt
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(const ProviderScope(child: MoneyPodApp()));
 }
 
 // Cấu hình Router
 final _router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/login',
   routes: [
+    // Auth routes (không có bottom nav)
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    // Main app routes (có bottom nav)
     ShellRoute(
       builder: (context, state, child) {
         return MainWrapper(child: child);
@@ -113,13 +135,11 @@ final _router = GoRouter(
         ),
         GoRoute(
           path: '/groups',
-          builder: (context, state) =>
-              const Scaffold(body: Center(child: Text("Màn hình Quỹ nhóm"))),
+          builder: (context, state) => const GroupsScreen(),
         ),
         GoRoute(
           path: '/savings',
-          builder: (context, state) =>
-              const Scaffold(body: Center(child: Text("Màn hình Tiết kiệm"))),
+          builder: (context, state) => const SavingsScreen(),
         ),
       ],
     ),
@@ -143,6 +163,7 @@ class MoneyPodApp extends StatelessWidget {
           secondary: AppColors.primaryDark,
           background: AppColors.background,
         ),
+        // Sử dụng Google Fonts Inter
         textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
             .apply(
               bodyColor: AppColors.textPrimary,
@@ -164,10 +185,16 @@ class MainWrapper extends StatefulWidget {
 }
 
 class _MainWrapperState extends State<MainWrapper> {
-  int _selectedIndex = 0;
+  // Hàm tính toán index dựa trên URL hiện tại để BottomBar luôn đúng trạng thái
+  int _calculateSelectedIndex(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.toString();
+    if (location.startsWith('/transactions')) return 1;
+    if (location.startsWith('/groups')) return 2;
+    if (location.startsWith('/savings')) return 3;
+    return 0;
+  }
 
   void _onItemTapped(int index, BuildContext context) {
-    setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         context.go('/');
@@ -184,57 +211,154 @@ class _MainWrapperState extends State<MainWrapper> {
     }
   }
 
+  // Hàm mở Modal Thêm Giao Dịch
+  void _showAddTransactionModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled:
+          true, // Quan trọng: để modal có thể full màn hình nếu cần
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AddTransactionModal(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = _calculateSelectedIndex(context);
+
     return Scaffold(
       body: widget.child,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {}, // TODO: Open Add Modal
-        backgroundColor: AppColors.primary,
-        shape: const CircleBorder(),
-        child: const Icon(LucideIcons.plus, color: Colors.white),
-      ),
+
+      // --- FLOATING ACTION BUTTON (GRADIENT) ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.primaryDark], // Teal Gradient
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: () => _showAddTransactionModal(context),
+          backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
+          elevation: 0,
+          shape: const CircleBorder(),
+          child: const Icon(LucideIcons.plus, color: Colors.white, size: 28),
+        ),
+      ),
+
+      // --- BOTTOM APP BAR ---
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         color: Colors.white,
         surfaceTintColor: Colors.white,
+        elevation: 10,
+        shadowColor: Colors.black.withOpacity(0.1),
+        padding: const EdgeInsets.symmetric(horizontal: 0),
+        height: 65,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(0, LucideIcons.home, "Tổng quan"),
-            _buildNavItem(1, LucideIcons.receipt, "Giao dịch"),
-            const SizedBox(width: 48), // Khoảng trống cho FAB
-            _buildNavItem(2, LucideIcons.users, "Quỹ nhóm"),
-            _buildNavItem(3, LucideIcons.piggyBank, "Tiết kiệm"),
+            // Left Side
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(
+                    context,
+                    0,
+                    LucideIcons.layoutDashboard,
+                    "Tổng quan",
+                    selectedIndex,
+                  ),
+                  _buildNavItem(
+                    context,
+                    1,
+                    LucideIcons.receipt,
+                    "Giao dịch",
+                    selectedIndex,
+                  ),
+                ],
+              ),
+            ),
+
+            // Spacer for FAB
+            const SizedBox(width: 48),
+
+            // Right Side
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(
+                    context,
+                    2,
+                    LucideIcons.users,
+                    "Quỹ nhóm",
+                    selectedIndex,
+                  ),
+                  _buildNavItem(
+                    context,
+                    3,
+                    LucideIcons.piggyBank,
+                    "Tiết kiệm",
+                    selectedIndex,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final isSelected = _selectedIndex == index;
+  // Helper Widget cho từng Item Navigation
+  Widget _buildNavItem(
+    BuildContext context,
+    int index,
+    IconData icon,
+    String label,
+    int selectedIndex,
+  ) {
+    final isSelected = selectedIndex == index;
     return InkWell(
       onTap: () => _onItemTapped(index, context),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? AppColors.primary : AppColors.textMuted,
-            size: 24,
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
               color: isSelected ? AppColors.primary : AppColors.textMuted,
+              size: 24,
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? AppColors.primary : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine # Bản nhẹ nhất của Postgres
+    container_name: moneypod_db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=moneypod_secret # Mật khẩu DB
+      - POSTGRES_DB=moneypod # Tên Database
+    ports:
+      - "5432:5432" # Mở cổng để code Go chui vào được
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Lưu dữ liệu bền vững
+
+volumes:
+  postgres_data:
