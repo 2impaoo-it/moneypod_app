@@ -22,9 +22,10 @@ import 'screens/dashboard_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'screens/groups_screen.dart';
 import 'screens/savings_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'widgets/add_transaction_modal.dart';
+import 'widgets/profile_widget.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -87,6 +88,7 @@ final _router = GoRouter(
           path: '/savings',
           builder: (context, state) => const SavingsScreen(),
         ),
+        GoRoute(path: '/profile', builder: (context, state) => ProfileWidget()),
       ],
     ),
   ],

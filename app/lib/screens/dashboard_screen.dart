@@ -8,6 +8,8 @@ import '../bloc/dashboard/dashboard_bloc.dart';
 import '../bloc/dashboard/dashboard_state.dart';
 import '../bloc/dashboard/dashboard_event.dart';
 import '../models/transaction.dart' as model;
+import '../widgets/header_widget.dart';
+import '../models/profile.dart';
 import 'bill_scan_screen.dart';
 import 'create_wallet_screen.dart';
 import 'wallet_list_screen.dart';
@@ -82,43 +84,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- HEADER ---
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=12',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Xin chào,",
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            userInfo.fullName ?? userInfo.email,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          LucideIcons.bell,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
+                  HeaderWidget(
+                    profile: Profile(
+                      id: userInfo.id,
+                      fullName: userInfo.fullName,
+                      email: userInfo.email,
+                      avatarUrl: null,
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -146,10 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         const Text(
                           "Số dư khả dụng",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -185,8 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    const WalletListScreen(),
+                                builder: (context) => const WalletListScreen(),
                               ),
                             );
                           },
@@ -232,223 +200,224 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                // --- QUICK ACTIONS ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildQuickAction(
-                      context,
-                      LucideIcons.scanLine,
-                      "Quét Bill",
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BillScanScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
-                    _buildQuickAction(
-                      context,
-                      LucideIcons.arrowRightLeft,
-                      "Chuyển tiền",
-                    ),
-                    _buildQuickAction(
-                      context,
-                      LucideIcons.wallet,
-                      "Thêm ví",
-                      onTap: () async {
-                        // Mở màn hình tạo ví và chờ kết quả
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateWalletScreen(),
-                          ),
-                        );
-
-                        // Nếu tạo thành công (result == true)
-                        // TODO: Reload danh sách ví ở đây
-                        if (result == true && context.mounted) {
-                          // context.read<WalletBloc>().add(LoadWalletList());
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Vui lòng làm mới để xem ví mới'),
-                              duration: Duration(seconds: 2),
+                  // --- QUICK ACTIONS ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildQuickAction(
+                        context,
+                        LucideIcons.scanLine,
+                        "Quét Bill",
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BillScanScreen(),
                             ),
                           );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                        },
+                      ),
+                      _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
+                      _buildQuickAction(
+                        context,
+                        LucideIcons.arrowRightLeft,
+                        "Chuyển tiền",
+                      ),
+                      _buildQuickAction(
+                        context,
+                        LucideIcons.wallet,
+                        "Thêm ví",
+                        onTap: () async {
+                          // Mở màn hình tạo ví và chờ kết quả
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CreateWalletScreen(),
+                            ),
+                          );
 
-                // --- AI INSIGHT CARD ---
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: const Border(
-                      left: BorderSide(color: AppColors.warning, width: 4),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
+                          // Nếu tạo thành công (result == true)
+                          // TODO: Reload danh sách ví ở đây
+                          if (result == true && context.mounted) {
+                            // context.read<WalletBloc>().add(LoadWalletList());
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Vui lòng làm mới để xem ví mới'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          LucideIcons.sparkles,
-                          color: AppColors.warning,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Insight thông minh",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                            Text(
-                              "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // --- SPENDING CHART ---
-                const Text(
-                  "Phân bổ chi tiêu",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 200,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: PieChart(
-                          PieChartData(
-                            sectionsSpace: 2,
-                            centerSpaceRadius: 40,
-                            sections: [
-                              _buildPieSection(
-                                40,
-                                AppColors.primary,
-                              ), // Ăn uống
-                              _buildPieSection(25, Colors.blue), // Di chuyển
-                              _buildPieSection(15, Colors.pink), // Mua sắm
-                              _buildPieSection(
-                                10,
-                                AppColors.purple,
-                              ), // Giải trí
-                              _buildPieSection(10, Colors.grey), // Khác
+                  // --- AI INSIGHT CARD ---
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: const Border(
+                        left: BorderSide(color: AppColors.warning, width: 4),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            LucideIcons.sparkles,
+                            color: AppColors.warning,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Insight thông minh",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- SPENDING CHART ---
+                  const Text(
+                    "Phân bổ chi tiêu",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 40,
+                              sections: [
+                                _buildPieSection(
+                                  40,
+                                  AppColors.primary,
+                                ), // Ăn uống
+                                _buildPieSection(25, Colors.blue), // Di chuyển
+                                _buildPieSection(15, Colors.pink), // Mua sắm
+                                _buildPieSection(
+                                  10,
+                                  AppColors.purple,
+                                ), // Giải trí
+                                _buildPieSection(10, Colors.grey), // Khác
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          flex: 1,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _ChartLegend(
+                                color: AppColors.primary,
+                                label: "Ăn uống",
+                                percent: "40%",
+                              ),
+                              _ChartLegend(
+                                color: Colors.blue,
+                                label: "Di chuyển",
+                                percent: "25%",
+                              ),
+                              _ChartLegend(
+                                color: Colors.pink,
+                                label: "Mua sắm",
+                                percent: "15%",
+                              ),
+                              _ChartLegend(
+                                color: AppColors.purple,
+                                label: "Giải trí",
+                                percent: "10%",
+                              ),
+                              _ChartLegend(
+                                color: Colors.grey,
+                                label: "Khác",
+                                percent: "10%",
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- RECENT TRANSACTIONS ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Giao dịch gần đây",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        flex: 1,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _ChartLegend(
-                              color: AppColors.primary,
-                              label: "Ăn uống",
-                              percent: "40%",
-                            ),
-                            _ChartLegend(
-                              color: Colors.blue,
-                              label: "Di chuyển",
-                              percent: "25%",
-                            ),
-                            _ChartLegend(
-                              color: Colors.pink,
-                              label: "Mua sắm",
-                              percent: "15%",
-                            ),
-                            _ChartLegend(
-                              color: AppColors.purple,
-                              label: "Giải trí",
-                              percent: "10%",
-                            ),
-                            _ChartLegend(
-                              color: Colors.grey,
-                              label: "Khác",
-                              percent: "10%",
-                            ),
-                          ],
+                      TextButton(
+                        onPressed: () {},
+                        child: const Text(
+                          "Xem tất cả",
+                          style: TextStyle(color: AppColors.primary),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // --- RECENT TRANSACTIONS ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Giao dịch gần đây",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        "Xem tất cả",
-                        style: TextStyle(color: AppColors.primary),
-                      ),
-                    ),
-                  ],
-                ),
-                ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: recentTransactions.length,
-                  itemBuilder: (context, index) {
-                    final tx = recentTransactions[index];
-                    return _buildTransactionItem(tx, currencyFormat);
-                  },
-                ),
-                const SizedBox(
-                  height: 80,
-                ), // Padding bottom for scrolling above FAB
-              ],
+                  ListView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: recentTransactions.length,
+                    itemBuilder: (context, index) {
+                      final tx = recentTransactions[index];
+                      return _buildTransactionItem(tx, currencyFormat);
+                    },
+                  ),
+                  const SizedBox(
+                    height: 80,
+                  ), // Padding bottom for scrolling above FAB
+                ],
+              ),
             ),
           ),
-        ));
+        );
       },
     );
   }

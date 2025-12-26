@@ -89,6 +89,7 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.GET("/dashboard", dashboardHandler.GetOverview)
+		protected.GET("/profile", authHandler.GetProfile)
 
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)

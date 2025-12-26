@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
+import 'auth/login_screen.dart';
 
 /// Splash screen - Màn hình khởi động kiểm tra server
 class SplashScreen extends StatefulWidget {

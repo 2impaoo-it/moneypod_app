@@ -8,11 +8,16 @@ import (
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
 	userRepo *repositories.UserRepository
+}
+
+func (s *AuthService) GetUserProfile(userID uuid.UUID) (*models.User, error) {
+	return s.userRepo.FindByID(userID)
 }
 
 func NewAuthService(userRepo *repositories.UserRepository) *AuthService {

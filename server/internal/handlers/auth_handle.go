@@ -5,6 +5,7 @@ import (
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -68,4 +69,30 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"message": "Đăng nhập thành công",
 		"token":   token,
 	})
+}
+
+func (h *AuthHandler) GetProfile(c *gin.Context) {
+	// 1. Lấy UserID từ context (được Middleware Auth gán vào dưới dạng string)
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+
+	// 2. Parse từ String sang UUID
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
+
+	// 3. Gọi Service lấy thông tin
+	user, err := h.authService.GetUserProfile(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Người dùng không tồn tại"})
+		return
+	}
+
+	// 4. Trả về Client
+	c.JSON(http.StatusOK, gin.H{"data": user})
 }
