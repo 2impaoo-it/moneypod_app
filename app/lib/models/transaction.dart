@@ -63,14 +63,19 @@ class Transaction extends Equatable {
   }
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
+    // Support both backend and local keys
     return Transaction(
-      id: json['id'],
-      title: json['title'],
-      category: json['category'],
-      amount: json['amount'].toDouble(),
-      date: DateTime.parse(json['date']),
-      isExpense: json['is_expense'],
-      hashtag: json['hashtag'],
+      id: json['id']?.toString() ?? json['ID']?.toString() ?? '',
+      title: json['title'] ?? json['note'] ?? '',
+      category: json['category'] ?? '',
+      amount: (json['amount'] is num)
+          ? (json['amount'] as num).toDouble()
+          : double.tryParse(json['amount']?.toString() ?? '') ?? 0.0,
+      date: json['date'] != null
+          ? DateTime.parse(json['date'])
+          : DateTime.now(),
+      isExpense: json['is_expense'] ?? json['type'] == 'expense',
+      hashtag: json['hashtag'] ?? json['category'],
     );
   }
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/transaction/transaction_bloc.dart';
+import '../bloc/transaction/transaction_state.dart';
+import '../bloc/transaction/transaction_event.dart';
+import '../models/transaction.dart';
 import '../main.dart'; // Import để lấy AppColors
 
 class TransactionsScreen extends StatefulWidget {
@@ -23,94 +28,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     "#giaitri",
   ];
 
-  // 2. Mock Data
-  final List<Map<String, dynamic>> _rawTransactions = [
-    // Hôm nay
-    {
-      "id": 1,
-      "title": "Phở Thìn",
-      "category": "food",
-      "hashtag": "#ănuống",
-      "amount": -55000,
-      "time": "08:30",
-      "date": "today",
-    },
-    {
-      "id": 2,
-      "title": "Grab đi làm",
-      "category": "transport",
-      "hashtag": "#xebus",
-      "amount": -32000,
-      "time": "07:15",
-      "date": "today",
-    },
-    {
-      "id": 3,
-      "title": "The Coffee House",
-      "category": "food",
-      "hashtag": "#caphe",
-      "amount": -45000,
-      "time": "14:00",
-      "date": "today",
-    },
-    // Hôm qua
-    {
-      "id": 4,
-      "title": "Lương tháng 1",
-      "category": "salary",
-      "hashtag": "#luong",
-      "amount": 15000000,
-      "time": "09:00",
-      "date": "yesterday",
-    },
-    {
-      "id": 5,
-      "title": "Shopee - Áo thun",
-      "category": "shopping",
-      "hashtag": "#muasam",
-      "amount": -250000,
-      "time": "20:30",
-      "date": "yesterday",
-    },
-    // 15/01/2025
-    {
-      "id": 6,
-      "title": "Netflix",
-      "category": "entertainment",
-      "hashtag": "#giaitri",
-      "amount": -70000,
-      "time": "00:00",
-      "date": "15/01/2025",
-    },
-    {
-      "id": 7,
-      "title": "Cơm trưa",
-      "category": "food",
-      "hashtag": "#ănuống",
-      "amount": -35000,
-      "time": "12:00",
-      "date": "15/01/2025",
-    },
-  ];
-
-  // 3. Helper: Group data by Date
-  Map<String, List<Map<String, dynamic>>> get _groupedTransactions {
-    // Lọc dữ liệu trước khi group
-    final filteredList = _selectedFilter == "Tất cả"
-        ? _rawTransactions
-        : _rawTransactions
-              .where((tx) => tx['hashtag'] == _selectedFilter)
-              .toList();
-
-    Map<String, List<Map<String, dynamic>>> grouped = {};
-    for (var tx in filteredList) {
-      final dateKey = tx['date'] as String;
-      if (!grouped.containsKey(dateKey)) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey]!.add(tx);
-    }
-    return grouped;
+  @override
+  void initState() {
+    super.initState();
+    // Gọi API khi mở screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TransactionBloc>().add(TransactionLoadRequested());
+    });
   }
 
   @override
@@ -141,7 +65,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 4,
-                ), // vertical reduced for TextField alignment
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -187,6 +111,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         setState(() {
                           _selectedFilter = filter;
                         });
+                        // Reload from API if needed
+                        context.read<TransactionBloc>().add(
+                          TransactionLoadRequested(),
+                        );
                       },
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
@@ -197,7 +125,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppColors.primary
-                              : Colors.grey.shade100, // teal-500 or slate-100
+                              : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -219,25 +147,48 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
             // --- 4. TRANSACTIONS LIST ---
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _groupedTransactions.keys.length,
-                itemBuilder: (context, index) {
-                  final dateKey = _groupedTransactions.keys.elementAt(index);
-                  final transactions = _groupedTransactions[dateKey]!;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Date Header
-                      _buildDateHeader(dateKey),
-
-                      // List Items in this group
-                      ...transactions.map((tx) => _buildTransactionItem(tx)),
-
-                      const SizedBox(height: 8),
-                    ],
-                  );
+              child: BlocBuilder<TransactionBloc, TransactionState>(
+                builder: (context, state) {
+                  if (state is TransactionLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is TransactionLoaded) {
+                    // Filter and group transactions by date
+                    final filtered = _selectedFilter == "Tất cả"
+                        ? state.transactions
+                        : state.transactions
+                              .where((tx) => tx.hashtag == _selectedFilter)
+                              .toList();
+                    final grouped = <String, List<Transaction>>{};
+                    for (var tx in filtered) {
+                      final dateKey = DateFormat('dd/MM/yyyy').format(tx.date);
+                      grouped.putIfAbsent(dateKey, () => []).add(tx);
+                    }
+                    if (grouped.isEmpty) {
+                      return const Center(child: Text('Không có giao dịch.'));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: grouped.keys.length,
+                      itemBuilder: (context, index) {
+                        final dateKey = grouped.keys.elementAt(index);
+                        final transactions = grouped[dateKey]!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDateHeader(dateKey),
+                            ...transactions.map(
+                              (tx) => _buildTransactionItem(tx),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      },
+                    );
+                  } else if (state is TransactionError) {
+                    return Center(child: Text('Lỗi: {state.message}'));
+                  } else {
+                    return const SizedBox.shrink();
+                  }
                 },
               ),
             ),
@@ -275,13 +226,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> tx) {
+  Widget _buildTransactionItem(Transaction tx) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    final amount = tx['amount'] as int;
+    final amount = tx.amount;
     final isExpense = amount < 0;
 
     // Mapping style based on category
-    final style = _getCategoryStyle(tx['category']);
+    final style = _getCategoryStyle(tx.category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -312,7 +263,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tx['title'],
+                  tx.title,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -323,7 +274,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 Row(
                   children: [
                     Text(
-                      tx['hashtag'],
+                      tx.hashtag ?? '',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.primaryDark, // teal-600
@@ -341,7 +292,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ),
                     ),
                     Text(
-                      tx['time'],
+                      DateFormat('HH:mm').format(tx.date),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textMuted,
@@ -367,7 +318,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                _getCategoryDisplay(tx['category']),
+                _getCategoryDisplay(tx.category),
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
             ],
