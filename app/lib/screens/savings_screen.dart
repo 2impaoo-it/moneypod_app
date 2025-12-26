@@ -148,8 +148,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                       ),
                       const SizedBox(height: 16),
                       ...savingsGoals
-                          .map((goal) => _buildSavingsGoalCard(goal))
-                          .toList(),
+                          .map((goal) => _buildSavingsGoalCard(goal)),
                     ],
                   ),
                 ),
@@ -171,8 +170,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                       ),
                       const SizedBox(height: 12),
                       ...suggestedGoals
-                          .map((sg) => _buildSuggestionCard(sg))
-                          .toList(),
+                          .map((sg) => _buildSuggestionCard(sg)),
                       const SizedBox(height: 40), // Bottom padding
                     ],
                   ),
@@ -315,7 +313,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
-            print("Xem chi tiết mục tiêu: ${goal['name']}");
+            // print("Xem chi tiết mục tiêu: ${goal['name']}");
           },
           onLongPress: () {
             _showOptionsDialog(context, goal['name']);

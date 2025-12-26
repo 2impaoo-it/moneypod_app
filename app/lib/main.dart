@@ -7,7 +7,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 // --- IMPORTS BLOC ---
 import 'bloc/auth/auth_bloc.dart';
-import 'bloc/auth/auth_event.dart';
 import 'bloc/transaction/transaction_bloc.dart';
 import 'bloc/transaction/transaction_event.dart';
 
@@ -39,7 +38,13 @@ class AppColors {
 }
 
 // --- MAIN APP SETUP ---
-void main() {
+void main() async {
+  // Đảm bảo Flutter binding được khởi tạo
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // XÓA TOKEN CŨ khi khởi động app
+  await AuthService().logout();
+  
   // Cấu hình thanh trạng thái trong suốt
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -96,7 +101,9 @@ class MoneyPodApp extends StatelessWidget {
       providers: [
         BlocProvider(
           create: (context) =>
-              AuthBloc(authService: AuthService())..add(AuthCheckRequested()),
+              AuthBloc(authService: AuthService()),
+              // Tạm thời tắt auto-login để test
+              // ..add(AuthCheckRequested()),
         ),
         BlocProvider(
           create: (context) =>
