@@ -1,10 +1,10 @@
 /// Model cho Wallet - Khớp với server Go (gorm.Model)
 class Wallet {
-  final int id; // ID từ gorm.Model (uint)
+  final String id; // ID từ BaseModel (UUID)
   final String name;
   final double balance;
   final String currency; // Loại tiền (VND)
-  final int userId; // UserID (uint)
+  final String userId; // UserID (UUID)
   final DateTime createdAt; // CreatedAt từ gorm.Model
   final DateTime? updatedAt; // UpdatedAt từ gorm.Model
 
@@ -21,17 +21,21 @@ class Wallet {
   /// Tạo Wallet từ JSON (từ server Go)
   factory Wallet.fromJson(Map<String, dynamic> json) {
     return Wallet(
-      id: _parseInt(json['ID'] ?? json['id'] ?? 0),
+      id: json['id']?.toString() ?? json['ID']?.toString() ?? '',
       name: json['name'] ?? '',
       balance: _parseDouble(json['balance'] ?? 0),
       currency: json['currency'] ?? 'VND',
-      userId: _parseInt(json['user_id'] ?? json['UserID'] ?? 0),
-      createdAt: json['CreatedAt'] != null
-          ? DateTime.parse(json['CreatedAt'])
-          : DateTime.now(),
-      updatedAt: json['UpdatedAt'] != null
-          ? DateTime.parse(json['UpdatedAt'])
-          : null,
+      userId: json['user_id']?.toString() ?? json['UserID']?.toString() ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : (json['CreatedAt'] != null
+                ? DateTime.parse(json['CreatedAt'])
+                : DateTime.now()),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : (json['UpdatedAt'] != null
+                ? DateTime.parse(json['UpdatedAt'])
+                : null),
     );
   }
 
@@ -54,23 +58,23 @@ class Wallet {
   /// Chuyển Wallet thành JSON
   Map<String, dynamic> toJson() {
     return {
-      'ID': id,
+      'id': id,
       'name': name,
       'balance': balance,
       'currency': currency,
       'user_id': userId,
-      'CreatedAt': createdAt.toIso8601String(),
-      'UpdatedAt': updatedAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
   /// Copy với các giá trị mới
   Wallet copyWith({
-    int? id,
+    String? id,
     String? name,
     double? balance,
     String? currency,
-    int? userId,
+    String? userId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {

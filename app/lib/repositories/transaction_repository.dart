@@ -18,7 +18,7 @@ class TransactionRepository {
   /// - [type]: "income" hoặc "expense"
   /// - [note]: Ghi chú
   Future<void> createTransaction({
-    required int walletId,
+    required String walletId,
     required double amount,
     required String category,
     required String type, // "income" or "expense"

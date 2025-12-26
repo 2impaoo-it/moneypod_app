@@ -38,7 +38,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   bool _isLoading = false;
 
   List<Wallet> _wallets = [];
-  int? _selectedWalletId;
+  String? _selectedWalletId;
   bool _isLoadingWallets = true;
 
   // Mock Categories Data
@@ -290,7 +290,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
+                  child: DropdownButton<String>(
                     value: _selectedWalletId,
                     isExpanded: true,
                     icon: const Icon(
@@ -299,7 +299,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     ),
                     hint: const Text('Chọn ví'),
                     items: _wallets.map((wallet) {
-                      return DropdownMenuItem<int>(
+                      return DropdownMenuItem<String>(
                         value: wallet.id,
                         child: Row(
                           children: [
