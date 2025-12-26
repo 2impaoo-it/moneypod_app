@@ -1,8 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../main.dart'; // Import để lấy AppColors và MockData
+import '../main.dart';
+import '../bloc/transaction/transaction_bloc.dart';
+import '../bloc/transaction/transaction_state.dart';
+import '../models/transaction.dart' as model;
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -11,277 +15,310 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- HEADER ---
-            Row(
+    return BlocBuilder<TransactionBloc, TransactionState>(
+      builder: (context, state) {
+        if (state is TransactionLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (state is TransactionError) {
+          return Center(child: Text('Lỗi: ${state.message}'));
+        }
+
+        if (state is! TransactionLoaded) {
+          return const Center(child: Text('Không có dữ liệu'));
+        }
+
+        final balance = state.balance;
+        final totalIncome = state.totalIncome;
+        final totalExpense = state.totalExpense;
+        final recentTransactions = state.recentTransactions;
+
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(
-                    'https://i.pravatar.cc/150?img=12',
-                  ), // Mock Avatar
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // --- HEADER ---
+                Row(
                   children: [
-                    Text(
-                      "Xin chào,",
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
+                    const CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage(
+                        'https://i.pravatar.cc/150?img=12',
                       ),
                     ),
-                    const Text(
-                      "Minh Đức!",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    LucideIcons.bell,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // --- BALANCE CARD ---
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Số dư khả dụng",
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    currencyFormat.format(12450000),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      _buildBalanceRowItem(
-                        LucideIcons.arrowDown,
-                        "Thu nhập",
-                        "25.000.000",
-                        AppColors.success,
-                      ),
-                      const SizedBox(width: 24),
-                      _buildBalanceRowItem(
-                        LucideIcons.arrowUp,
-                        "Chi tiêu",
-                        "12.550.000",
-                        AppColors.danger,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // --- QUICK ACTIONS ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildQuickAction(LucideIcons.scanLine, "Quét Bill"),
-                _buildQuickAction(LucideIcons.mic, "Giọng nói"),
-                _buildQuickAction(LucideIcons.arrowRightLeft, "Chuyển tiền"),
-                _buildQuickAction(LucideIcons.layoutGrid, "Thêm"),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // --- AI INSIGHT CARD ---
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: const Border(
-                  left: BorderSide(color: AppColors.warning, width: 4),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      LucideIcons.sparkles,
-                      color: AppColors.warning,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
+                    const SizedBox(width: 12),
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Insight thông minh",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
+                          "Xin chào,",
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                           ),
                         ),
+                        const Text(
+                          "Minh Đức!",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // --- SPENDING CHART ---
-            const Text(
-              "Phân bổ chi tiêu",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: PieChart(
-                      PieChartData(
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 40,
-                        sections: [
-                          _buildPieSection(40, AppColors.primary), // Ăn uống
-                          _buildPieSection(25, Colors.blue), // Di chuyển
-                          _buildPieSection(15, Colors.pink), // Mua sắm
-                          _buildPieSection(10, AppColors.purple), // Giải trí
-                          _buildPieSection(10, Colors.grey), // Khác
-                        ],
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        LucideIcons.bell,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    flex: 1,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _ChartLegend(
-                          color: AppColors.primary,
-                          label: "Ăn uống",
-                          percent: "40%",
-                        ),
-                        _ChartLegend(
-                          color: Colors.blue,
-                          label: "Di chuyển",
-                          percent: "25%",
-                        ),
-                        _ChartLegend(
-                          color: Colors.pink,
-                          label: "Mua sắm",
-                          percent: "15%",
-                        ),
-                        _ChartLegend(
-                          color: AppColors.purple,
-                          label: "Giải trí",
-                          percent: "10%",
-                        ),
-                        _ChartLegend(
-                          color: Colors.grey,
-                          label: "Khác",
-                          percent: "10%",
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
-            // --- RECENT TRANSACTIONS ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                // --- BALANCE CARD ---
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Số dư khả dụng",
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        currencyFormat.format(balance),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          _buildBalanceRowItem(
+                            LucideIcons.arrowDown,
+                            "Thu nhập",
+                            currencyFormat.format(totalIncome),
+                            AppColors.success,
+                          ),
+                          const SizedBox(width: 24),
+                          _buildBalanceRowItem(
+                            LucideIcons.arrowUp,
+                            "Chi tiêu",
+                            currencyFormat.format(totalExpense),
+                            AppColors.danger,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // --- QUICK ACTIONS ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildQuickAction(LucideIcons.scanLine, "Quét Bill"),
+                    _buildQuickAction(LucideIcons.mic, "Giọng nói"),
+                    _buildQuickAction(
+                      LucideIcons.arrowRightLeft,
+                      "Chuyển tiền",
+                    ),
+                    _buildQuickAction(LucideIcons.layoutGrid, "Thêm"),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // --- AI INSIGHT CARD ---
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: const Border(
+                      left: BorderSide(color: AppColors.warning, width: 4),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.sparkles,
+                          color: AppColors.warning,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Insight thông minh",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // --- SPENDING CHART ---
                 const Text(
-                  "Giao dịch gần đây",
+                  "Phân bổ chi tiêu",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    "Xem tất cả",
-                    style: TextStyle(color: AppColors.primary),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: PieChart(
+                          PieChartData(
+                            sectionsSpace: 2,
+                            centerSpaceRadius: 40,
+                            sections: [
+                              _buildPieSection(
+                                40,
+                                AppColors.primary,
+                              ), // Ăn uống
+                              _buildPieSection(25, Colors.blue), // Di chuyển
+                              _buildPieSection(15, Colors.pink), // Mua sắm
+                              _buildPieSection(
+                                10,
+                                AppColors.purple,
+                              ), // Giải trí
+                              _buildPieSection(10, Colors.grey), // Khác
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        flex: 1,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _ChartLegend(
+                              color: AppColors.primary,
+                              label: "Ăn uống",
+                              percent: "40%",
+                            ),
+                            _ChartLegend(
+                              color: Colors.blue,
+                              label: "Di chuyển",
+                              percent: "25%",
+                            ),
+                            _ChartLegend(
+                              color: Colors.pink,
+                              label: "Mua sắm",
+                              percent: "15%",
+                            ),
+                            _ChartLegend(
+                              color: AppColors.purple,
+                              label: "Giải trí",
+                              percent: "10%",
+                            ),
+                            _ChartLegend(
+                              color: Colors.grey,
+                              label: "Khác",
+                              percent: "10%",
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // --- RECENT TRANSACTIONS ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Giao dịch gần đây",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text(
+                        "Xem tất cả",
+                        style: TextStyle(color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  itemCount: recentTransactions.length,
+                  itemBuilder: (context, index) {
+                    final tx = recentTransactions[index];
+                    return _buildTransactionItem(tx, currencyFormat);
+                  },
+                ),
+                const SizedBox(
+                  height: 80,
+                ), // Padding bottom for scrolling above FAB
               ],
             ),
-            ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: mockTransactions.length,
-              itemBuilder: (context, index) {
-                final tx = mockTransactions[index];
-                return _buildTransactionItem(tx, currencyFormat);
-              },
-            ),
-            const SizedBox(
-              height: 80,
-            ), // Padding bottom for scrolling above FAB
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -361,7 +398,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionItem(Transaction tx, NumberFormat fmt) {
+  Widget _buildTransactionItem(model.Transaction tx, NumberFormat fmt) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),

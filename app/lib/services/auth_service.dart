@@ -8,7 +8,7 @@ class AuthService {
   // Khi kết nối qua USB thì phải forward port với lệnh:
   // adb reverse tcp:8080 tcp:8080
   static const String baseUrl =
-      'http://localhost:8080/api/v1'; // ⬅️ Dùng localhost khi kết nối USB
+      'http://192.168.1.172:8080/api/v1'; // ⬅️ Dùng localhost khi kết nối USB
 
   final storage = const FlutterSecureStorage();
 

@@ -203,9 +203,6 @@ class GroupsScreen extends StatelessWidget {
     final int target = group['target'];
 
     // Theme colors dựa trên status
-    final Color mainColor = isCompleted
-        ? AppColors.green500
-        : AppColors.teal500;
     final Color badgeBg = isCompleted ? AppColors.green50 : AppColors.teal50;
     final Color badgeText = isCompleted
         ? AppColors.green700

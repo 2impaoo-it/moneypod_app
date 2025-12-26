@@ -1,86 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+// --- IMPORTS BLOC ---
+import 'bloc/auth/auth_bloc.dart';
+import 'bloc/auth/auth_event.dart';
+import 'bloc/transaction/transaction_bloc.dart';
+import 'bloc/transaction/transaction_event.dart';
+
+// --- IMPORTS SERVICES ---
+import 'services/auth_service.dart';
+
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
-// Đảm bảo bạn đã tạo các file này trong thư mục tương ứng
 import 'screens/dashboard_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'screens/groups_screen.dart';
 import 'screens/savings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'widgets/add_transaction_modal.dart'; // Import Modal đã tạo ở bước trước
-
-// --- MOCK DATA (Giữ nguyên để test) ---
-class Transaction {
-  final String id;
-  final String title;
-  final String category;
-  final double amount;
-  final DateTime date;
-  final bool isExpense;
-  final String? hashtag;
-
-  Transaction({
-    required this.id,
-    required this.title,
-    required this.category,
-    required this.amount,
-    required this.date,
-    required this.isExpense,
-    this.hashtag,
-  });
-}
-
-final mockTransactions = [
-  Transaction(
-    id: '1',
-    title: 'Cà phê Highland',
-    category: 'Ăn uống',
-    amount: 55000,
-    date: DateTime.now(),
-    isExpense: true,
-    hashtag: '#caphe',
-  ),
-  Transaction(
-    id: '2',
-    title: 'Grab đi làm',
-    category: 'Di chuyển',
-    amount: 32000,
-    date: DateTime.now(),
-    isExpense: true,
-    hashtag: '#xebus',
-  ),
-  Transaction(
-    id: '3',
-    title: 'Lương tháng 1',
-    category: 'Lương',
-    amount: 25000000,
-    date: DateTime.now().subtract(const Duration(days: 1)),
-    isExpense: false,
-    hashtag: '#luong',
-  ),
-  Transaction(
-    id: '4',
-    title: 'Mua áo Uniqlo',
-    category: 'Mua sắm',
-    amount: 499000,
-    date: DateTime.now().subtract(const Duration(days: 2)),
-    isExpense: true,
-  ),
-  Transaction(
-    id: '5',
-    title: 'Netflix Premium',
-    category: 'Giải trí',
-    amount: 260000,
-    date: DateTime.now().subtract(const Duration(days: 3)),
-    isExpense: true,
-  ),
-];
+import 'widgets/add_transaction_modal.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -106,7 +47,7 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const ProviderScope(child: MoneyPodApp()));
+  runApp(const MoneyPodApp());
 }
 
 // Cấu hình Router
@@ -151,25 +92,37 @@ class MoneyPodApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'MoneyPod',
-      debugShowCheckedModeBanner: false,
-      routerConfig: _router,
-      theme: ThemeData(
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
-          secondary: AppColors.primaryDark,
-          background: AppColors.background,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) =>
+              AuthBloc(authService: AuthService())..add(AuthCheckRequested()),
         ),
-        // Sử dụng Google Fonts Inter
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
-            .apply(
-              bodyColor: AppColors.textPrimary,
-              displayColor: AppColors.textPrimary,
-            ),
-        useMaterial3: true,
+        BlocProvider(
+          create: (context) =>
+              TransactionBloc()..add(TransactionLoadRequested()),
+        ),
+      ],
+      child: MaterialApp.router(
+        title: 'MoneyPod',
+        debugShowCheckedModeBanner: false,
+        routerConfig: _router,
+        theme: ThemeData(
+          scaffoldBackgroundColor: AppColors.background,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.primary,
+            primary: AppColors.primary,
+            secondary: AppColors.primaryDark,
+            background: AppColors.background,
+          ),
+          // Sử dụng Google Fonts Inter
+          textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
+              .apply(
+                bodyColor: AppColors.textPrimary,
+                displayColor: AppColors.textPrimary,
+              ),
+          useMaterial3: true,
+        ),
       ),
     );
   }
