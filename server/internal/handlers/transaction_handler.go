@@ -83,7 +83,7 @@ func (h *TransactionHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	err := h.service.TransferMoney(userID, req.FromWalletID, req.ToWalletID, req.Amount, req.Note)
+	err = h.service.TransferMoney(userID, req.FromWalletID, req.ToWalletID, req.Amount, req.Note)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
