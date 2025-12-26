@@ -119,7 +119,7 @@ class GroupsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...activeGroups.map((g) => _buildGroupCard(g)).toList(),
+                ...activeGroups.map((g) => _buildGroupCard(g)),
               ],
 
               // 3. Debt Optimization Section
@@ -140,7 +140,7 @@ class GroupsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...completedGroups.map((g) => _buildGroupCard(g)).toList(),
+                ...completedGroups.map((g) => _buildGroupCard(g)),
               ],
 
               const SizedBox(height: 40), // Bottom padding
@@ -627,7 +627,7 @@ class GroupsScreen extends StatelessWidget {
                 ),
               ),
             )
-            .toList(),
+            ,
       ],
     );
   }

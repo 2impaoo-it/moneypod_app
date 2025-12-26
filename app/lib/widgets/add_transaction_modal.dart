@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../repositories/transaction_repository.dart';
+import '../repositories/wallet_repository.dart';
+import '../models/wallet.dart';
 
 // Copy lại AppColors để đảm bảo file chạy độc lập
 class ModalColors {
@@ -26,10 +29,17 @@ class AddTransactionModal extends StatefulWidget {
 class _AddTransactionModalState extends State<AddTransactionModal> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
+  final TransactionRepository _transactionRepo = TransactionRepository();
+  final WalletRepository _walletRepo = WalletRepository();
+
   bool _isExpense = true;
   int _selectedCategoryIndex = 0;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
+
+  List<Wallet> _wallets = [];
+  int? _selectedWalletId;
+  bool _isLoadingWallets = true;
 
   // Mock Categories Data
   final List<Map<String, dynamic>> _categories = [
@@ -48,6 +58,33 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadWallets();
+  }
+
+  Future<void> _loadWallets() async {
+    try {
+      final wallets = await _walletRepo.getWallets();
+      setState(() {
+        _wallets = wallets;
+        _isLoadingWallets = false;
+        // Chọn ví đầu tiên nếu có
+        if (wallets.isNotEmpty) {
+          _selectedWalletId = wallets[0].id;
+        }
+      });
+    } catch (e) {
+      setState(() => _isLoadingWallets = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi khi tải ví: $e')));
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
@@ -55,11 +92,64 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   }
 
   void _handleSave() async {
+    // Validate input
+    if (_amountController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số tiền')));
+      return;
+    }
+
+    if (_selectedWalletId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn ví')));
+      return;
+    }
+
+    final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Số tiền không hợp lệ')));
+      return;
+    }
+
     setState(() => _isLoading = true);
-    // Giả lập call API
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      Navigator.pop(context);
+
+    try {
+      await _transactionRepo.createTransaction(
+        walletId: _selectedWalletId!,
+        amount: amount,
+        category: _categories[_selectedCategoryIndex]['name'],
+        type: _isExpense ? 'expense' : 'income',
+        note: _noteController.text.trim(),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Lưu giao dịch thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true); // Trả về true để reload dashboard
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Lỗi: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -171,7 +261,90 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
             const SizedBox(height: 20),
 
-            // d) Transaction Type Toggle
+            // d) Wallet Selector
+            if (_isLoadingWallets)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: CircularProgressIndicator(),
+              )
+            else if (_wallets.isEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: ModalColors.red100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Bạn chưa có ví nào. Vui lòng tạo ví trước!',
+                  style: TextStyle(color: ModalColors.red600),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: ModalColors.slate50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _selectedWalletId,
+                    isExpanded: true,
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: ModalColors.slate400,
+                    ),
+                    hint: const Text('Chọn ví'),
+                    items: _wallets.map((wallet) {
+                      return DropdownMenuItem<int>(
+                        value: wallet.id,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.account_balance_wallet,
+                              size: 20,
+                              color: ModalColors.teal500,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                wallet.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              NumberFormat.currency(
+                                locale: 'vi_VN',
+                                symbol: '₫',
+                                decimalDigits: 0,
+                              ).format(wallet.balance),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: ModalColors.slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedWalletId = value;
+                      });
+                    },
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            // e) Transaction Type Toggle
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
@@ -188,7 +361,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
             const SizedBox(height: 24),
 
-            // e) Category Selector (Grid)
+            // f) Category Selector (Grid)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GridView.builder(

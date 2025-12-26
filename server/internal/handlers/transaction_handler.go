@@ -71,7 +71,11 @@ type TransferRequest struct {
 
 func (h *TransactionHandler) Transfer(c *gin.Context) {
 	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Token ID invalid"})
+		return
+	}
 
 	var req TransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -90,7 +94,11 @@ func (h *TransactionHandler) Transfer(c *gin.Context) {
 
 func (h *TransactionHandler) GetList(c *gin.Context) {
 	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Token ID invalid"})
+		return
+	}
 
 	transactions, err := h.service.GetMyTransactions(userID)
 	if err != nil {

@@ -10,11 +10,14 @@ import 'bloc/auth/auth_bloc.dart';
 import 'bloc/auth/auth_event.dart';
 import 'bloc/transaction/transaction_bloc.dart';
 import 'bloc/transaction/transaction_event.dart';
+import 'bloc/dashboard/dashboard_bloc.dart';
+import 'bloc/dashboard/dashboard_event.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
 
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
+import 'screens/splash_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'screens/groups_screen.dart';
@@ -52,8 +55,10 @@ void main() {
 
 // Cấu hình Router
 final _router = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/splash',
   routes: [
+    // Splash screen - Kiểm tra server trước
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     // Auth routes (không có bottom nav)
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
@@ -101,6 +106,9 @@ class MoneyPodApp extends StatelessWidget {
         BlocProvider(
           create: (context) =>
               TransactionBloc()..add(TransactionLoadRequested()),
+        ),
+        BlocProvider(
+          create: (context) => DashboardBloc()..add(DashboardLoadRequested()),
         ),
       ],
       child: MaterialApp.router(

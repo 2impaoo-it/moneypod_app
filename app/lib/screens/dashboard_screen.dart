@@ -4,152 +4,283 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
-import '../bloc/transaction/transaction_bloc.dart';
-import '../bloc/transaction/transaction_state.dart';
+import '../bloc/dashboard/dashboard_bloc.dart';
+import '../bloc/dashboard/dashboard_state.dart';
+import '../bloc/dashboard/dashboard_event.dart';
 import '../models/transaction.dart' as model;
+import 'bill_scan_screen.dart';
+import 'create_wallet_screen.dart';
+import 'wallet_list_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
-    return BlocBuilder<TransactionBloc, TransactionState>(
+    return BlocBuilder<DashboardBloc, DashboardState>(
       builder: (context, state) {
-        if (state is TransactionLoading) {
+        if (state is DashboardLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (state is TransactionError) {
-          return Center(child: Text('Lỗi: ${state.message}'));
+        if (state is DashboardError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Lỗi: ${state.message}'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    context.read<DashboardBloc>().add(DashboardLoadRequested());
+                  },
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
+          );
         }
 
-        if (state is! TransactionLoaded) {
+        if (state is! DashboardLoaded) {
           return const Center(child: Text('Không có dữ liệu'));
         }
 
-        final balance = state.balance;
-        final totalIncome = state.totalIncome;
-        final totalExpense = state.totalExpense;
-        final recentTransactions = state.recentTransactions;
+        final dashboardData = state.data;
+        final userInfo = dashboardData.userInfo;
+        final totalBalance = dashboardData.totalBalance;
+        final wallets = dashboardData.wallets;
+        final recentTransactions = dashboardData.recentTransactions;
+
+        // Tính tổng thu nhập và chi tiêu từ transactions
+        double totalIncome = 0;
+        double totalExpense = 0;
+        for (var transaction in recentTransactions) {
+          if (transaction.isExpense) {
+            totalExpense += transaction.amount;
+          } else {
+            totalIncome += transaction.amount;
+          }
+        }
 
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- HEADER ---
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 20,
-                      backgroundImage: NetworkImage(
-                        'https://i.pravatar.cc/150?img=12',
+          child: RefreshIndicator(
+            onRefresh: () async {
+              context.read<DashboardBloc>().add(DashboardRefreshRequested());
+              // Đợi một chút để UI cập nhật
+              await Future.delayed(const Duration(milliseconds: 500));
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- HEADER ---
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage(
+                          'https://i.pravatar.cc/150?img=12',
+                        ),
                       ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Xin chào,",
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            userInfo.fullName ?? userInfo.email,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(
+                          LucideIcons.bell,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- BALANCE CARD ---
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "Xin chào,",
+                        const Text(
+                          "Số dư khả dụng",
                           style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
+                            color: Colors.white70,
+                            fontSize: 14,
                           ),
                         ),
-                        const Text(
-                          "Minh Đức!",
-                          style: TextStyle(
-                            fontSize: 16,
+                        const SizedBox(height: 8),
+                        Text(
+                          currencyFormat.format(totalBalance),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            _buildBalanceRowItem(
+                              LucideIcons.arrowDown,
+                              "Thu nhập",
+                              currencyFormat.format(totalIncome),
+                              AppColors.success,
+                            ),
+                            const SizedBox(width: 24),
+                            _buildBalanceRowItem(
+                              LucideIcons.arrowUp,
+                              "Chi tiêu",
+                              currencyFormat.format(totalExpense),
+                              AppColors.danger,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Nút xem danh sách ví
+                        InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const WalletListScreen(),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.wallet,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Xem tất cả ví (${wallets.length})',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  LucideIcons.chevronRight,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        LucideIcons.bell,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // --- BALANCE CARD ---
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryDark],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Số dư khả dụng",
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currencyFormat.format(balance),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          _buildBalanceRowItem(
-                            LucideIcons.arrowDown,
-                            "Thu nhập",
-                            currencyFormat.format(totalIncome),
-                            AppColors.success,
-                          ),
-                          const SizedBox(width: 24),
-                          _buildBalanceRowItem(
-                            LucideIcons.arrowUp,
-                            "Chi tiêu",
-                            currencyFormat.format(totalExpense),
-                            AppColors.danger,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
                 // --- QUICK ACTIONS ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildQuickAction(LucideIcons.scanLine, "Quét Bill"),
-                    _buildQuickAction(LucideIcons.mic, "Giọng nói"),
                     _buildQuickAction(
+                      context,
+                      LucideIcons.scanLine,
+                      "Quét Bill",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BillScanScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
+                    _buildQuickAction(
+                      context,
                       LucideIcons.arrowRightLeft,
                       "Chuyển tiền",
                     ),
-                    _buildQuickAction(LucideIcons.layoutGrid, "Thêm"),
+                    _buildQuickAction(
+                      context,
+                      LucideIcons.wallet,
+                      "Thêm ví",
+                      onTap: () async {
+                        // Mở màn hình tạo ví và chờ kết quả
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CreateWalletScreen(),
+                          ),
+                        );
+
+                        // Nếu tạo thành công (result == true)
+                        // TODO: Reload danh sách ví ở đây
+                        if (result == true && context.mounted) {
+                          // context.read<WalletBloc>().add(LoadWalletList());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Vui lòng làm mới để xem ví mới'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -317,7 +448,7 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }
@@ -361,31 +492,39 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickAction(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          height: 56,
-          width: 56,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+  Widget _buildQuickAction(
+    BuildContext context,
+    IconData icon,
+    String label, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            height: 56,
+            width: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: AppColors.primaryDark),
           ),
-          child: Icon(icon, color: AppColors.primaryDark),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 

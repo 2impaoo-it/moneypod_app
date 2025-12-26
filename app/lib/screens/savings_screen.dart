@@ -149,7 +149,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                       const SizedBox(height: 16),
                       ...savingsGoals
                           .map((goal) => _buildSavingsGoalCard(goal))
-                          .toList(),
+                          ,
                     ],
                   ),
                 ),
@@ -172,7 +172,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                       const SizedBox(height: 12),
                       ...suggestedGoals
                           .map((sg) => _buildSuggestionCard(sg))
-                          .toList(),
+                          ,
                       const SizedBox(height: 40), // Bottom padding
                     ],
                   ),
