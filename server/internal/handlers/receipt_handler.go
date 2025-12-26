@@ -1,0 +1,47 @@
+package handlers
+
+import (
+	"io"
+	"net/http"
+
+	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/gin-gonic/gin"
+)
+
+type ReceiptHandler struct {
+	service *services.ReceiptService
+}
+
+func NewReceiptHandler(service *services.ReceiptService) *ReceiptHandler {
+	return &ReceiptHandler{service: service}
+}
+
+func (h *ReceiptHandler) Scan(c *gin.Context) {
+	// 1. Nhận file từ Request (Key là "image")
+	file, _, err := c.Request.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Vui lòng gửi file ảnh với key là 'image'"})
+		return
+	}
+	defer file.Close()
+
+	// 2. Đọc file thành byte array
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi đọc file"})
+		return
+	}
+
+	// 3. Gọi Service Gemini xử lý
+	result, err := h.service.AnalyzeReceipt(fileBytes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi xử lý AI: " + err.Error()})
+		return
+	}
+
+	// 4. Trả kết quả về cho Flutter
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Quét thành công",
+		"data":    result,
+	})
+}

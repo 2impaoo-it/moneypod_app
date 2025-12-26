@@ -20,6 +20,7 @@ func NewTransactionHandler(service *services.TransactionService) *TransactionHan
 type CreateTransactionRequest struct {
 	WalletID uint    `json:"wallet_id" binding:"required"`
 	Amount   float64 `json:"amount" binding:"required,gt=0"`               // Số tiền phải > 0
+	Category string  `json:"category"`                                     // Thể loại giao dịch
 	Type     string  `json:"type" binding:"required,oneof=income expense"` // Chỉ chấp nhận 2 từ này
 	Note     string  `json:"note"`
 }
@@ -39,6 +40,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 	newTrans := models.Transaction{
 		WalletID: reqBody.WalletID,
 		Amount:   reqBody.Amount,
+		Category: reqBody.Category,
 		Type:     reqBody.Type,
 		Note:     reqBody.Note,
 		Date:     time.Now(),
@@ -79,4 +81,17 @@ func (h *TransactionHandler) Transfer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Chuyển tiền thành công!"})
+}
+
+func (h *TransactionHandler) GetList(c *gin.Context) {
+	userIDFloat, _ := c.Get("userID")
+	userID := uint(userIDFloat.(float64))
+
+	transactions, err := h.service.GetMyTransactions(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": transactions})
 }

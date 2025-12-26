@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/2impaoo-it/moneypod_app/backend/internal/handlers"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/middleware"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
@@ -11,6 +13,12 @@ import (
 
 func main() {
 	db.ConnectDatabase()
+
+	receiptService, err := services.NewReceiptService("AIzaSyAa4ZfbVUypMKeuYlZtZ6b72PhAqba8TN0")
+	if err != nil {
+		log.Fatal("Lỗi khởi tạo Gemini:", err)
+	}
+	receiptHandler := handlers.NewReceiptHandler(receiptService)
 
 	// --- KHỞI TẠO CÁC LỚP (Dependency Injection) ---
 	userRepo := repositories.NewUserRepository(db.DB)
@@ -58,12 +66,14 @@ func main() {
 
 		protected.POST("/wallets", walletHandler.CreateWallet) // Tạo ví
 		protected.GET("/wallets", walletHandler.GetList)       // Xem danh sách ví
-		protected.POST("/transactions", transHandler.Create)
+		protected.POST("/transactions", transHandler.Create)   // Tạo giao dịch
+		protected.GET("/transactions", transHandler.GetList)   // Lấy danh sách giao dịch
 		protected.POST("/transfer", transHandler.Transfer)
 		protected.POST("/groups", groupHandler.Create)    // Tạo nhóm
 		protected.GET("/groups", groupHandler.GetList)    // Xem danh sách nhóm
 		protected.POST("/groups/join", groupHandler.Join) // Tham gia nhóm
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
+		protected.POST("/scan-receipt", receiptHandler.Scan)
 	}
 
 	r.Run(":8080")

@@ -120,3 +120,15 @@ func (s *TransactionService) TransferMoney(userID uint, fromWalletID uint, toWal
 
 	return tx.Commit().Error
 }
+
+func (s *TransactionService) GetMyTransactions(userID uint) ([]models.Transaction, error) {
+	var transactions []models.Transaction
+
+	// Lấy tất cả giao dịch của user này, sắp xếp mới nhất lên đầu
+	result := s.db.Where("user_id = ?", userID).Order("date desc").Find(&transactions)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return transactions, nil
+}
