@@ -1,10 +1,8 @@
 package models
 
-import "gorm.io/gorm"
-
 // User đại diện cho bảng 'users' trong Database
 type User struct {
-	gorm.Model // Cái này tự động thêm: ID, CreatedAt, UpdatedAt, DeletedAt
+	BaseModel // Cái này tự động thêm: ID, CreatedAt, UpdatedAt, DeletedAt
 
 	// Email phải duy nhất, không được để trống
 	Email string `gorm:"unique;not null" json:"email"`

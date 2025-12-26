@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -28,7 +29,7 @@ func generateGroupCode() string {
 	return string(b)
 }
 
-func (s *GroupService) CreateGroup(creatorID uint, name string) (*models.Group, error) {
+func (s *GroupService) CreateGroup(creatorID uuid.UUID, name string) (*models.Group, error) {
 	// Bắt đầu Transaction (Đảm bảo cả 2 việc cùng thành công)
 	tx := s.db.Begin()
 
@@ -62,9 +63,9 @@ func (s *GroupService) CreateGroup(creatorID uint, name string) (*models.Group, 
 }
 
 // Lấy danh sách nhóm mình đã tham gia
-func (s *GroupService) GetMyGroups(userID uint) ([]models.Group, error) {
+func (s *GroupService) GetMyGroups(userID uuid.UUID) ([]models.Group, error) {
 	var members []models.GroupMember
-	var groupIDs []uint
+	var groupIDs []uuid.UUID
 
 	// Tìm tất cả các nhóm mà user này là thành viên
 	s.db.Where("user_id = ?", userID).Find(&members)
@@ -83,7 +84,7 @@ func (s *GroupService) GetMyGroups(userID uint) ([]models.Group, error) {
 }
 
 // JoinGroup: Người dùng nhập mã code để vào nhóm
-func (s *GroupService) JoinGroup(userID uint, groupCode string) error {
+func (s *GroupService) JoinGroup(userID uuid.UUID, groupCode string) error {
 	// 1. Tìm nhóm dựa trên Code
 	var group models.Group
 	if err := s.db.Where("code = ?", groupCode).First(&group).Error; err != nil {
@@ -109,7 +110,7 @@ func (s *GroupService) JoinGroup(userID uint, groupCode string) error {
 }
 
 // AddExpense: Thêm hóa đơn và chia tiền
-func (s *GroupService) AddExpense(groupID uint, paidByID uint, amount float64, note string, memberIDs []uint) error {
+func (s *GroupService) AddExpense(groupID uuid.UUID, paidByID uuid.UUID, amount float64, note string, memberIDs []uuid.UUID) error {
 	tx := s.db.Begin()
 
 	// Nếu lỗi thì rollback toàn bộ
@@ -180,4 +181,110 @@ func (s *GroupService) AddExpense(groupID uint, paidByID uint, amount float64, n
 	}
 
 	return tx.Commit().Error
+}
+
+// 1. GỬI YÊU CẦU TRẢ NỢ (Tạo phiếu Pending)
+func (s *GroupService) RequestSettlement(groupID, debtorID, creditorID, walletID uuid.UUID, amount float64) (*models.Settlement, error) {
+	// Kiểm tra ví có chính chủ không
+	var wallet models.Wallet
+	if err := s.db.Where("id = ? AND user_id = ?", walletID, debtorID).First(&wallet).Error; err != nil {
+		return nil, errors.New("ví thanh toán không hợp lệ")
+	}
+
+	// Kiểm tra xem 2 người này có trong nhóm không (Optional, nên làm cho chặt chẽ)
+
+	settlement := models.Settlement{
+		GroupID:    groupID,
+		FromUserID: debtorID,
+		ToUserID:   creditorID,
+		WalletID:   walletID,
+		Amount:     amount,
+		Status:     "pending",
+	}
+
+	if err := s.db.Create(&settlement).Error; err != nil {
+		return nil, err
+	}
+	return &settlement, nil
+}
+
+// 2. CHỦ NỢ XÁC NHẬN (Confirm)
+func (s *GroupService) ConfirmSettlement(creditorID, settlementID uuid.UUID, isConfirmed bool) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var st models.Settlement
+
+		// Tìm phiếu yêu cầu
+		if err := tx.First(&st, "id = ?", settlementID).Error; err != nil {
+			return errors.New("yêu cầu thanh toán không tồn tại")
+		}
+
+		// Bảo mật: Chỉ người nhận tiền (ToUserID) mới được quyền bấm xác nhận
+		if st.ToUserID != creditorID {
+			return errors.New("bạn không phải chủ nợ, không có quyền xác nhận")
+		}
+
+		if st.Status != "pending" {
+			return errors.New("yêu cầu này đã được xử lý rồi")
+		}
+
+		// TRƯỜNG HỢP 1: TỪ CHỐI
+		if !isConfirmed {
+			st.Status = "rejected"
+			return tx.Save(&st).Error
+		}
+
+		// TRƯỜNG HỢP 2: ĐỒNG Ý -> Bắt đầu trừ tiền và update nợ
+		st.Status = "confirmed"
+		if err := tx.Save(&st).Error; err != nil {
+			return err
+		}
+
+		// A. Trừ tiền trong Ví của người trả (Debtor)
+		var debtorWallet models.Wallet
+		if err := tx.First(&debtorWallet, "id = ?", st.WalletID).Error; err != nil {
+			return errors.New("ví người trả không tìm thấy")
+		}
+		// (Optional: Check số dư nếu muốn chặn âm tiền)
+		// if debtorWallet.Balance < st.Amount { return errors.New("ví không đủ tiền") }
+
+		debtorWallet.Balance -= st.Amount
+		if err := tx.Save(&debtorWallet).Error; err != nil {
+			return err
+		}
+
+		// B. Tạo một giao dịch (Transaction) để lưu lịch sử cho người trả
+		trans := models.Transaction{
+			UserID:   st.FromUserID,
+			WalletID: st.WalletID,
+			Amount:   st.Amount,
+			Type:     "expense",
+			Category: "debt_payment", // Bạn có thể thêm category này vào DB nếu cần
+			Note:     "Trả nợ nhóm",
+			Date:     time.Now(),
+		}
+		if err := tx.Create(&trans).Error; err != nil {
+			return err
+		}
+
+		// C. Cập nhật số dư thành viên trong nhóm (Quan trọng nhất)
+		// Logic:
+		// - Người nợ (đang âm) trả tiền -> Số dư tăng lên (về 0)
+		// - Chủ nợ (đang dương) nhận tiền -> Số dư giảm xuống (về 0)
+
+		// Update Người Trả (Debtor)
+		if err := tx.Model(&models.GroupMember{}).
+			Where("group_id = ? AND user_id = ?", st.GroupID, st.FromUserID).
+			Update("balance", gorm.Expr("balance + ?", st.Amount)).Error; err != nil {
+			return err
+		}
+
+		// Update Người Nhận (Creditor)
+		if err := tx.Model(&models.GroupMember{}).
+			Where("group_id = ? AND user_id = ?", st.GroupID, st.ToUserID).
+			Update("balance", gorm.Expr("balance - ?", st.Amount)).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

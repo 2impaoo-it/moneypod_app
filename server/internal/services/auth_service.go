@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
 	"github.com/golang-jwt/jwt/v5"
@@ -42,9 +43,6 @@ func (s *AuthService) Register(email, password, fullName string) error {
 	return s.userRepo.CreateUser(newUser)
 }
 
-// Secret Key để ký tên vào Token (Sau này nên để trong biến môi trường)
-var jwtSecretKey = []byte("moneypod_bi_mat_khong_the_bat_mi")
-
 // Login kiểm tra pass và trả về Token
 func (s *AuthService) Login(email, password string) (string, error) {
 	// 1. Tìm user theo email
@@ -59,14 +57,14 @@ func (s *AuthService) Login(email, password string) (string, error) {
 		return "", errors.New("email hoặc mật khẩu không đúng")
 	}
 
-	// 3. Tạo JWT Token
+	// 3. Tạo JWT Token - Sử dụng secret key từ config
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": user.ID,                               // Subject: ID người dùng
 		"exp": time.Now().Add(time.Hour * 72).Unix(), // Hết hạn sau 3 ngày
 	})
 
 	// 4. Ký tên (Sign) token
-	tokenString, err := token.SignedString(jwtSecretKey)
+	tokenString, err := token.SignedString([]byte(config.AppConfig.JWTSecretKey))
 	if err != nil {
 		return "", err
 	}

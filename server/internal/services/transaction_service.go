@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +17,7 @@ func NewTransactionService(db *gorm.DB) *TransactionService {
 	return &TransactionService{db: db}
 }
 
-func (s *TransactionService) CreateTransaction(userID uint, req models.Transaction) error {
+func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Transaction) error {
 	// 1. Bắt đầu Transaction (Mở lệnh khóa dòng tiền)
 	tx := s.db.Begin()
 
@@ -66,7 +67,7 @@ func (s *TransactionService) CreateTransaction(userID uint, req models.Transacti
 }
 
 // TransferMoney: Chuyển tiền từ ví A sang ví B
-func (s *TransactionService) TransferMoney(userID uint, fromWalletID uint, toWalletID uint, amount float64, note string) error {
+func (s *TransactionService) TransferMoney(userID uuid.UUID, fromWalletID uuid.UUID, toWalletID uuid.UUID, amount float64, note string) error {
 	tx := s.db.Begin()
 
 	defer func() {
@@ -121,7 +122,7 @@ func (s *TransactionService) TransferMoney(userID uint, fromWalletID uint, toWal
 	return tx.Commit().Error
 }
 
-func (s *TransactionService) GetMyTransactions(userID uint) ([]models.Transaction, error) {
+func (s *TransactionService) GetMyTransactions(userID uuid.UUID) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 
 	// Lấy tất cả giao dịch của user này, sắp xếp mới nhất lên đầu

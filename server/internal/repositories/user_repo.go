@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,26 @@ func (r *UserRepository) CreateUser(user *models.User) error {
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// FindByID tìm user theo ID
+func (r *UserRepository) FindByID(id uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetByUserID lấy thông tin user theo user ID
+func (r *UserRepository) GetByUserID(userID uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("id = ?", userID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

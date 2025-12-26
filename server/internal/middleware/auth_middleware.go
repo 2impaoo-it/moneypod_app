@@ -4,13 +4,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
-
-// Secret Key (Phải GIỐNG HỆT bên file auth_service.go)
-// Mẹo: Sau này nên chuyển cái này vào file config chung để không phải copy 2 nơi.
-var jwtSecretKey = []byte("moneypod_bi_mat_khong_the_bat_mi")
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -24,9 +21,9 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Header thường có dạng: "Bearer <token_o_day>" -> Cần bỏ chữ "Bearer " đi
 		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
 
-		// 2. Parse và kiểm tra Token
+		// 2. Parse và kiểm tra Token - Sử dụng secret key từ config
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecretKey, nil
+			return []byte(config.AppConfig.JWTSecretKey), nil
 		})
 
 		if err != nil || !token.Valid {
@@ -36,12 +33,23 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// 3. Lấy UserID từ trong Token ra
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			userID := claims["sub"] // "sub" là cái ID mình đã lưu lúc Login
-			
-			// Gắn UserID vào context để các hàm sau dùng
-			c.Set("userID", userID)
-			
-			c.Next() // Cho phép đi tiếp vào trong
+			// ⚠️ SỬA ĐỔI QUAN TRỌNG TẠI ĐÂY:
+
+			// A. Kiểm tra Key: Hãy chắc chắn bên AuthService bạn lưu là "sub" hay "userID"?
+			// JWT chuẩn thường dùng key "sub" (Subject) để lưu ID.
+
+			// B. Ép kiểu sang String (VÌ UUID LÀ STRING)
+			// Nếu không ép kiểu ở đây, Handler dùng . (string) sẽ bị Panic (Crash App)
+			userIDStr, ok := claims["sub"].(string)
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token lỗi: ID người dùng không hợp lệ"})
+				return
+			}
+
+			// Gắn UserID (dạng string) vào context
+			c.Set("userID", userIDStr)
+
+			c.Next() // Cho phép đi tiếp
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token lỗi"})
 		}

@@ -7,6 +7,7 @@ import (
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid" // <--- Import
 )
 
 type TransactionHandler struct {
@@ -18,17 +19,22 @@ func NewTransactionHandler(service *services.TransactionService) *TransactionHan
 }
 
 type CreateTransactionRequest struct {
-	WalletID uint    `json:"wallet_id" binding:"required"`
-	Amount   float64 `json:"amount" binding:"required,gt=0"`               // Số tiền phải > 0
-	Category string  `json:"category"`                                     // Thể loại giao dịch
-	Type     string  `json:"type" binding:"required,oneof=income expense"` // Chỉ chấp nhận 2 từ này
-	Note     string  `json:"note"`
+	// SỬA: uint -> uuid.UUID
+	WalletID uuid.UUID `json:"wallet_id" binding:"required"`
+	Amount   float64   `json:"amount" binding:"required,gt=0"`
+	Category string    `json:"category"`
+	Type     string    `json:"type" binding:"required,oneof=income expense"`
+	Note     string    `json:"note"`
 }
 
 func (h *TransactionHandler) Create(c *gin.Context) {
-	// Lấy UserID từ Token
-	userIDFloat, _ := c.Get("userID")
-	userID := uint(userIDFloat.(float64))
+	// 1. Lấy UserID UUID
+	idVal, _ := c.Get("userID")
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Token ID invalid"})
+		return
+	}
 
 	var reqBody CreateTransactionRequest
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
@@ -36,9 +42,8 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Map từ Request sang Model
 	newTrans := models.Transaction{
-		WalletID: reqBody.WalletID,
+		WalletID: reqBody.WalletID, // Giờ cùng kiểu uuid.UUID nên gán được
 		Amount:   reqBody.Amount,
 		Category: reqBody.Category,
 		Type:     reqBody.Type,
@@ -46,7 +51,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		Date:     time.Now(),
 	}
 
-	err := h.service.CreateTransaction(userID, newTrans)
+	err = h.service.CreateTransaction(userID, newTrans)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -57,15 +62,16 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 
 // Struct nhận dữ liệu chuyển khoản
 type TransferRequest struct {
-	FromWalletID uint    `json:"from_wallet_id" binding:"required"`
-	ToWalletID   uint    `json:"to_wallet_id" binding:"required"` // ID ví người nhận
-	Amount       float64 `json:"amount" binding:"required,gt=0"`
-	Note         string  `json:"note"`
+	// SỬA: uint -> uuid.UUID
+	FromWalletID uuid.UUID `json:"from_wallet_id" binding:"required"`
+	ToWalletID   uuid.UUID `json:"to_wallet_id" binding:"required"`
+	Amount       float64   `json:"amount" binding:"required,gt=0"`
+	Note         string    `json:"note"`
 }
 
 func (h *TransactionHandler) Transfer(c *gin.Context) {
-	userIDFloat, _ := c.Get("userID")
-	userID := uint(userIDFloat.(float64))
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
 
 	var req TransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -73,7 +79,6 @@ func (h *TransactionHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	// Gọi Service chuyển tiền
 	err := h.service.TransferMoney(userID, req.FromWalletID, req.ToWalletID, req.Amount, req.Note)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -84,8 +89,8 @@ func (h *TransactionHandler) Transfer(c *gin.Context) {
 }
 
 func (h *TransactionHandler) GetList(c *gin.Context) {
-	userIDFloat, _ := c.Get("userID")
-	userID := uint(userIDFloat.(float64))
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
 
 	transactions, err := h.service.GetMyTransactions(userID)
 	if err != nil {

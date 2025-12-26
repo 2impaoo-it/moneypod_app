@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/handlers"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/middleware"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
@@ -12,23 +13,34 @@ import (
 )
 
 func main() {
+	// Load config từ file .env
+	config.LoadConfig()
+
+	// Kết nối database
 	db.ConnectDatabase()
 
-	receiptService, err := services.NewReceiptService("AIzaSyAa4ZfbVUypMKeuYlZtZ6b72PhAqba8TN0")
+	// --- KHỞI TẠO SERVICES & HANDLERS ---
+	// Sử dụng API Key từ config
+	receiptService, err := services.NewReceiptService(config.AppConfig.GeminiAPIKey)
 	if err != nil {
 		log.Fatal("Lỗi khởi tạo Gemini:", err)
 	}
 	receiptHandler := handlers.NewReceiptHandler(receiptService)
 
-	// --- KHỞI TẠO CÁC LỚP (Dependency Injection) ---
 	userRepo := repositories.NewUserRepository(db.DB)
-	walletRepo := repositories.NewWalletRepository(db.DB) // Mới
+	walletRepo := repositories.NewWalletRepository(db.DB)
+	// Tạo Transaction Repo (nếu chưa có thì tạo mới file repository cho nó)
+	transRepo := repositories.NewTransactionRepository(db.DB)
+
+	// 2. Khởi tạo Dashboard Service & Handler
+	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	authService := services.NewAuthService(userRepo)
-	walletService := services.NewWalletService(walletRepo) // Mới
+	walletService := services.NewWalletService(walletRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
-	walletHandler := handlers.NewWalletHandler(walletService) // Mới
+	walletHandler := handlers.NewWalletHandler(walletService)
 
 	transService := services.NewTransactionService(db.DB)
 	transHandler := handlers.NewTransactionHandler(transService)
@@ -39,7 +51,30 @@ func main() {
 	// --- SETUP ROUTER ---
 	r := gin.Default()
 
-	// NHÓM 1: CÔNG KHAI (Ai cũng vào được)
+	// 🔥 1. API ADMIN (Đặt TRƯỚC middleware bảo trì để luôn vào được)
+	r.POST("/api/admin/maintenance", func(c *gin.Context) {
+		var req struct {
+			Enable bool `json:"enable"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Gọi hàm bên middleware để set biến
+		middleware.SetMaintenanceMode(req.Enable)
+
+		status := "Đã TẮT"
+		if req.Enable {
+			status = "Đã BẬT"
+		}
+		c.JSON(200, gin.H{"message": "Chế độ bảo trì: " + status})
+	})
+
+	// 🔥 2. KÍCH HOẠT CHẾ ĐỘ BẢO TRÌ (Chặn tất cả các route bên dưới nếu bật)
+	r.Use(middleware.MaintenanceMiddleware())
+
+	// NHÓM 1: CÔNG KHAI (Sẽ bị chặn khi bảo trì -> Tốt, không cho login/register lúc này)
 	public := r.Group("/api/v1")
 	{
 		public.GET("/ping", func(c *gin.Context) {
@@ -49,30 +84,26 @@ func main() {
 		public.POST("/login", authHandler.Login)
 	}
 
-	// NHÓM 2: RIÊNG TƯ (Phải có Token mới vào được)
-	// Áp dụng middleware ở đây!
+	// NHÓM 2: RIÊNG TƯ (Sẽ bị chặn khi bảo trì)
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		// Thử tạo một API test đơn giản
-		protected.GET("/profile", func(c *gin.Context) {
-			// Lấy ID người dùng từ middleware đã gắn vào
-			userID, _ := c.Get("userID")
-			c.JSON(200, gin.H{
-				"message": "Đây là thông tin mật!",
-				"user_id": userID,
-			})
-		})
+		protected.GET("/dashboard", dashboardHandler.GetOverview)
 
-		protected.POST("/wallets", walletHandler.CreateWallet) // Tạo ví
-		protected.GET("/wallets", walletHandler.GetList)       // Xem danh sách ví
-		protected.POST("/transactions", transHandler.Create)   // Tạo giao dịch
-		protected.GET("/transactions", transHandler.GetList)   // Lấy danh sách giao dịch
+		protected.POST("/wallets", walletHandler.CreateWallet)
+		protected.GET("/wallets", walletHandler.GetList)
+
+		protected.POST("/transactions", transHandler.Create)
+		protected.GET("/transactions", transHandler.GetList)
 		protected.POST("/transfer", transHandler.Transfer)
-		protected.POST("/groups", groupHandler.Create)    // Tạo nhóm
-		protected.GET("/groups", groupHandler.GetList)    // Xem danh sách nhóm
-		protected.POST("/groups/join", groupHandler.Join) // Tham gia nhóm
+
+		protected.POST("/groups", groupHandler.Create)
+		protected.GET("/groups", groupHandler.GetList)
+		protected.POST("/groups/join", groupHandler.Join)
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
+		protected.POST("/groups/settle/request", groupHandler.SendSettlementRequest)
+		protected.POST("/groups/settle/confirm", groupHandler.ConfirmSettlementRequest)
+
 		protected.POST("/scan-receipt", receiptHandler.Scan)
 	}
 

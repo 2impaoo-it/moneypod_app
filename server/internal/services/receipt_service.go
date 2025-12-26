@@ -42,7 +42,7 @@ func (s *ReceiptService) AnalyzeReceipt(imageData []byte) (*models.ReceiptData, 
 				"merchant": "Tên cửa hàng hoặc nhà cung cấp",
 				"amount": Số tiền tổng cộng cuối cùng (kiểu số, không có dấu phẩy ngăn cách hàng nghìn),
 				"date": "Ngày tháng trên hóa đơn (định dạng DD/MM/YYYY)",
-				"category": "Dựa vào tên cửa hàng, hãy đoán 1 trong các loại sau: 'food', 'transport', 'shopping', 'entertainment', 'salary', 'other'",
+				"category": "Dựa vào tên cửa hàng, hãy đoán 1 trong các loại sau: 'food', 'transportation', 'health', 'shopping', 'entertainment', 'education', 'salary', 'other'",
 				"note": "Ghi chú thêm nếu có"
 			}
 			Nếu không tìm thấy thông tin nào, hãy để null hoặc 0. Đừng giải thích gì thêm, chỉ trả về JSON.
