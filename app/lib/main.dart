@@ -15,13 +15,18 @@ import 'bloc/dashboard/dashboard_event.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
+import 'utils/session_manager.dart';
 
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
 import 'screens/splash_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'screens/groups_screen.dart';
+import 'screens/create_group_screen.dart';
+import 'screens/group_detail_screen.dart';
 import 'screens/savings_screen.dart';
+import 'screens/create_savings_goal_screen.dart';
+import 'screens/savings_detail_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'widgets/add_transaction_modal.dart';
@@ -42,8 +47,13 @@ class AppColors {
   static const purple = Color(0xFF8B5CF6); // Violet-500
 }
 
+// Global key for navigation from outside context (used for session timeout)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 // --- MAIN APP SETUP ---
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Cấu hình thanh trạng thái trong suốt
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -51,51 +61,156 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const MoneyPodApp());
+
+  // Kiểm tra session timeout khi khởi động app (trường hợp Kill App rồi mở lại)
+  final isSessionExpired = await SessionManager.checkSessionExpired();
+
+  runApp(MoneyPodApp(forceLogin: isSessionExpired));
 }
 
-// Cấu hình Router
-final _router = GoRouter(
-  initialLocation: '/splash',
-  routes: [
-    // Splash screen - Kiểm tra server trước
-    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
-    // Auth routes (không có bottom nav)
-    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-    GoRoute(
-      path: '/register',
-      builder: (context, state) => const RegisterScreen(),
-    ),
-    // Main app routes (có bottom nav)
-    ShellRoute(
-      builder: (context, state, child) {
-        return MainWrapper(child: child);
-      },
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const DashboardScreen(),
-        ),
-        GoRoute(
-          path: '/transactions',
-          builder: (context, state) => const TransactionsScreen(),
-        ),
-        GoRoute(
-          path: '/groups',
-          builder: (context, state) => const GroupsScreen(),
-        ),
-        GoRoute(
-          path: '/savings',
-          builder: (context, state) => const SavingsScreen(),
-        ),
-        GoRoute(path: '/profile', builder: (context, state) => ProfileWidget()),
-      ],
-    ),
-  ],
-);
+class MoneyPodApp extends StatefulWidget {
+  final bool forceLogin;
+  const MoneyPodApp({super.key, this.forceLogin = false});
 
-class MoneyPodApp extends StatelessWidget {
-  const MoneyPodApp({super.key});
+  @override
+  State<MoneyPodApp> createState() => _MoneyPodAppState();
+}
+
+class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
+  late GoRouter _appRouter;
+
+  @override
+  void initState() {
+    super.initState();
+    // Đăng ký lắng nghe sự kiện App Lifecycle (ẩn/hiện)
+    WidgetsBinding.instance.addObserver(this);
+
+    // Khởi tạo router với initialLocation dựa vào forceLogin
+    _appRouter = GoRouter(
+      initialLocation: widget.forceLogin ? '/login' : '/splash',
+      routes: [
+        // Splash screen - Kiểm tra server trước
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const SplashScreen(),
+        ),
+        // Auth routes (không có bottom nav)
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => const RegisterScreen(),
+        ),
+        // Main app routes (có bottom nav)
+        ShellRoute(
+          builder: (context, state, child) {
+            return MainWrapper(child: child);
+          },
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) => const DashboardScreen(),
+            ),
+            GoRoute(
+              path: '/transactions',
+              builder: (context, state) => const TransactionsScreen(),
+            ),
+            GoRoute(
+              path: '/groups',
+              builder: (context, state) => const GroupsScreen(),
+            ),
+            GoRoute(
+              path: '/groups/create',
+              builder: (context, state) => const CreateGroupScreen(),
+            ),
+            GoRoute(
+              path: '/groups/:id',
+              builder: (context, state) {
+                final groupId = state.pathParameters['id'] ?? '';
+                final extra = state.extra as Map<String, dynamic>?;
+                return GroupDetailScreen(
+                  groupId: groupId,
+                  groupName: extra?['groupName'],
+                );
+              },
+            ),
+            GoRoute(
+              path: '/savings',
+              builder: (context, state) => const SavingsScreen(),
+            ),
+            GoRoute(
+              path: '/savings/create',
+              builder: (context, state) => const CreateSavingsGoalScreen(),
+            ),
+            GoRoute(
+              path: '/savings/:id',
+              builder: (context, state) {
+                final goalId = state.pathParameters['id'] ?? '';
+                return SavingsDetailScreen(goalId: goalId);
+              },
+            ),
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => ProfileWidget(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    // Hủy lắng nghe khi đóng app
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 🔥 HÀM QUAN TRỌNG: Bắt sự kiện App Lifecycle
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('🔔 [AppLifecycle] ====== STATE CHANGED: $state ======');
+
+    if (state == AppLifecycleState.paused) {
+      // User ẩn App (bấm Home, chuyển app khác, tắt màn hình) → Lưu thời gian
+      print('📱 [AppLifecycle] App going to background - Saving pause time...');
+      SessionManager.saveLastActiveTime();
+    } else if (state == AppLifecycleState.resumed) {
+      // User quay lại App → Kiểm tra timeout
+      print('📱 [AppLifecycle] App coming to foreground - Checking session...');
+      _checkSessionTimeout();
+    } else if (state == AppLifecycleState.inactive) {
+      print('📱 [AppLifecycle] App inactive (transitioning)');
+    } else if (state == AppLifecycleState.detached) {
+      print('📱 [AppLifecycle] App detached');
+    }
+  }
+
+  Future<void> _checkSessionTimeout() async {
+    final isExpired = await SessionManager.checkSessionExpired();
+    if (isExpired && mounted) {
+      print('⏰ Session hết hạn! Chuyển về màn hình đăng nhập.');
+      // Chuyển về màn hình Login
+      _appRouter.go('/login');
+
+      // Hiển thị thông báo
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(
+          navigatorKey.currentContext ?? context,
+        ).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+            ),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +231,7 @@ class MoneyPodApp extends StatelessWidget {
       child: MaterialApp.router(
         title: 'MoneyPod',
         debugShowCheckedModeBanner: false,
-        routerConfig: _router,
+        routerConfig: _appRouter,
         theme: ThemeData(
           scaffoldBackgroundColor: AppColors.background,
           colorScheme: ColorScheme.fromSeed(
@@ -175,14 +290,20 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   // Hàm mở Modal Thêm Giao Dịch
-  void _showAddTransactionModal(BuildContext context) {
-    showModalBottomSheet(
+  void _showAddTransactionModal(BuildContext context) async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled:
           true, // Quan trọng: để modal có thể full màn hình nếu cần
       backgroundColor: Colors.transparent,
       builder: (context) => const AddTransactionModal(),
     );
+
+    // Nếu thêm giao dịch thành công, reload cả transactions và dashboard
+    if (result == true && mounted) {
+      context.read<TransactionBloc>().add(TransactionLoadRequested());
+      context.read<DashboardBloc>().add(DashboardLoadRequested());
+    }
   }
 
   @override

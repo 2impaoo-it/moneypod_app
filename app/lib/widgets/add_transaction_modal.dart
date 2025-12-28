@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../repositories/transaction_repository.dart';
 import '../repositories/wallet_repository.dart';
+
 import '../models/wallet.dart';
+import '../utils/currency_input_formatter.dart';
 
 // Copy lại AppColors để đảm bảo file chạy độc lập
 class ModalColors {
@@ -41,6 +44,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   String? _selectedWalletId;
   bool _isLoadingWallets = true;
 
+  // Group Splitting logic
+
   // Mock Categories Data
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Ăn uống', 'icon': Icons.restaurant, 'color': Colors.teal},
@@ -66,17 +71,18 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   Future<void> _loadWallets() async {
     try {
       final wallets = await _walletRepo.getWallets();
-      setState(() {
-        _wallets = wallets;
-        _isLoadingWallets = false;
-        // Chọn ví đầu tiên nếu có
-        if (wallets.isNotEmpty) {
-          _selectedWalletId = wallets[0].id;
-        }
-      });
-    } catch (e) {
-      setState(() => _isLoadingWallets = false);
       if (mounted) {
+        setState(() {
+          _wallets = wallets;
+          _isLoadingWallets = false;
+          if (wallets.isNotEmpty) {
+            _selectedWalletId = wallets[0].id;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Lỗi khi tải ví: $e')));
@@ -100,14 +106,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       return;
     }
 
-    if (_selectedWalletId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn ví')));
-      return;
-    }
-
-    final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
+    final amount = parseCurrency(_amountController.text);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(
         context,
@@ -118,6 +117,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     setState(() => _isLoading = true);
 
     try {
+      // Create Personal Transaction
+      if (_selectedWalletId == null) {
+        throw Exception('Vui lòng chọn ví');
+      }
       await _transactionRepo.createTransaction(
         walletId: _selectedWalletId!,
         amount: amount,
@@ -129,11 +132,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Lưu giao dịch thành công!'),
+            content: Text('✅ Lưu thành công!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // Trả về true để reload dashboard
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -177,7 +180,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
   @override
   Widget build(BuildContext context) {
-    // Lấy chiều cao bàn phím để đẩy nội dung lên
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -234,9 +236,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: TextField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  CurrencyInputFormatter(),
+                ],
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 36,
@@ -245,7 +249,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 ),
                 decoration: InputDecoration(
                   hintText: '0 ₫',
-                  hintStyle: TextStyle(color: ModalColors.slate300),
+                  hintStyle: const TextStyle(color: ModalColors.slate300),
                   border: InputBorder.none,
                   prefixText: _isExpense ? '- ' : '+ ',
                   prefixStyle: TextStyle(
@@ -261,7 +265,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
             const SizedBox(height: 20),
 
-            // d) Wallet Selector
+            // f) Wallet Selector (Only if Personal)
             if (_isLoadingWallets)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
@@ -341,10 +345,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   ),
                 ),
               ),
-
             const SizedBox(height: 16),
 
-            // e) Transaction Type Toggle
+            // g) Transaction Type Toggle
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
@@ -358,10 +361,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
 
-            // f) Category Selector (Grid)
+            // h) Category Selector (Grid)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GridView.builder(
@@ -382,7 +384,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
             const SizedBox(height: 20),
 
-            // f) Note Input
+            // i) Note Input
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -406,7 +408,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
             const SizedBox(height: 12),
 
-            // g) Date Picker
+            // j) Date Picker
             InkWell(
               onTap: _pickDate,
               child: Container(
@@ -440,7 +442,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               ),
             ),
 
-            // h) Save Button
+            // k) Save Button
             Container(
               width: double.infinity,
               height: 52,

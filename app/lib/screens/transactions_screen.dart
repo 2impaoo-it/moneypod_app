@@ -16,16 +16,18 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
-  // 1. Quản lý state cho Filter
+  // 1. Quản lý state cho Filter - khớp với danh mục trong modal
   String _selectedFilter = "Tất cả";
   final List<String> _filters = [
     "Tất cả",
-    "#ănuống",
-    "#caphe",
-    "#xebus",
-    "#luong",
-    "#muasam",
-    "#giaitri",
+    "Ăn uống",
+    "Di chuyển",
+    "Mua sắm",
+    "Giải trí",
+    "Hóa đơn",
+    "Lương",
+    "Sức khỏe",
+    "Khác",
   ];
 
   @override
@@ -152,11 +154,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   if (state is TransactionLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (state is TransactionLoaded) {
-                    // Filter and group transactions by date
+                    // Filter transactions - so sánh với category đã được chuẩn hóa
                     final filtered = _selectedFilter == "Tất cả"
                         ? state.transactions
                         : state.transactions
-                              .where((tx) => tx.hashtag == _selectedFilter)
+                              .where(
+                                (tx) =>
+                                    _getCategoryDisplay(tx.category) ==
+                                    _selectedFilter,
+                              )
                               .toList();
                     final grouped = <String, List<Transaction>>{};
                     for (var tx in filtered) {
@@ -227,9 +233,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   Widget _buildTransactionItem(Transaction tx) {
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
     final amount = tx.amount;
-    final isExpense = amount < 0;
+    // Sử dụng tx.isExpense thay vì amount < 0 vì API trả về số dương và field type
+    final isExpense = tx.isExpense;
 
     // Mapping style based on category
     final style = _getCategoryStyle(tx.category);
@@ -305,23 +316,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
 
           // c) Amount Column
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "${isExpense ? '' : '+'}${currencyFormat.format(amount)}",
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isExpense ? AppColors.danger : AppColors.success,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _getCategoryDisplay(tx.category),
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-            ],
+          Text(
+            "${isExpense ? '-' : '+'}${currencyFormat.format(amount.abs())}",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isExpense ? AppColors.danger : AppColors.success,
+            ),
           ),
         ],
       ),
@@ -331,61 +332,94 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   // --- HELPER METHODS FOR STYLING ---
 
   String _getCategoryDisplay(String category) {
-    switch (category) {
-      case 'food':
-        return 'Ăn uống';
-      case 'transport':
-        return 'Di chuyển';
-      case 'shopping':
-        return 'Mua sắm';
-      case 'entertainment':
-        return 'Giải trí';
-      case 'salary':
-        return 'Lương';
-      default:
-        return 'Khác';
+    // Map cả tiếng Việt và tiếng Anh
+    final lowerCategory = category.toLowerCase();
+    if (lowerCategory.contains('ăn') ||
+        lowerCategory.contains('food') ||
+        lowerCategory.contains('ăn uống')) {
+      return 'Ăn uống';
+    } else if (lowerCategory.contains('di chuyển') ||
+        lowerCategory.contains('transport')) {
+      return 'Di chuyển';
+    } else if (lowerCategory.contains('mua sắm') ||
+        lowerCategory.contains('shopping')) {
+      return 'Mua sắm';
+    } else if (lowerCategory.contains('giải trí') ||
+        lowerCategory.contains('entertainment')) {
+      return 'Giải trí';
+    } else if (lowerCategory.contains('lương') ||
+        lowerCategory.contains('salary')) {
+      return 'Lương';
+    } else if (lowerCategory.contains('hóa đơn') ||
+        lowerCategory.contains('bill')) {
+      return 'Hóa đơn';
+    } else if (lowerCategory.contains('sức khỏe') ||
+        lowerCategory.contains('health')) {
+      return 'Sức khỏe';
     }
+    return 'Khác';
   }
 
   _CategoryStyle _getCategoryStyle(String category) {
-    switch (category) {
-      case 'food':
-        return _CategoryStyle(
-          bgColor: const Color(0xFFCCFBF1), // teal-100
-          iconColor: const Color(0xFF0D9488), // teal-600
-          icon: LucideIcons.utensils,
-        );
-      case 'transport':
-        return _CategoryStyle(
-          bgColor: const Color(0xFFDBEAFE), // blue-100
-          iconColor: const Color(0xFF2563EB), // blue-600
-          icon: LucideIcons.car,
-        );
-      case 'shopping':
-        return _CategoryStyle(
-          bgColor: const Color(0xFFFCE7F3), // pink-100
-          iconColor: const Color(0xFFDB2777), // pink-600
-          icon: LucideIcons.shoppingBag,
-        );
-      case 'entertainment':
-        return _CategoryStyle(
-          bgColor: const Color(0xFFF3E8FF), // purple-100
-          iconColor: const Color(0xFF9333EA), // purple-600
-          icon: LucideIcons.gamepad2,
-        );
-      case 'salary':
-        return _CategoryStyle(
-          bgColor: const Color(0xFFDCFCE7), // green-100
-          iconColor: const Color(0xFF16A34A), // green-600
-          icon: LucideIcons.wallet,
-        );
-      default:
-        return _CategoryStyle(
-          bgColor: const Color(0xFFF3F4F6), // gray-100
-          iconColor: const Color(0xFF4B5563), // gray-600
-          icon: LucideIcons.moreHorizontal,
-        );
+    final lowerCategory = category.toLowerCase();
+
+    if (lowerCategory.contains('ăn') ||
+        lowerCategory.contains('food') ||
+        lowerCategory.contains('ăn uống')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFCCFBF1), // teal-100
+        iconColor: const Color(0xFF0D9488), // teal-600
+        icon: LucideIcons.utensils,
+      );
+    } else if (lowerCategory.contains('di chuyển') ||
+        lowerCategory.contains('transport')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFDBEAFE), // blue-100
+        iconColor: const Color(0xFF2563EB), // blue-600
+        icon: LucideIcons.car,
+      );
+    } else if (lowerCategory.contains('mua sắm') ||
+        lowerCategory.contains('shopping')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFCE7F3), // pink-100
+        iconColor: const Color(0xFFDB2777), // pink-600
+        icon: LucideIcons.shoppingBag,
+      );
+    } else if (lowerCategory.contains('giải trí') ||
+        lowerCategory.contains('entertainment')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFF3E8FF), // purple-100
+        iconColor: const Color(0xFF9333EA), // purple-600
+        icon: LucideIcons.gamepad2,
+      );
+    } else if (lowerCategory.contains('lương') ||
+        lowerCategory.contains('salary')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFDCFCE7), // green-100
+        iconColor: const Color(0xFF16A34A), // green-600
+        icon: LucideIcons.wallet,
+      );
+    } else if (lowerCategory.contains('hóa đơn') ||
+        lowerCategory.contains('bill')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFFEDD5), // orange-100
+        iconColor: const Color(0xFFEA580C), // orange-600
+        icon: LucideIcons.fileText,
+      );
+    } else if (lowerCategory.contains('sức khỏe') ||
+        lowerCategory.contains('health')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFEE2E2), // red-100
+        iconColor: const Color(0xFFDC2626), // red-600
+        icon: LucideIcons.heart,
+      );
     }
+
+    return _CategoryStyle(
+      bgColor: const Color(0xFFF3F4F6), // gray-100
+      iconColor: const Color(0xFF4B5563), // gray-600
+      icon: LucideIcons.moreHorizontal,
+    );
   }
 }
 

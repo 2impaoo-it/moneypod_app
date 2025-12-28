@@ -10,7 +10,14 @@ class ProfileService {
 
   ProfileService([ProfileRepository? repo, Dio? dio])
     : _profileRepository = repo ?? ProfileRepository(),
-      _dio = dio ?? Dio(BaseOptions(baseUrl: 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1'));
+      _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl:
+                  'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1',
+            ),
+          );
 
   Future<Profile?> getUserProfile(String token) async {
     try {
