@@ -843,7 +843,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items.map((category) {
             return DropdownMenuItem(value: category, child: Text(category));
           }).toList(),

@@ -12,7 +12,7 @@ class BillScanRepository {
   final AuthService _authService = AuthService();
 
   // URL server backend - thay đổi theo môi trường của bạn
-  static const String _baseUrl = 'http://192.168.1.172:8080/api/v1';
+  static const String _baseUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   BillScanRepository();
 

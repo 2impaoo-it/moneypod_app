@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 /// Service để kiểm tra kết nối server
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.172:8080/api/v1';
+  static const String baseUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   /// Kiểm tra server có hoạt động không
   ///

@@ -8,10 +8,10 @@ class ProfileScreen extends StatefulWidget {
   final String token;
 
   const ProfileScreen({
-    Key? key,
+    super.key,
     required this.profileService,
     required this.token,
-  }) : super(key: key);
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -51,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildAvatar() {
     final avatarUrl = _profile == null
         ? null
-        : (_profile!.avatarUrl ?? _profile!.avatarUrl ?? null);
+        : (_profile!.avatarUrl ?? _profile!.avatarUrl);
 
     final initials = (_profile == null
         ? ''

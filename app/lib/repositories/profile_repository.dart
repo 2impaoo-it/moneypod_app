@@ -4,7 +4,7 @@ import 'package:MoneyPod/models/profile.dart';
 import 'package:http/http.dart' as http;
 
 class ProfileRepository {
-  final String apiUrl = 'http://192.168.1.172:8080/api/v1';
+  final String apiUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   Future<Profile?> fetchUserProfile(String token) async {
     try {
