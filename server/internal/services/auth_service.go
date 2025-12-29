@@ -76,3 +76,35 @@ func (s *AuthService) Login(email, password string) (string, error) {
 
 	return tokenString, nil
 }
+
+func (s *AuthService) LinkPhoneNumber(userID uuid.UUID, phone string) error {
+	// Kiểm tra xem số này đã có ai dùng chưa
+	existingUser, _ := s.userRepo.FindByPhone(phone)
+	if existingUser != nil && existingUser.ID != userID {
+		return errors.New("số điện thoại này đã được liên kết với tài khoản khác")
+	}
+	return s.userRepo.UpdatePhone(userID, phone)
+}
+
+// Hàm cập nhật FCM Token (Thêm vào struct AuthService)
+func (s *AuthService) UpdateFCMToken(userID uuid.UUID, token string) error {
+	// Gọi xuống Repo để update vào database
+	return s.userRepo.UpdateFCMToken(userID, token)
+}
+
+// Logic cập nhật tên hiển thị
+func (s *AuthService) UpdateUserInfo(userID uuid.UUID, fullName string) error {
+	// (Optional) Bạn có thể validate tên (ví dụ: không được để trống, không quá dài) ở đây
+	if fullName == "" {
+		return errors.New("tên hiển thị không được để trống")
+	}
+	return s.userRepo.UpdateFullName(userID, fullName)
+}
+
+// Logic cập nhật Avatar
+func (s *AuthService) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
+	if avatarURL == "" {
+		return errors.New("đường dẫn ảnh không được để trống")
+	}
+	return s.userRepo.UpdateAvatar(userID, avatarURL)
+}

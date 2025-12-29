@@ -33,3 +33,15 @@ func (r *WalletRepository) GetByUserID(userID uuid.UUID) ([]models.Wallet, error
 	err := r.db.Where("user_id = ?", userID).Find(&wallets).Error
 	return wallets, err
 }
+
+// GetByIDAndUserID lấy ví theo ID và UserID với transaction context
+func (r *WalletRepository) GetByIDAndUserID(tx *gorm.DB, walletID, userID uuid.UUID) (*models.Wallet, error) {
+	var wallet models.Wallet
+	err := tx.Where("id = ? AND user_id = ?", walletID, userID).First(&wallet).Error
+	return &wallet, err
+}
+
+// Update cập nhật thông tin ví với transaction context
+func (r *WalletRepository) Update(tx *gorm.DB, wallet *models.Wallet) error {
+	return tx.Save(wallet).Error
+}

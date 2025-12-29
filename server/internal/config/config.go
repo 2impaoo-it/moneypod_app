@@ -21,6 +21,12 @@ type Config struct {
 
 	ServerPort string
 	GinMode    string
+
+	AdminSecretKey string
+
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
 }
 
 var AppConfig *Config
@@ -46,6 +52,12 @@ func LoadConfig() {
 
 		ServerPort: getEnv("SERVER_PORT", "8080"),
 		GinMode:    getEnv("GIN_MODE", "debug"),
+
+		AdminSecretKey: getEnv("ADMIN_SECRET_KEY", "default_secret_key"),
+
+		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 	}
 
 	fmt.Println("✅ Đã load cấu hình từ .env")

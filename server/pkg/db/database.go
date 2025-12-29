@@ -36,9 +36,10 @@ func ConnectDatabase() {
 		&models.Transaction{},
 		&models.Group{},
 		&models.GroupMember{},
-		&models.GroupExpense{},
-		&models.ExpenseSplit{},
-		&models.Settlement{},
+		&models.Expense{},
+		&models.Debt{},
+		&models.SavingsGoal{},        // Bảng savings_goals
+		&models.SavingsTransaction{}, // Bảng savings_transactions
 	)
 	if err != nil {
 		log.Fatal("❌ Không thể khởi tạo bảng: ", err)

@@ -15,4 +15,6 @@ type Transaction struct {
 	Type     string    `json:"type" gorm:"not null"`   // "income" (Thu) hoặc "expense" (Chi)
 	Note     string    `json:"note"`
 	Date     time.Time `json:"date"`
+
+	Wallet Wallet `json:"wallet" gorm:"foreignKey:WalletID"`
 }

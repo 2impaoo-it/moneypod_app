@@ -60,38 +60,6 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Giao dịch thành công!"})
 }
 
-// Struct nhận dữ liệu chuyển khoản
-type TransferRequest struct {
-	// SỬA: uint -> uuid.UUID
-	FromWalletID uuid.UUID `json:"from_wallet_id" binding:"required"`
-	ToWalletID   uuid.UUID `json:"to_wallet_id" binding:"required"`
-	Amount       float64   `json:"amount" binding:"required,gt=0"`
-	Note         string    `json:"note"`
-}
-
-func (h *TransactionHandler) Transfer(c *gin.Context) {
-	idVal, _ := c.Get("userID")
-	userID, err := uuid.Parse(idVal.(string))
-	if err != nil {
-		c.JSON(401, gin.H{"error": "Token ID invalid"})
-		return
-	}
-
-	var req TransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.service.TransferMoney(userID, req.FromWalletID, req.ToWalletID, req.Amount, req.Note)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Chuyển tiền thành công!"})
-}
-
 func (h *TransactionHandler) GetList(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, err := uuid.Parse(idVal.(string))

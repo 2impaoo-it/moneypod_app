@@ -96,3 +96,113 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	// 4. Trả về Client
 	c.JSON(http.StatusOK, gin.H{"data": user})
 }
+
+type LinkPhoneReq struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
+func (h *AuthHandler) LinkPhone(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	var req LinkPhoneReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.authService.LinkPhoneNumber(userID, req.Phone); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã liên kết số điện thoại thành công"})
+}
+
+// Struct nhận dữ liệu từ App gửi lên
+type UpdateTokenReq struct {
+	FCMToken string `json:"fcm_token" binding:"required"`
+}
+
+// POST /api/v1/fcm-token
+func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
+	// 1. Lấy UserID từ Token (do Middleware giải mã)
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Parse dữ liệu JSON gửi lên
+	var req UpdateTokenReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 3. Gọi Service để lưu vào DB
+	err := h.authService.UpdateFCMToken(userID, req.FCMToken)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Lỗi hệ thống: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Cập nhật token thông báo thành công"})
+}
+
+// Struct nhận dữ liệu
+type UpdateProfileReq struct {
+	FullName string `json:"full_name" binding:"required"`
+}
+
+// PUT /api/v1/profile
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	// 1. Lấy ID user từ Token
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Parse dữ liệu
+	var req UpdateProfileReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 3. Gọi Service
+	err := h.authService.UpdateUserInfo(userID, req.FullName)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Lỗi cập nhật: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Cập nhật thông tin thành công", "full_name": req.FullName})
+}
+
+// Struct nhận dữ liệu
+type UpdateAvatarReq struct {
+	AvatarURL string `json:"avatar_url" binding:"required"`
+}
+
+// PUT /api/v1/profile/avatar
+func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
+	// 1. Lấy ID user
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Parse dữ liệu
+	var req UpdateAvatarReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 3. Gọi Service
+	err := h.authService.UpdateAvatar(userID, req.AvatarURL)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Lỗi cập nhật: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Cập nhật ảnh đại diện thành công", "avatar_url": req.AvatarURL})
+}

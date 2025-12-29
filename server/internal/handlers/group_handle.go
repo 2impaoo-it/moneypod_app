@@ -17,7 +17,9 @@ func NewGroupHandler(service *services.GroupService) *GroupHandler {
 }
 
 type CreateGroupRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name        string                       `json:"name" binding:"required"`
+	Description string                       `json:"description"`
+	Members     []services.CreateMemberInput `json:"members" binding:"required,min=1"`
 }
 
 func (h *GroupHandler) Create(c *gin.Context) {
@@ -34,7 +36,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		return
 	}
 
-	group, err := h.service.CreateGroup(userID, req.Name)
+	group, err := h.service.CreateGroup(userID, req.Name, req.Description, req.Members)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -79,87 +81,191 @@ func (h *GroupHandler) Join(c *gin.Context) {
 }
 
 type AddExpenseRequest struct {
-	// SỬA: uint -> uuid.UUID
-	GroupID   uuid.UUID   `json:"group_id" binding:"required"`
-	Amount    float64     `json:"amount" binding:"required"`
-	Note      string      `json:"note"`
-	MemberIDs []uuid.UUID `json:"member_ids" binding:"required"` // Sửa mảng uint -> mảng UUID
+	GroupID     uuid.UUID `json:"group_id" binding:"required"`
+	Amount      float64   `json:"amount" binding:"required,gt=0"`
+	Description string    `json:"description"`
+	ImageURL    string    `json:"image_url"`
+	PayerID     uuid.UUID `json:"payer_id" binding:"required"`
+
+	SplitDetails []services.SplitItem `json:"split_details"`
 }
 
 func (h *GroupHandler) AddExpense(c *gin.Context) {
-	idVal, _ := c.Get("userID")
-	paidByID, _ := uuid.Parse(idVal.(string))
-
 	var req AddExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := h.service.AddExpense(req.GroupID, paidByID, req.Amount, req.Note, req.MemberIDs)
+	expenseReq := services.CreateExpenseRequest{
+		Amount:       req.Amount,
+		Description:  req.Description,
+		ImageURL:     req.ImageURL,
+		PayerID:      req.PayerID,
+		SplitDetails: req.SplitDetails,
+	}
+
+	err := h.service.CreateExpense(req.GroupID, expenseReq)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Đã thêm hóa đơn và chia tiền thành công!"})
+	c.JSON(201, gin.H{"message": "Đã thêm hóa đơn và tạo nợ thành công!"})
 }
 
-// 1. Struct nhận dữ liệu Request
-type RequestSettlementInput struct {
-	GroupID  uuid.UUID `json:"group_id" binding:"required"`
-	ToUserID uuid.UUID `json:"to_user_id" binding:"required"` // Trả cho ai
-	WalletID uuid.UUID `json:"wallet_id" binding:"required"`  // Trả bằng ví nào
-	Amount   float64   `json:"amount" binding:"required,gt=0"`
-}
-
-// API: Người nợ gửi yêu cầu
-func (h *GroupHandler) SendSettlementRequest(c *gin.Context) {
+// API: Đánh dấu đã trả nợ
+func (h *GroupHandler) MarkDebtPaid(c *gin.Context) {
 	idVal, _ := c.Get("userID")
-	debtorID, _ := uuid.Parse(idVal.(string))
+	userID, _ := uuid.Parse(idVal.(string))
 
-	var req RequestSettlementInput
-	if err := c.ShouldBindJSON(&req); err != nil {
+	debtID, err := uuid.Parse(c.Param("debt_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "debt_id không hợp lệ"})
+		return
+	}
+
+	if err := h.service.MarkDebtAsPaid(debtID, userID); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	result, err := h.service.RequestSettlement(req.GroupID, debtorID, req.ToUserID, req.WalletID, req.Amount)
+	c.JSON(200, gin.H{"message": "Đã xác nhận thanh toán!"})
+}
+
+// API: Xem nợ của tôi
+func (h *GroupHandler) GetMyDebts(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "group_id không hợp lệ"})
+		return
+	}
+
+	debts, err := h.service.GetMyDebts(groupID, userID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Đã gửi yêu cầu xác nhận!", "data": result})
+	c.JSON(200, gin.H{"data": debts})
 }
 
-// 2. Struct nhận dữ liệu Confirm
-type ConfirmSettlementInput struct {
-	SettlementID uuid.UUID `json:"settlement_id" binding:"required"`
-	Action       string    `json:"action" binding:"required,oneof=confirm reject"` // Chỉ nhận 'confirm' hoặc 'reject'
-}
-
-// API: Chủ nợ xác nhận
-func (h *GroupHandler) ConfirmSettlementRequest(c *gin.Context) {
+// API: Xem ai nợ tôi
+func (h *GroupHandler) GetDebtsToMe(c *gin.Context) {
 	idVal, _ := c.Get("userID")
-	creditorID, _ := uuid.Parse(idVal.(string))
+	userID, _ := uuid.Parse(idVal.(string))
 
-	var req ConfirmSettlementInput
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "group_id không hợp lệ"})
 		return
 	}
 
-	isConfirmed := (req.Action == "confirm")
-	err := h.service.ConfirmSettlement(creditorID, req.SettlementID, isConfirmed)
+	debts, err := h.service.GetDebtsToMe(groupID, userID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"data": debts})
+}
+
+// API: Xem lịch sử chi tiêu của nhóm
+func (h *GroupHandler) GetGroupExpenses(c *gin.Context) {
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "group_id không hợp lệ"})
+		return
+	}
+
+	expenses, err := h.service.GetGroupExpenses(groupID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"data": expenses})
+}
+
+// GET /api/v1/groups/:id
+func (h *GroupHandler) GetDetail(c *gin.Context) {
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
+	}
+
+	group, err := h.service.GetGroupDetail(groupID)
+	if err != nil {
+		c.JSON(404, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"data": group})
+}
+
+// Struct input
+type AddMemberReq struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
+// POST /api/v1/groups/:id/members
+func (h *GroupHandler) AddMember(c *gin.Context) {
+	// 1. Lấy ID người đang thao tác
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Lấy Group ID từ URL
+	groupID, err := uuid.Parse(c.Param("id")) // Lưu ý: Đã đổi thành :id cho chuẩn
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
+	}
+
+	// 3. Lấy SĐT từ Body
+	var req AddMemberReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Vui lòng nhập số điện thoại (key: phone)"})
+		return
+	}
+
+	// 4. Gọi Service
+	err = h.service.AddMemberViaPhone(requesterID, groupID, req.Phone)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	msg := "Đã xác nhận thanh toán! Số dư nhóm và ví đã được cập nhật."
-	if !isConfirmed {
-		msg = "Đã từ chối thanh toán."
+	c.JSON(200, gin.H{"message": "Đã thêm thành viên mới thành công!"})
+}
+
+// DELETE /api/v1/groups/:id
+func (h *GroupHandler) DeleteGroup(c *gin.Context) {
+	// 1. Lấy ID người dùng (Requester)
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Lấy Group ID từ URL
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
 	}
-	c.JSON(200, gin.H{"message": msg})
+
+	// 3. Gọi Service
+	err = h.service.DeleteGroup(requesterID, groupID)
+	if err != nil {
+		// Trả về 403 Forbidden nếu không đủ quyền, hoặc 400 nếu lỗi khác
+		if err.Error() == "chỉ Trưởng nhóm (Leader) mới có quyền xóa nhóm" {
+			c.JSON(403, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã xóa nhóm thành công"})
 }

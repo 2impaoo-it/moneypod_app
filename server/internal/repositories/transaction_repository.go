@@ -19,6 +19,11 @@ func (r *TransactionRepository) Create(transaction *models.Transaction) error {
 	return r.db.Create(transaction).Error
 }
 
+// Tạo giao dịch mới với transaction context
+func (r *TransactionRepository) CreateWithTx(tx *gorm.DB, transaction *models.Transaction) error {
+	return tx.Create(transaction).Error
+}
+
 // 2. Lấy danh sách giao dịch của User (Có thể thêm phân trang sau này)
 func (r *TransactionRepository) GetByUserID(userID uuid.UUID) ([]models.Transaction, error) {
 	var transactions []models.Transaction

@@ -13,68 +13,87 @@ import (
 )
 
 func main() {
-	// Load config từ file .env
+	// 1. Load config từ file .env
 	config.LoadConfig()
 
-	// Kết nối database
+	// 2. Kết nối database
 	db.ConnectDatabase()
 
-	// --- KHỞI TẠO SERVICES & HANDLERS ---
-	// Sử dụng API Key từ config
-	receiptService, err := services.NewReceiptService(config.AppConfig.GeminiAPIKey)
-	if err != nil {
-		log.Fatal("Lỗi khởi tạo Gemini:", err)
-	}
-	receiptHandler := handlers.NewReceiptHandler(receiptService)
-
+	// --- KHỞI TẠO REPOSITORIES ---
 	userRepo := repositories.NewUserRepository(db.DB)
 	walletRepo := repositories.NewWalletRepository(db.DB)
-	// Tạo Transaction Repo (nếu chưa có thì tạo mới file repository cho nó)
 	transRepo := repositories.NewTransactionRepository(db.DB)
+	savingsRepo := repositories.NewSavingsRepository(db.DB)
 
-	// 2. Khởi tạo Dashboard Service & Handler
-	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
-	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	// 3. 🔥 KHỞI TẠO NOTIFICATION SERVICE
+	// Lưu ý: Bạn cần có file serviceAccountKey.json ở cùng thư mục
+	notifService, err := services.NewNotificationService("./serviceAccountKey.json")
+	if err != nil {
+		log.Println("⚠️ Cảnh báo: Không thể kết nối Firebase (Chưa có key hoặc sai đường dẫn). Tính năng thông báo sẽ không chạy.")
+		notifService = nil // Vẫn cho server chạy nhưng không gửi được thông báo
+	} else {
+		log.Println("✅ Đã kết nối Firebase Cloud Messaging!")
+	}
+	// --- KHỞI TẠO SERVICES ---
+
+	// ✅ Cloudinary Service
+	storageService, err := services.NewStorageService()
+	if err != nil {
+		log.Fatal("❌ Lỗi kết nối Cloudinary:", err)
+	}
+
+	// ✅ Gemini AI Service
+	receiptService, err := services.NewReceiptService(config.AppConfig.GeminiAPIKey)
+	if err != nil {
+		log.Fatal("❌ Lỗi khởi tạo Gemini AI:", err)
+	}
 
 	authService := services.NewAuthService(userRepo)
 	walletService := services.NewWalletService(walletRepo)
+	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
+	transService := services.NewTransactionService(db.DB, transRepo, walletRepo)
+	groupService := services.NewGroupService(db.DB, notifService, userRepo)
+	savingsService := services.NewSavingsService(db.DB, savingsRepo, walletRepo)
 
+	// --- KHỞI TẠO HANDLERS ---
+	// 🔥 THÊM DÒNG NÀY: Khởi tạo UploadHandler
+	uploadHandler := handlers.NewUploadHandler(storageService)
+
+	receiptHandler := handlers.NewReceiptHandler(receiptService)
 	authHandler := handlers.NewAuthHandler(authService)
 	walletHandler := handlers.NewWalletHandler(walletService)
-
-	transService := services.NewTransactionService(db.DB)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 	transHandler := handlers.NewTransactionHandler(transService)
-
-	groupService := services.NewGroupService(db.DB)
 	groupHandler := handlers.NewGroupHandler(groupService)
-
+	savingsHandler := handlers.NewSavingsHandler(savingsService)
 	// --- SETUP ROUTER ---
 	r := gin.Default()
 
-	// 🔥 1. API ADMIN (Đặt TRƯỚC middleware bảo trì để luôn vào được)
-	r.POST("/api/admin/maintenance", func(c *gin.Context) {
-		var req struct {
-			Enable bool `json:"enable"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
-			return
-		}
+	// --- API ADMIN ---
+	adminGroup := r.Group("/api/admin")
+	adminGroup.Use(middleware.AdminMiddleware())
+	{
+		adminGroup.POST("/maintenance", func(c *gin.Context) {
+			var req struct {
+				Enable bool `json:"enable"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+			middleware.SetMaintenanceMode(req.Enable)
+			status := "Đã TẮT"
+			if req.Enable {
+				status = "Đã BẬT"
+			}
+			c.JSON(200, gin.H{"message": "Chế độ bảo trì: " + status})
+		})
+	}
 
-		// Gọi hàm bên middleware để set biến
-		middleware.SetMaintenanceMode(req.Enable)
-
-		status := "Đã TẮT"
-		if req.Enable {
-			status = "Đã BẬT"
-		}
-		c.JSON(200, gin.H{"message": "Chế độ bảo trì: " + status})
-	})
-
-	// 🔥 2. KÍCH HOẠT CHẾ ĐỘ BẢO TRÌ (Chặn tất cả các route bên dưới nếu bật)
+	// Middleware bảo trì toàn cục
 	r.Use(middleware.MaintenanceMiddleware())
 
-	// NHÓM 1: CÔNG KHAI (Sẽ bị chặn khi bảo trì -> Tốt, không cho login/register lúc này)
+	// --- PUBLIC API ---
 	public := r.Group("/api/v1")
 	{
 		public.GET("/ping", func(c *gin.Context) {
@@ -84,29 +103,53 @@ func main() {
 		public.POST("/login", authHandler.Login)
 	}
 
-	// NHÓM 2: RIÊNG TƯ (Sẽ bị chặn khi bảo trì)
+	// --- PROTECTED API ---
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware())
 	{
+		protected.POST("/fcm-token", authHandler.UpdateFCMToken) // API cập nhật token
+
+		// Dashboard & Profile
 		protected.GET("/dashboard", dashboardHandler.GetOverview)
 		protected.GET("/profile", authHandler.GetProfile)
-
+		protected.PUT("/profile", authHandler.UpdateProfile)
+		protected.PUT("/profile/avatar", authHandler.UpdateAvatar)
+		protected.POST("/profile/phone", authHandler.LinkPhone) // API cập nhật SĐT
+		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)
 
+		// Giao dịch
 		protected.POST("/transactions", transHandler.Create)
 		protected.GET("/transactions", transHandler.GetList)
-		protected.POST("/transfer", transHandler.Transfer)
 
+		// Nhóm & Chi tiêu
 		protected.POST("/groups", groupHandler.Create)
 		protected.GET("/groups", groupHandler.GetList)
+		protected.GET("/groups/:id", groupHandler.GetDetail)
 		protected.POST("/groups/join", groupHandler.Join)
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
-		protected.POST("/groups/settle/request", groupHandler.SendSettlementRequest)
-		protected.POST("/groups/settle/confirm", groupHandler.ConfirmSettlementRequest)
+		protected.GET("/groups/:id/expenses", groupHandler.GetGroupExpenses)
+		protected.POST("/groups/:id/members", groupHandler.AddMember)
+		protected.PUT("/groups/debts/:debt_id/paid", groupHandler.MarkDebtPaid)
+		protected.GET("/groups/:id/my-debts", groupHandler.GetMyDebts)
+		protected.GET("/groups/:id/debts-to-me", groupHandler.GetDebtsToMe)
+		protected.DELETE("/groups/:id", groupHandler.DeleteGroup)
 
+		// AI & Upload
 		protected.POST("/scan-receipt", receiptHandler.Scan)
+
+		// Route Upload ảnh
+		protected.POST("/upload", uploadHandler.UploadImage)
+
+		// ROUTES TIẾT KIỆM
+		protected.POST("/savings", savingsHandler.Create)                // Tạo heo đất
+		protected.GET("/savings", savingsHandler.GetList)                // Xem heo đất
+		protected.POST("/savings/:id/deposit", savingsHandler.Deposit)   // Cho heo ăn
+		protected.POST("/savings/:id/withdraw", savingsHandler.Withdraw) // Đập heo
 	}
 
-	r.Run(":8080")
+	// Chạy Server
+	log.Println("🚀 Server is running on port " + config.AppConfig.ServerPort)
+	r.Run(":" + config.AppConfig.ServerPort)
 }

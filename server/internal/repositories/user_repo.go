@@ -48,3 +48,36 @@ func (r *UserRepository) GetByUserID(userID uuid.UUID) (*models.User, error) {
 	}
 	return &user, nil
 }
+
+// Tìm User theo số điện thoại
+func (r *UserRepository) FindByPhone(phone string) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("phone = ?", phone).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// Cập nhật số điện thoại cho User (Sau khi OTP thành công)
+func (r *UserRepository) UpdatePhone(userID uuid.UUID, phone string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("phone", phone).Error
+}
+
+// Hàm update token vào DB (Thêm vào struct UserRepository)
+func (r *UserRepository) UpdateFCMToken(userID uuid.UUID, token string) error {
+	// Tìm user theo ID và update cột fcm_token
+	result := r.db.Model(&models.User{}).Where("id = ?", userID).Update("fcm_token", token)
+	return result.Error
+}
+
+// Cập nhật Họ và Tên
+func (r *UserRepository) UpdateFullName(userID uuid.UUID, newName string) error {
+	// UPDATE users SET full_name = '...' WHERE id = '...'
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("full_name", newName).Error
+}
+
+// Cập nhật Avatar
+func (r *UserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error
+}
