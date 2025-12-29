@@ -61,6 +61,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
       // Map API data to UI model
       final mappedGroups = groups.map((g) {
+        print("DEBUG GROUP: ${g['name']} - Members: ${g['members']}");
         // Calculate days left
         int daysLeft = 0;
         String status = 'active';
@@ -80,14 +81,38 @@ class _GroupsScreenState extends State<GroupsScreen> {
           }
         }
 
+        // Parse members
+        final membersList = g['members'] as List? ?? [];
+        final int memberCount = membersList.length;
+        print("DEBUG: Group ${g['name']} has ${membersList.length} members");
+
+        // Parse avatars
+        final avatars = membersList
+            .map((m) {
+              final user = m['user'];
+              final avatarUrl = user?['avatar_url'] as String?;
+              if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                return avatarUrl;
+              }
+              final name = user != null
+                  ? (user['full_name'] ?? user['name'] ?? m['email'] ?? '?')
+                  : (m['email'] ?? '?');
+              return name.toString().isNotEmpty
+                  ? name.toString().substring(0, 1).toUpperCase()
+                  : '?';
+            })
+            .take(3)
+            .toList();
+
         return {
           "id": g['id'],
           "name": g['name'] ?? 'Không tên',
-          "members": g['members_count'] ?? 1, // Placeholder
-          "avatars": ["A", "B"], // Placeholder
-          "extraMembers": 0,
+          "members": memberCount,
+          "avatars": avatars,
+          "extraMembers": membersList.length > 3 ? membersList.length - 3 : 0,
           "status": status,
           "description": g['description'], // Optional
+          "inviteCode": g['invite_code'],
         };
       }).toList();
 
@@ -117,7 +142,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   void _navigateToGroupDetail(Map<String, dynamic> group) {
-    context.push('/groups/${group['id']}', extra: {'groupName': group['name']});
+    context.push(
+      '/groups/${group['id']}',
+      extra: {'groupName': group['name'], 'inviteCode': group['inviteCode']},
+    );
   }
 
   @override
@@ -352,6 +380,14 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         return const SizedBox.shrink();
                       }
 
+                      final isExtra = (index == 2 && group['extraMembers'] > 0);
+                      final content = isExtra
+                          ? "+${group['extraMembers']}"
+                          : (index < avatars.length ? avatars[index] : "?");
+
+                      // Check if it is URL
+                      final isUrl = content.toString().startsWith("http");
+
                       return Positioned(
                         left: index * 16.0, // Overlap effect
                         child: Container(
@@ -360,27 +396,29 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
-                            color: (index == 2 && group['extraMembers'] > 0)
+                            color: isExtra
                                 ? AppColors.slate200
                                 : AppColors.slate300,
+                            image: isUrl
+                                ? DecorationImage(
+                                    image: NetworkImage(content.toString()),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
                           alignment: Alignment.center,
-                          child: (index == 2 && group['extraMembers'] > 0)
-                              ? Text(
-                                  "+${group['extraMembers']}",
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.slate500,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
+                          child: isUrl
+                              ? null
                               : Text(
-                                  (index < avatars.length)
-                                      ? avatars[index].toString()
-                                      : "?",
-                                  style: const TextStyle(
+                                  content.toString(),
+                                  style: TextStyle(
                                     fontSize: 10,
-                                    color: Colors.white,
+                                    color: isExtra
+                                        ? AppColors.slate500
+                                        : Colors.white,
+                                    fontWeight: isExtra
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                 ),
                         ),

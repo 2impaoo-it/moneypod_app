@@ -676,7 +676,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
   Widget _buildSliverAppBar(double progress, int daysLeft) {
     return SliverAppBar(
-      expandedHeight: 280,
+      expandedHeight: 330,
       pinned: true,
       backgroundColor: _themeColor,
       leading: IconButton(

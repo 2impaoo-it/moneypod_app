@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'dart:async'; // Added for Timer
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'
+    as firebase_auth; // Added Firebase Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -33,6 +36,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final BiometricService _biometricService = BiometricService();
 
+  // Phone Verification State
+  final firebase_auth.FirebaseAuth _firebaseAuth =
+      firebase_auth.FirebaseAuth.instance;
+  String? _verificationId;
+  Timer? _timer;
+  int _countdown = 0;
+  bool _isCodeSent = false;
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +70,311 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _loading = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  // --- Phone Verification Logic ---
+
+  void _startTimer() {
+    setState(() => _countdown = 60);
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown == 0) {
+        timer.cancel();
+      } else {
+        setState(() => _countdown--);
+      }
+    });
+  }
+
+  Future<void> _verifyPhone() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      _showError('Vui lòng nhập số điện thoại');
+      return;
+    }
+
+    // Format phone number: Replace leading 0 with +84 (Vietnam)
+    String formattedPhone = phone;
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+84${formattedPhone.substring(1)}';
+    } else if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+84$formattedPhone';
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await _firebaseAuth.verifyPhoneNumber(
+        phoneNumber: formattedPhone,
+        verificationCompleted:
+            (firebase_auth.PhoneAuthCredential credential) async {
+              // Auto-verification (Android mostly)
+              await _firebaseAuth.signInWithCredential(credential);
+              _onVerificationSuccess(phone);
+            },
+        verificationFailed: (firebase_auth.FirebaseAuthException e) {
+          setState(() => _loading = false);
+          _showError(e.message ?? 'Lỗi xác thực số điện thoại');
+          print('Phone Auth Error: ${e.code} - ${e.message}');
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _isCodeSent = true;
+            _loading = false;
+          });
+          _startTimer();
+          _showSuccess('Đã gửi mã OTP');
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+        timeout: const Duration(seconds: 60),
+      );
+    } catch (e) {
+      setState(() => _loading = false);
+      _showError('Lỗi gửi mã: $e');
+    }
+  }
+
+  Future<void> _submitOTP() async {
+    if (_verificationId == null) return;
+    final otp = _otpController.text.trim();
+    if (otp.length < 6) return;
+
+    setState(() => _loading = true);
+    try {
+      final credential = firebase_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
+      );
+      await _firebaseAuth.signInWithCredential(credential);
+      _onVerificationSuccess(_phoneController.text.trim());
+    } catch (e) {
+      setState(() => _loading = false);
+      _showError('Mã xác thực không đúng');
+    }
+  }
+
+  Future<void> _onVerificationSuccess(String phone) async {
+    // Call backend API
+    final success = await widget.profileService.updatePhoneNumber(
+      widget.token,
+      phone,
+    );
+
+    if (success) {
+      if (mounted) Navigator.pop(context); // Close sheet
+      await _loadProfile();
+      _showSuccess('Liên kết số điện thoại thành công!');
+    } else {
+      setState(() => _loading = false);
+      _showError('Lỗi cập nhật số điện thoại lên server');
+    }
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
+    );
+  }
+
+  void _showSuccess(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: AppColors.success),
+    );
+  }
+
+  void _showPhoneInputSheet() {
+    // Reset state
+    _phoneController.clear();
+    _otpController.clear();
+    setState(() {
+      _isCodeSent = false;
+      _countdown = 0;
+      _verificationId = null;
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        // Use StatefulBuilder to update sheet UI
+        builder: (context, setSheetState) {
+          // Helper to sync local sheet state with parent state for timer/loading
+          // Actually, since we use parent state variables (_loading, _isCodeSent),
+          // we might just rely on parent setState if we pass callbacks or listen to changes?
+          // Simpler: Just rely on parent setState and rebuild the widget tree,
+          // but showModalBottomSheet usually blocks parent rebuilds from affecting it unless we use proper context.
+          // Let's use the parent widget's variables but triggering setSheetState might be tricky.
+          // Better approach for complex sheet: Use a separate Widget class.
+          // OR: Just stick to parent calls and hope verifyPhone updates parent which triggers rebuild...
+          // Wait, changing parent state won't rebuild the modal sheet unless we use StatefulBuilder/Bloc inside.
+
+          // Let's define a simple listener logic or just re-open sheet? No.
+          // I will implement the sheet UI content here that listens to the parent state variables
+          // by passing them in or accessing via closure (which works if the parent rebuilds? No, modal is separate route).
+          // Actually, accessing _isCodeSent via closure works, but we need to trigger setSheetState to update the modal UI.
+
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            height: MediaQuery.of(ctx).size.height * 0.8, // Make it tall
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Liên kết số điện thoại',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Nhập số điện thoại để xác thực và bảo vệ tài khoản',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Phone Input
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    enabled: !_isCodeSent,
+                    decoration: InputDecoration(
+                      labelText: 'Số điện thoại',
+                      prefixIcon: const Icon(LucideIcons.phone),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (_isCodeSent) ...[
+                    const Text('Nhập mã OTP (6 số):'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _otpController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      decoration: InputDecoration(
+                        hintText: 'xxxxxx',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _countdown > 0
+                              ? 'Gửi lại sau ${_countdown}s'
+                              : 'Hết hạn mã',
+                        ),
+                        if (_countdown == 0)
+                          TextButton(
+                            onPressed: () {
+                              // Close and re-open or just reset
+                              // Ideally call verifyPhone again
+                              // We need to bridge the setState gap.
+                              // For now, let's just allow user to close and retry.
+                              Navigator.pop(ctx);
+                              _showPhoneInputSheet();
+                            },
+                            child: const Text('Gửi lại mã'),
+                          ),
+                      ],
+                    ),
+                  ],
+
+                  const Spacer(),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _loading
+                          ? null
+                          : (_isCodeSent
+                                ? _submitOTP
+                                : () async {
+                                    // Wrap verifyPhone to update sheet state
+                                    // This is hacky. Better to move this sheet to a StatefulWidget.
+                                    await _verifyPhone();
+                                    setSheetState(() {});
+                                    // Also we need the timer to update the sheet text...
+                                    // StatefulBuilder won't auto-update on timer tick unless we call setSheetState in timer callback.
+                                    // I will override the timer callback to call setSheetState.
+                                    _timer?.cancel();
+                                    setState(() => _countdown = 60);
+                                    _timer = Timer.periodic(
+                                      const Duration(seconds: 1),
+                                      (timer) {
+                                        if (_countdown == 0)
+                                          timer.cancel();
+                                        else
+                                          _countdown--;
+                                        setSheetState(() {});
+                                      },
+                                    );
+                                  }),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(_isCodeSent ? 'Xác thực' : 'Gửi mã OTP'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -640,6 +958,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             iconColor: AppColors.purple,
             showEdit: true,
             onEdit: _showEditProfileSheet,
+          ),
+
+          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          _buildInfoRow(
+            icon: LucideIcons.phone,
+            label: 'Số điện thoại',
+            value: _profile!.phone ?? 'Chưa liên kết',
+            iconColor: AppColors.success,
+            showEdit: true, // Always show edit/link button
+            onEdit: _showPhoneInputSheet,
           ),
         ],
       ),

@@ -4,14 +4,22 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
 import '../repositories/group_repository.dart';
+import '../services/auth_service.dart';
+import 'package:go_router/go_router.dart';
 import 'add_expense_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
   final String groupId;
   final String? groupName;
+  final String? inviteCode;
 
-  const GroupDetailScreen({super.key, required this.groupId, this.groupName});
+  const GroupDetailScreen({
+    super.key,
+    required this.groupId,
+    this.groupName,
+    this.inviteCode,
+  });
 
   @override
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -21,6 +29,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final GroupRepository _groupRepo = GroupRepository();
+  final AuthService _authService = AuthService(); // Add service
 
   final currencyFormat = NumberFormat.currency(
     locale: 'vi_VN',
@@ -32,6 +41,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   Map<String, dynamic> _groupData = {};
   List<Map<String, dynamic>> _myDebts = [];
   List<Map<String, dynamic>> _debtsToMe = [];
+  String? _currentUserId;
+  bool _isLeader = false;
 
   @override
   void initState() {
@@ -43,22 +54,37 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   Future<void> _loadAllData() async {
     setState(() => _isLoading = true);
     try {
+      // Get User ID
+      final userInfo = await _authService.getUserInfo();
+      _currentUserId = userInfo?['id'];
+
+      // Load group details
+      final groupDetails = await _groupRepo.getGroupDetails(widget.groupId);
+
       // Load debt data
       final myDebts = await _groupRepo.getMyDebts(widget.groupId);
       final debtsToMe = await _groupRepo.getDebtsToMe(widget.groupId);
 
-      // Mock basic group info since we don't have getGroupDetail API yet
-      final mockInfo = {
-        'id': widget.groupId,
-        'name': 'Nhóm ${widget.groupId.substring(0, 4)}...',
-        'memberCount': 0,
-      };
-
       if (mounted) {
         setState(() {
+          _groupData = groupDetails;
           _myDebts = myDebts;
           _debtsToMe = debtsToMe;
-          _groupData = mockInfo;
+          
+           // Check leader
+           final members = _groupData['members'] as List<dynamic>? ?? [];
+           final me = members.firstWhere(
+             (m) => m['user_id'] == _currentUserId, 
+             orElse: () => null
+           );
+           if (me != null && me['role'] == 'leader') {
+             _isLeader = true;
+           } else if (_groupData['creator_id'] == _currentUserId) {
+             _isLeader = true;
+           } else {
+             _isLeader = false;
+           }
+           
           _isLoading = false;
         });
       }
@@ -93,26 +119,124 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     }
   }
 
-  void _showAddMemberDialog() {
-    final emailController = TextEditingController();
+  Future<void> _deleteGroup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Xóa nhóm?"),
+        content: const Text("Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa nhóm này không?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Xóa"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _groupRepo.deleteGroup(widget.groupId);
+        if (mounted) {
+            context.pop(); // Close detail screen
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Đã xóa nhóm thành công")),
+            );
+        }
+      } catch (e) {
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Lỗi: $e")),
+            );
+        }
+      }
+    }
+  }
+
+  void _showAddMemberOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Thêm thành viên',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.copy, color: AppColors.primary),
+                ),
+                title: const Text('Sao chép mã mời'),
+                subtitle: Text(widget.inviteCode ?? 'Không có mã'),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (widget.inviteCode != null) {
+                    Clipboard.setData(ClipboardData(text: widget.inviteCode!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã sao chép mã mời!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.purple.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.phone, color: AppColors.purple),
+                ),
+                title: const Text('Thêm bằng số điện thoại'),
+                subtitle: const Text('Nhập SĐT người muốn mời'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showPhoneInputDialog();
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPhoneInputDialog() {
+    final phoneController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Thêm thành viên'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Nhập email của thành viên mới:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-          ],
+        title: const Text('Nhập số điện thoại'),
+        content: TextField(
+          controller: phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            hintText: 'Ví dụ: 0912345678',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
@@ -120,46 +244,53 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
             child: const Text('Hủy'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty) return;
-
-              Navigator.pop(context); // Close dialog first
-
-              try {
-                // Show loading
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đang thêm thành viên...')),
-                );
-
-                await _groupRepo.addMember(widget.groupId, email);
-
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Đã thêm thành viên thành công!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '❌ Lỗi: ${e.toString().replaceAll("Exception: ", "")}',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
+            onPressed: () {
+              final phone = phoneController.text.trim();
+              if (phone.isNotEmpty) {
+                Navigator.pop(context);
+                _addMemberByPhone(phone);
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Thêm'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _addMemberByPhone(String phone) async {
+    // Format phone logic similar to ProfileScreen
+    String formattedPhone = phone;
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+84${formattedPhone.substring(1)}';
+    } else if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+84$formattedPhone';
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await _groupRepo.addMemberByPhone(widget.groupId, formattedPhone);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã thêm thành viên $formattedPhone thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadAllData(); // Reload member list
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -237,7 +368,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         'Nhóm ${widget.groupId.substring(0, 4)}...';
 
     return SliverAppBar(
-      expandedHeight: 200,
+      expandedHeight: 250,
       pinned: true,
       backgroundColor: AppColors.primary,
       leading: IconButton(
@@ -245,11 +376,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.person_add, color: Colors.white),
-          onPressed: _showAddMemberDialog,
-          tooltip: 'Thêm thành viên',
-        ),
+        if (_isLeader)
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white),
+            onPressed: () => _deleteGroup(),
+          ),
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
@@ -274,6 +405,52 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                       color: Colors.white,
                     ),
                   ),
+                  if (widget.inviteCode != null &&
+                      widget.inviteCode!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(
+                          ClipboardData(text: widget.inviteCode!),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Đã sao chép mã mời!'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Mã mời: ${widget.inviteCode}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.copy,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -526,17 +703,146 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     );
   }
 
-  // Placeholder for Members Tab
+  // Members Tab
   Widget _buildMembersTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(LucideIcons.users, size: 48, color: Colors.grey),
-          SizedBox(height: 12),
-          Text("Danh sách thành viên"),
-        ],
-      ),
+    final members = _groupData['members'] as List<dynamic>? ?? [];
+
+    return Column(
+      children: [
+        // Add Member Button
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showAddMemberOptions,
+              icon: const Icon(LucideIcons.userPlus),
+              label: const Text('Thêm thành viên'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Members List
+        Expanded(
+          child: members.isEmpty
+              ? _buildEmptyState("Chưa có thành viên nào")
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: members.length,
+                  itemBuilder: (context, index) {
+                    final member = members[index];
+                    final role = member['role'] == 'leader'
+                        ? 'Trưởng nhóm'
+                        : 'Thành viên';
+
+                    final userObj = member['user'];
+                    final name =
+                        userObj?['full_name'] ??
+                        userObj?['name'] ??
+                        member['email'] ??
+                        'Thành viên #${index + 1}';
+                    final email = userObj?['email'] ?? member['email'] ?? '';
+                    final avatarUrl = userObj?['avatar_url'] as String?;
+                    final avatarChar = name.isNotEmpty
+                        ? name.substring(0, 1).toUpperCase()
+                        : '?';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            backgroundImage:
+                                (avatarUrl != null && avatarUrl.isNotEmpty)
+                                ? NetworkImage(avatarUrl)
+                                : null,
+                            child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                ? null
+                                : Text(
+                                    avatarChar,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (email.toString().isNotEmpty)
+                                  Text(
+                                    email,
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: member['role'] == 'leader'
+                                  ? Colors.orange.withOpacity(0.1)
+                                  : Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              role,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: member['role'] == 'leader'
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 

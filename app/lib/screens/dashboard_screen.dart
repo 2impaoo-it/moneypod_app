@@ -93,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       id: userInfo.id,
                       fullName: userInfo.fullName,
                       email: userInfo.email,
-                      avatarUrl: null,
+                      avatarUrl: userInfo.avatarUrl,
                     ),
                   ),
                   const SizedBox(height: 24),

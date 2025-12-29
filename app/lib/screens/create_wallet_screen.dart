@@ -33,7 +33,7 @@ class _CreateWalletContent extends StatefulWidget {
 
 class _CreateWalletContentState extends State<_CreateWalletContent> {
   final _nameController = TextEditingController();
-  final _balanceController = TextEditingController(text: '0');
+  final _balanceController = TextEditingController();
   final _nameFocusNode = FocusNode();
   final _balanceFocusNode = FocusNode();
   final _formKey = GlobalKey<FormState>();

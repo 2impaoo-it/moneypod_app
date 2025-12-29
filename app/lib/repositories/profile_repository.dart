@@ -1,61 +1,32 @@
 import 'dart:convert';
-
-import 'package:MoneyPod/models/profile.dart';
 import 'package:http/http.dart' as http;
+import '../models/profile.dart';
 
 class ProfileRepository {
-  final String apiUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  static const String _baseUrl =
+      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   Future<Profile?> fetchUserProfile(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiUrl/profile'),
+        Uri.parse('$_baseUrl/profile'),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
       );
 
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonResponse['data'] as Map<String, dynamic>;
-        return Profile.fromJson(data);
+        final data = json.decode(response.body);
+        final profileData = data['data'] ?? data;
+        return Profile.fromJson(profileData);
       } else {
-        print('Lỗi khi lấy thông tin hồ sơ: ${response.statusCode}');
+        print('ProfileRepo: Failed to load profile: ${response.statusCode}');
         return null;
       }
     } catch (e) {
-      print('Lỗi kết nối: $e');
-      return null;
-    }
-  }
-
-  Future<Profile?> updateUserProfile(
-    String token,
-    String userId,
-    Map<String, dynamic> updates,
-  ) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$apiUrl/profile/$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(updates),
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonResponse['data'] as Map<String, dynamic>;
-        return Profile.fromJson(data);
-      } else {
-        print('Lỗi khi cập nhật hồ sơ: ${response.statusCode}');
-        return null;
-      }
-    } catch (e) {
-      print('Lỗi kết nối: $e');
-      return null;
+      print('ProfileRepo: Error fetching profile: $e');
+      throw e;
     }
   }
 }

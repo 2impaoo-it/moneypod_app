@@ -69,6 +69,7 @@ class GroupRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode(requestBody),
       );
@@ -125,6 +126,7 @@ class GroupRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
       );
 
@@ -190,6 +192,7 @@ class GroupRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode(requestBody),
       );
@@ -226,6 +229,7 @@ class GroupRepository {
     required double amount,
     required String description,
     String? payerId, // Nếu null => 'Tôi' (current user)
+    String? imageUrl,
   }) async {
     try {
       final token = await _authService.getToken();
@@ -239,11 +243,16 @@ class GroupRepository {
         'payer_id': payerId, // Backend xử lý: nếu null/empty -> user đang login
       };
 
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        body['image_url'] = imageUrl;
+      }
+
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode(body),
       );
@@ -257,6 +266,68 @@ class GroupRepository {
     }
   }
 
+  /// Upload và Phân tích hóa đơn (Multi-Image)
+  /// POST /scan-receipt
+  Future<Map<String, dynamic>> scanReceipts(List<File> files) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final url = '$_baseUrl/scan-receipt';
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['ngrok-skip-browser-warning'] = 'true';
+
+      // Attach multiple files with key "images"
+      for (var file in files) {
+        request.files.add(
+          await http.MultipartFile.fromPath('images', file.path),
+        );
+      }
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(responseBody);
+        return data['data'] ?? {};
+      } else {
+        throw Exception('Phân tích ảnh thất bại: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Lỗi quét hóa đơn: $e');
+    }
+  }
+
+  /// Upload ảnh bill (Single image for storage)
+  /// POST /upload
+  Future<String> uploadImage(File file) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final url = '$_baseUrl/upload';
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['ngrok-skip-browser-warning'] = 'true';
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(responseBody);
+        return data['url'] ?? '';
+      } else {
+        throw Exception('Upload ảnh thất bại: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Lỗi upload ảnh: $e');
+    }
+  }
+
   /// Lấy danh sách nợ của tôi (Tôi nợ ai)
   /// GET /groups/:group_id/my-debts
   Future<List<Map<String, dynamic>>> getMyDebts(String groupId) async {
@@ -265,7 +336,10 @@ class GroupRepository {
       final url = '$_baseUrl/groups/$groupId/my-debts';
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
       );
 
       if (response.statusCode == 200) {
@@ -334,6 +408,7 @@ class GroupRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode({'email': email}),
       );
@@ -341,6 +416,93 @@ class GroupRepository {
       if (response.statusCode != 200 && response.statusCode != 201) {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? 'Lỗi thêm thành viên');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Thêm thành viên bằng số điện thoại
+  /// POST /groups/:id/members
+  Future<void> addMemberByPhone(String groupId, String phone) async {
+    try {
+      final token = await _authService.getToken();
+      final url = '$_baseUrl/groups/$groupId/members';
+
+      // Format phone logic if needed (backend might expect +84)
+      // Assuming phone passed here is already formatted or raw is fine if backend handles it.
+      // Current backend `FindByPhone` looks for exact match.
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: json.encode({'phone': phone}),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Lỗi thêm thành viên');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Lấy chi tiết nhóm (bao gồm thành viên)
+  /// GET /groups/:group_id
+  Future<Map<String, dynamic>> getGroupDetails(String groupId) async {
+    try {
+      final token = await _authService.getToken();
+      final url = '$_baseUrl/groups/$groupId';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? {};
+      } else {
+        // Fallback: Nếu API detail không có, lấy từ list
+        final groups = await getGroups();
+        return groups.firstWhere(
+          (element) => element['id'] == groupId,
+          orElse: () => {},
+        );
+      }
+    } catch (e) {
+      print('Error getGroupDetails: $e');
+      throw Exception('Lỗi khi lấy thông tin nhóm: $e');
+    }
+  }
+
+  /// Xóa nhóm (Chỉ trưởng nhóm)
+  /// DELETE /groups/:id
+  Future<void> deleteGroup(String groupId) async {
+    try {
+      final token = await _authService.getToken();
+      final url = '$_baseUrl/groups/$groupId';
+
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Lỗi khi xóa nhóm');
       }
     } catch (e) {
       rethrow;

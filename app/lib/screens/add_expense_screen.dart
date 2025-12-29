@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/profile.dart';
 import '../repositories/group_repository.dart';
@@ -23,12 +26,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _descriptionController = TextEditingController();
 
   List<Map<String, dynamic>> _groups = [];
+  List<dynamic> _groupMembers = []; // Members of selected group
   String? _selectedGroupId;
   String? _selectedPayerId; // If null => will use _currentUserId
   String? _currentUserId;
 
+  // Multi-image
+  List<File> _selectedImages = [];
+  final ImagePicker _picker = ImagePicker();
+
   bool _isLoading = false;
   bool _isLoadingGroups = true;
+  bool _isAnalyzing = false; // Analyzing AI
 
   @override
   void initState() {
@@ -56,10 +65,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           _groups = groups;
           _currentUserId = profile?.id;
           _isLoadingGroups = false;
-          // Ensure pre-selected group is valid, otherwise reset
+          // Ensure pre-selected group is valid
           if (_selectedGroupId != null) {
             final exists = groups.any((g) => g['id'] == _selectedGroupId);
-            if (!exists) _selectedGroupId = null;
+            if (!exists) {
+              _selectedGroupId = null;
+            } else {
+              // If group selected, load members
+              _loadGroupMembers(_selectedGroupId!);
+            }
           }
         });
       }
@@ -70,6 +84,79 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
       }
+    }
+  }
+
+  Future<void> _loadGroupMembers(String groupId) async {
+    try {
+      final groupDetails = await _groupRepo.getGroupDetails(groupId);
+      if (mounted) {
+        setState(() {
+          _groupMembers = groupDetails['members'] ?? [];
+        });
+      }
+    } catch (e) {
+      print('Error loading members: $e');
+    }
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage();
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images.map((img) => File(img.path)));
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi chọn ảnh: $e')));
+    }
+  }
+
+  Future<void> _analyzeReceipts() async {
+    if (_selectedImages.isEmpty) return;
+
+    setState(() => _isAnalyzing = true);
+    try {
+      final result = await _groupRepo.scanReceipts(_selectedImages);
+
+      if (mounted) {
+        // Auto-fill data
+        // Amount
+        if (result['amount'] != null) {
+          final amount = result['amount'];
+          _amountController.text = amount.toString(); // Simple set
+        }
+
+        // Description
+        if (result['merchant'] != null || result['category'] != null) {
+          String desc = result['merchant'] ?? '';
+          if (result['category'] != null) {
+            desc += " (${result['category']})";
+          }
+          _descriptionController.text = desc;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Đã phân tích hóa đơn!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Lỗi AI: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isAnalyzing = false);
     }
   }
 
@@ -109,11 +196,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Just upload the first image for now as 'bill image'
+      // or we can skip if backend doesn't support array in AddExpenseRequest yet
+      String? imageUrl;
+      if (_selectedImages.isNotEmpty) {
+        // Upload the first one as representative
+        imageUrl = await _groupRepo.uploadImage(_selectedImages.first);
+      }
+
       await _groupRepo.addExpense(
         groupId: _selectedGroupId!,
         amount: amount,
         description: description,
         payerId: _selectedPayerId ?? _currentUserId,
+        imageUrl: imageUrl,
       );
 
       if (mounted) {
@@ -249,7 +345,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     onChanged: (val) {
                       setState(() {
                         _selectedGroupId = val;
-                        // Logic to reset payer or fetch group members would go here
+                        // Reset Payer to default "Me"
+                        _selectedPayerId = null;
+                        // Load members for new group
+                        if (val != null) {
+                          _loadGroupMembers(val);
+                        } else {
+                          _groupMembers = [];
+                        }
                       });
                     },
                   ),
@@ -288,7 +391,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 24),
 
-            // Payer Selector
+            // Payer Selector (Multi-Payer)
             const Text(
               "Người trả",
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
@@ -306,14 +409,138 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   isExpanded: true,
                   hint: const Text("Tôi (Mặc định)"),
                   icon: const Icon(Icons.person),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text("Tôi")),
-                    // Optional: Add other members here
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text("Tôi (Mặc định)"),
+                    ),
+                    ..._groupMembers.map((m) {
+                      // m is {user: {}, role: ...} or sometimes flat depending on API
+                      // Let's assume standard structure from getGroupDetails
+                      final user = m['user'] ?? {};
+                      final userId = user['id'] ?? m['id'] ?? ''; // Fallback
+                      final userName =
+                          user['full_name'] ??
+                          user['name'] ??
+                          m['email'] ??
+                          'Thành viên';
+
+                      return DropdownMenuItem<String>(
+                        value: userId.toString(),
+                        child: Text(userName),
+                      );
+                    }).toList(),
                   ],
                   onChanged: (val) {
                     setState(() => _selectedPayerId = val);
                   },
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Multi-Image Picker & Analyze
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Ảnh hóa đơn (Tùy chọn)",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+                if (_selectedImages.isNotEmpty && !_isAnalyzing)
+                  TextButton.icon(
+                    onPressed: _analyzeReceipts,
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text("Phân tích AI"),
+                    style: TextButton.styleFrom(foregroundColor: Colors.purple),
+                  ),
+                if (_isAnalyzing)
+                  const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Image List
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // Add Button
+                  GestureDetector(
+                    onTap: _pickImages,
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.camera_alt, color: Colors.grey, size: 32),
+                          SizedBox(height: 4),
+                          Text(
+                            "Thêm ảnh",
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Selected Images
+                  ..._selectedImages.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final file = entry.value;
+                    return Stack(
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          margin: const EdgeInsets.only(right: 12),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(file, fit: BoxFit.cover),
+                          ),
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: 16, // offset for margin
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedImages.removeAt(index);
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ],
               ),
             ),
 

@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -53,6 +54,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // --- MAIN APP SETUP ---
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
 
   // Cấu hình thanh trạng thái trong suốt
   SystemChrome.setSystemUIOverlayStyle(
@@ -133,6 +135,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
                 return GroupDetailScreen(
                   groupId: groupId,
                   groupName: extra?['groupName'],
+                  inviteCode: extra?['inviteCode'],
                 );
               },
             ),

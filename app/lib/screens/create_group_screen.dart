@@ -230,7 +230,12 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           children: [
             Icon(LucideIcons.checkCircle, color: AppColors.success, size: 28),
             SizedBox(width: 10),
-            Text('Tạo nhóm thành công!'),
+            Flexible(
+              child: Text(
+                'Tạo nhóm thành công!',
+                style: TextStyle(fontSize: 18), // Explicit size to be safe
+              ),
+            ),
           ],
         ),
         content: Column(
