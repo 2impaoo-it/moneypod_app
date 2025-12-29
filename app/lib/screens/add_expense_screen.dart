@@ -39,6 +39,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isLoadingGroups = true;
   bool _isAnalyzing = false; // Analyzing AI
 
+  bool _isSplitEqually = true;
+  final Map<String, TextEditingController> _splitControllers = {};
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +96,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (mounted) {
         setState(() {
           _groupMembers = groupDetails['members'] ?? [];
+          // Reset split controllers
+          for (var controller in _splitControllers.values) {
+            controller.dispose();
+          }
+          _splitControllers.clear();
+
+          for (var member in _groupMembers) {
+            final user = member['user'] ?? {};
+            final userId = user['id'] ?? member['id'] ?? '';
+            if (userId.toString().isNotEmpty) {
+              _splitControllers[userId.toString()] = TextEditingController();
+            }
+          }
         });
       }
     } catch (e) {
@@ -204,12 +220,46 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         imageUrl = await _groupRepo.uploadImage(_selectedImages.first);
       }
 
+      List<Map<String, dynamic>>? splitDetails;
+      if (!_isSplitEqually) {
+        splitDetails = [];
+        double totalSplit = 0;
+        for (var member in _groupMembers) {
+          final user = member['user'] ?? {};
+          final userId = user['id'] ?? member['id'] ?? '';
+          final controller = _splitControllers[userId.toString()];
+          if (userId.toString().isNotEmpty && controller != null) {
+            final val = parseCurrency(controller.text) ?? 0;
+            if (val > 0) {
+              splitDetails.add({'user_id': userId, 'amount': val});
+              totalSplit += val;
+            }
+          }
+        }
+
+        if ((totalSplit - amount).abs() > 1000) {
+          // Tolerance 1000 VND
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Tổng tiền chia (${formatCurrency(totalSplit)}) không khớp với tổng hóa đơn (${formatCurrency(amount)})',
+                ),
+              ),
+            );
+            setState(() => _isLoading = false);
+            return;
+          }
+        }
+      }
+
       await _groupRepo.addExpense(
         groupId: _selectedGroupId!,
         amount: amount,
         description: description,
         payerId: _selectedPayerId ?? _currentUserId,
         imageUrl: imageUrl,
+        splitDetails: splitDetails,
       );
 
       if (mounted) {
@@ -235,6 +285,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void dispose() {
     _amountController.dispose();
     _descriptionController.dispose();
+    for (var controller in _splitControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -361,35 +414,104 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
             const SizedBox(height: 8),
             // Info Text
-            if (_selectedGroupId != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: Colors.blue.shade700,
+            if (_selectedGroupId != null) ...[
+              const Text(
+                "Cách chia tiền",
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text("Chia đều"),
+                      value: true,
+                      groupValue: _isSplitEqually,
+                      onChanged: (val) =>
+                          setState(() => _isSplitEqually = val!),
+                      contentPadding: EdgeInsets.zero,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "Chia đều cho tất cả thành viên trong nhóm.",
-                        style: TextStyle(
-                          color: Colors.blue.shade700,
-                          fontSize: 13,
-                        ),
-                      ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text("Chia cụ thể"),
+                      value: false,
+                      groupValue: _isSplitEqually,
+                      onChanged: (val) =>
+                          setState(() => _isSplitEqually = val!),
+                      contentPadding: EdgeInsets.zero,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
 
-            const SizedBox(height: 24),
+              if (!_isSplitEqually) ...[
+                const SizedBox(height: 12),
+                ..._groupMembers.map((member) {
+                  final user = member['user'] ?? {};
+                  final userId = user['id'] ?? member['id'] ?? '';
+                  final userName =
+                      user['full_name'] ??
+                      user['name'] ??
+                      member['email'] ??
+                      'Thành viên';
+                  final controller = _splitControllers[userId.toString()];
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(userName)),
+                        SizedBox(
+                          width: 150,
+                          child: TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              CurrencyInputFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              hintText: '0 ₫',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                const Divider(),
+              ] else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Chia đều cho tất cả thành viên trong nhóm.",
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 24),
+            ],
 
             // Payer Selector (Multi-Payer)
             const Text(

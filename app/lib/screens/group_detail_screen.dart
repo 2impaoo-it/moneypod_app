@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
 import '../repositories/group_repository.dart';
+import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import 'add_expense_screen.dart';
@@ -29,6 +30,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final GroupRepository _groupRepo = GroupRepository();
+  final ProfileRepository _profileRepo = ProfileRepository();
   final AuthService _authService = AuthService(); // Add service
 
   final currencyFormat = NumberFormat.currency(
@@ -55,8 +57,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     setState(() => _isLoading = true);
     try {
       // Get User ID
-      final userInfo = await _authService.getUserInfo();
-      _currentUserId = userInfo?['id'];
+      final token = await _authService.getToken();
+      if (token == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final profile = await _profileRepo.fetchUserProfile(token);
+      if (profile != null) {
+        _currentUserId = profile.id;
+      }
 
       // Load group details
       final groupDetails = await _groupRepo.getGroupDetails(widget.groupId);
@@ -70,21 +79,21 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           _groupData = groupDetails;
           _myDebts = myDebts;
           _debtsToMe = debtsToMe;
-          
-           // Check leader
-           final members = _groupData['members'] as List<dynamic>? ?? [];
-           final me = members.firstWhere(
-             (m) => m['user_id'] == _currentUserId, 
-             orElse: () => null
-           );
-           if (me != null && me['role'] == 'leader') {
-             _isLeader = true;
-           } else if (_groupData['creator_id'] == _currentUserId) {
-             _isLeader = true;
-           } else {
-             _isLeader = false;
-           }
-           
+
+          // Check leader
+          final members = _groupData['members'] as List<dynamic>? ?? [];
+          final me = members.firstWhere(
+            (m) => m['user_id'] == _currentUserId,
+            orElse: () => null,
+          );
+          if (me != null && me['role'] == 'leader') {
+            _isLeader = true;
+          } else if (_groupData['creator_id'] == _currentUserId) {
+            _isLeader = true;
+          } else {
+            _isLeader = false;
+          }
+
           _isLoading = false;
         });
       }
@@ -124,7 +133,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Xóa nhóm?"),
-        content: const Text("Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa nhóm này không?"),
+        content: const Text(
+          "Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa nhóm này không?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -143,16 +154,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       try {
         await _groupRepo.deleteGroup(widget.groupId);
         if (mounted) {
-            context.pop(); // Close detail screen
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Đã xóa nhóm thành công")),
-            );
+          context.pop(); // Close detail screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Đã xóa nhóm thành công")),
+          );
         }
       } catch (e) {
         if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Lỗi: $e")),
-            );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
         }
       }
     }
@@ -615,9 +626,41 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
 
   Widget _buildDebtItem(Map<String, dynamic> debt, {required bool isMyDebt}) {
     final amount = double.tryParse(debt['amount'].toString()) ?? 0.0;
-    final name = isMyDebt
-        ? (debt['creditor_name'] ?? 'Người lạ')
-        : (debt['debtor_name'] ?? 'Người lạ');
+    // Logic lookup name
+    String name = 'Người lạ';
+
+    // Determine the ID of the person we are displaying
+    dynamic targetId;
+    if (isMyDebt) {
+      // I owe someone -> Show Creditor
+      targetId = debt['creditor_id'] ?? debt['to_user_id'];
+    } else {
+      // Someone owes me -> Show Debtor
+      targetId = debt['debtor_id'] ?? debt['from_user_id'];
+    }
+
+    // Try finding in group members
+    if (targetId != null) {
+      final members = _groupData['members'] as List<dynamic>? ?? [];
+      final found = members.firstWhere((m) {
+        final u = m['user'] ?? {};
+        final uid = u['id'] ?? m['user_id'] ?? m['id'];
+        return uid.toString() == targetId.toString();
+      }, orElse: () => null);
+
+      if (found != null) {
+        final u = found['user'] ?? found;
+        name = u['full_name'] ?? u['name'] ?? u['email'] ?? 'Thành viên';
+      }
+    }
+
+    // Fallback if lookup failed but name is in debt object
+    if (name == 'Người lạ') {
+      name = isMyDebt
+          ? (debt['creditor_name'] ?? 'Người lạ')
+          : (debt['debtor_name'] ?? 'Người lạ');
+    }
+
     final note = debt['note'] ?? 'Chi tiêu nhóm';
 
     return Container(

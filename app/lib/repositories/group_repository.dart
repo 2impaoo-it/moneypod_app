@@ -230,13 +230,14 @@ class GroupRepository {
     required String description,
     String? payerId, // Nếu null => 'Tôi' (current user)
     String? imageUrl,
+    List<Map<String, dynamic>>? splitDetails,
   }) async {
     try {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
       final url = '$_baseUrl/groups/expenses';
-      final body = {
+      final body = <String, dynamic>{
         'group_id': groupId,
         'amount': amount,
         'description': description,
@@ -245,6 +246,10 @@ class GroupRepository {
 
       if (imageUrl != null && imageUrl.isNotEmpty) {
         body['image_url'] = imageUrl;
+      }
+
+      if (splitDetails != null && splitDetails.isNotEmpty) {
+        body['split_details'] = splitDetails;
       }
 
       final response = await http.post(
