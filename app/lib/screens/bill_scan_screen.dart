@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../utils/popup_notification.dart';
 import '../main.dart';
 import '../bloc/bill_scan/bill_scan_bloc.dart';
 import '../bloc/bill_scan/bill_scan_event.dart';
@@ -53,13 +54,7 @@ class _BillScanContent extends StatelessWidget {
       body: BlocConsumer<BillScanBloc, BillScanState>(
         listener: (context, state) {
           if (state is BillScanFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error),
-                backgroundColor: AppColors.danger,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            PopupNotification.showError(context, state.error);
           }
         },
         builder: (context, state) {
@@ -424,23 +419,13 @@ class _EditableBillCardState extends State<_EditableBillCard> {
   Future<void> _saveTransaction() async {
     // Validate
     if (_merchantController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập tên cửa hàng'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Vui lòng nhập tên cửa hàng');
       return;
     }
 
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập số tiền hợp lệ'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Vui lòng nhập số tiền hợp lệ');
       return;
     }
 
@@ -460,23 +445,13 @@ class _EditableBillCardState extends State<_EditableBillCard> {
       if (!mounted) return;
 
       // Thành công
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thêm giao dịch thành công!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      PopupNotification.showSuccess(context, 'Thêm giao dịch thành công!');
 
       // Quay về màn hình trước
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: ${e.toString()}'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

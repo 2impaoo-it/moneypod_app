@@ -25,7 +25,22 @@ class AppColors {
   static const Color amber500 = Color(0xFFF59E0B);
 
   static const Color orange50 = Color(0xFFFFF7ED);
+  static const Color orange100 = Color(0xFFFFEDD5);
+  static const Color orange600 = Color(0xFFEA580C);
+  
   static const Color red500 = Color(0xFFEF4444);
+  
+  static const Color blue100 = Color(0xFFDBEAFE);
+  static const Color blue500 = Color(0xFF3B82F6);
+  static const Color blue600 = Color(0xFF2563EB);
+  
+  static const Color teal100 = Color(0xFFCCFBF1);
+  static const Color teal600 = Color(0xFF0D9488);
+  
+  static const Color purple100 = Color(0xFFF3E8FF);
+  static const Color purple600 = Color(0xFF9333EA);
+  
+  static const Color violet500 = Color(0xFF8B5CF6);
 
   // Semantic (for CreateGroupScreen & General Usage)
   static const Color primary = teal500;

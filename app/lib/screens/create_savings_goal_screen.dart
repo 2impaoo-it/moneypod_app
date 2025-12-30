@@ -1,19 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for TextInputFormatter
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../main.dart';
 
-/// Màn hình tạo mục tiêu tiết kiệm mới
-class CreateSavingsGoalScreen extends StatefulWidget {
-  const CreateSavingsGoalScreen({super.key});
+import '../bloc/savings/savings_bloc.dart';
+import '../bloc/savings/savings_event.dart';
+import '../bloc/savings/savings_state.dart';
+import '../repositories/savings_repository.dart';
+import '../repositories/wallet_repository.dart';
+import '../utils/currency_formatter.dart';
+import '../theme/app_colors.dart';
+import '../models/savings_goal.dart';
+import '../models/wallet.dart';
+import '../utils/popup_notification.dart';
+
+/// Màn hình tạo hoặc chỉnh sửa mục tiêu tiết kiệm
+class CreateSavingsGoalScreen extends StatelessWidget {
+  final SavingsGoal? editingGoal;
+
+  const CreateSavingsGoalScreen({super.key, this.editingGoal});
 
   @override
-  State<CreateSavingsGoalScreen> createState() =>
-      _CreateSavingsGoalScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => SavingsBloc(SavingsRepository()),
+      child: CreateSavingsGoalContent(editingGoal: editingGoal),
+    );
+  }
 }
 
-class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
+class CreateSavingsGoalContent extends StatefulWidget {
+  final SavingsGoal? editingGoal;
+
+  const CreateSavingsGoalContent({super.key, this.editingGoal});
+
+  @override
+  State<CreateSavingsGoalContent> createState() =>
+      _CreateSavingsGoalContentState();
+}
+
+class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _targetAmountController = TextEditingController();
@@ -21,6 +49,12 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
 
   DateTime? _selectedDate;
   bool _isLoading = false;
+
+  // Wallet selection
+  final WalletRepository _walletRepository = WalletRepository();
+  List<Wallet> _wallets = [];
+  bool _walletsLoading = false;
+  String? _selectedWalletId;
 
   // Selected icon and color
   String _selectedIcon = 'savings';
@@ -31,6 +65,8 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     symbol: '₫',
     decimalDigits: 0,
   );
+
+  bool get _isEditing => widget.editingGoal != null;
 
   // Available icons
   final List<Map<String, dynamic>> _availableIcons = [
@@ -101,6 +137,41 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadWallets();
+    if (_isEditing) {
+      final goal = widget.editingGoal!;
+      _nameController.text = goal.name;
+      _targetAmountController.text = currencyFormat
+          .format(goal.targetAmount)
+          .replaceAll('₫', '')
+          .trim();
+      _selectedDate = goal.deadline;
+      _selectedIcon = goal.icon ?? 'savings';
+      _selectedColor = goal.color ?? 'blue';
+      // Initial amount is not editable in edit mode usually
+    }
+  }
+
+  Future<void> _loadWallets() async {
+    setState(() => _walletsLoading = true);
+    try {
+      final wallets = await _walletRepository.getWallets();
+      setState(() {
+        _wallets = wallets;
+        _walletsLoading = false;
+        if (_wallets.isNotEmpty) {
+          _selectedWalletId = _wallets.first.id;
+        }
+      });
+    } catch (e) {
+      if (mounted) setState(() => _walletsLoading = false);
+      debugPrint('❌ Lỗi load wallets: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _targetAmountController.dispose();
@@ -109,6 +180,19 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
   }
 
   Color get _currentColor {
+    // Determine color based on whether it's a hex string or a key name
+    if (_selectedColor.startsWith('#')) {
+      // Find the closest matching color in available colors or default
+      // This logic is a bit simple, assumes basic hex codes match
+      final found = _availableColors.firstWhere(
+        (c) => (c['color'] as Color).value
+            .toRadixString(16)
+            .endsWith(_selectedColor.substring(1).toLowerCase()),
+        orElse: () => _availableColors.first,
+      );
+      return found['color'];
+    }
+
     return _availableColors.firstWhere(
       (c) => c['key'] == _selectedColor,
       orElse: () => _availableColors.first,
@@ -117,7 +201,11 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
 
   List<Color> get _currentGradient {
     return _availableColors.firstWhere(
-      (c) => c['key'] == _selectedColor,
+      (c) =>
+          c['key'] == _selectedColor ||
+          (c['color'] as Color).value
+              .toRadixString(16)
+              .endsWith(_selectedColor.replaceAll('#', '').toLowerCase()),
       orElse: () => _availableColors.first,
     )['gradient'];
   }
@@ -132,10 +220,11 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
   void _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate:
-          _selectedDate ?? DateTime.now().add(const Duration(days: 180)),
-      firstDate: DateTime.now().add(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+      initialDate: _selectedDate ?? DateTime.now(), // Default to NOW
+      firstDate: DateTime.now().subtract(
+        const Duration(days: 1),
+      ), // Allow today
+      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -161,81 +250,208 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn ngày mục tiêu'),
-          backgroundColor: AppColors.danger,
-        ),
+      PopupNotification.showError(context, 'Vui lòng chọn ngày mục tiêu');
+      return;
+    }
+
+    // Parse amounts
+    final targetAmount = CurrencyInputFormatter.parse(
+      _targetAmountController.text,
+    );
+    final initialAmount = CurrencyInputFormatter.parse(
+      _initialAmountController.text,
+    );
+
+    // Validation: Initial Amount vs Target Amount (Create Mode Only)
+    if (!_isEditing && initialAmount > targetAmount) {
+      PopupNotification.showError(
+        context,
+        'Số tiền ban đầu không được lớn hơn số tiền mục tiêu',
       );
       return;
     }
 
+    // Validation: Wallet selection required if initial amount > 0
+    if (!_isEditing && initialAmount > 0) {
+      if (_selectedWalletId == null) {
+        PopupNotification.showError(
+          context,
+          'Vui lòng chọn ví để nạp tiền ban đầu',
+        );
+        return;
+      }
+
+      // Validate wallet balance
+      final selectedWallet = _wallets.firstWhere(
+        (w) => w.id == _selectedWalletId,
+      );
+      if (selectedWallet.balance < initialAmount) {
+        PopupNotification.showError(
+          context,
+          'Số dư ví không đủ (${currencyFormat.format(selectedWallet.balance)})',
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
-    // Giả lập API call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // Determine Hex Color to save
+      // Map back from 'key' to valid Hex if possible, or use the key directly if backend supports it.
+      // Based on previous code, backend seems to store Hex.
+      String colorHex = '#8B5CF6';
+      // We manually map based on key as per original code switch case used before
+      switch (_selectedColor) {
+        case 'blue':
+          colorHex = '#3B82F6';
+          break;
+        case 'teal':
+          colorHex = '#14B8A6';
+          break;
+        case 'purple':
+          colorHex = '#8B5CF6';
+          break;
+        case 'orange':
+          colorHex = '#F97316';
+          break;
+        case 'green':
+          colorHex = '#22C55E';
+          break;
+        case 'red':
+          colorHex = '#EF4444';
+          break;
+        case 'pink':
+          colorHex = '#EC4899';
+          break;
+        case 'indigo':
+          colorHex = '#6366F1';
+          break;
+        default:
+          colorHex = _selectedColor; // Keep original if it was already hex
+      }
 
-    setState(() => _isLoading = false);
+      if (_isEditing) {
+        // Update
+        context.read<SavingsBloc>().add(
+          UpdateSavingsGoal(
+            goalId: widget.editingGoal!.id,
+            name: _nameController.text,
+            targetAmount: targetAmount,
+            color: colorHex,
+            icon: _selectedIcon,
+            deadline: _selectedDate,
+          ),
+        );
+      } else {
+        // Create using repository directly to handle initial deposit
+        final savingsRepo = SavingsRepository();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tạo mục tiêu tiết kiệm thành công!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      context.pop(true);
+        // Step 1: Create the goal
+        await savingsRepo.createSavingsGoal(
+          name: _nameController.text,
+          targetAmount: targetAmount,
+          color: colorHex,
+          icon: _selectedIcon,
+          deadline: _selectedDate,
+        );
+
+        // Step 2: If initial amount > 0, deposit it
+        if (initialAmount > 0 && _selectedWalletId != null) {
+          // Reload goals to get the newly created goal's ID
+          final goals = await savingsRepo.getSavingsGoals();
+          // Find the most recently created goal with matching name
+          final newGoal = goals.firstWhere(
+            (g) => g.name == _nameController.text,
+            orElse: () => throw Exception('Không tìm thấy mục tiêu vừa tạo'),
+          );
+
+          // Deposit initial amount
+          await savingsRepo.depositToGoal(
+            goalId: newGoal.id,
+            walletId: _selectedWalletId!,
+            amount: initialAmount,
+            note: 'Số tiền ban đầu',
+          );
+        }
+
+        setState(() => _isLoading = false);
+        if (mounted) {
+          PopupNotification.showSuccess(context, 'Tạo mục tiêu thành công!');
+          context.pop(true);
+        }
+        return; // Exit early since we handled success
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.x, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Mục tiêu mới',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+    return BlocListener<SavingsBloc, SavingsState>(
+      listener: (context, state) {
+        if (state is SavingsLoading) {
+          setState(() => _isLoading = true);
+        } else if (state is SavingsActionSuccess) {
+          setState(() => _isLoading = false);
+          PopupNotification.showSuccess(context, state.message);
+          context.pop(true);
+        } else if (state is SavingsError) {
+          setState(() => _isLoading = false);
+          PopupNotification.showError(context, state.message);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(LucideIcons.x, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
+          title: Text(
+            _isEditing ? 'Chỉnh sửa mục tiêu' : 'Mục tiêu mới',
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Preview Card
-              _buildPreviewCard(),
-              const SizedBox(height: 20),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Preview Card
+                _buildPreviewCard(),
+                const SizedBox(height: 20),
 
-              // Basic Info
-              _buildBasicInfoCard(),
-              const SizedBox(height: 20),
+                // Basic Info
+                _buildBasicInfoCard(),
+                const SizedBox(height: 20),
 
-              // Icon Selection
-              _buildIconSelectionCard(),
-              const SizedBox(height: 20),
+                // Icon Selection
+                _buildIconSelectionCard(),
+                const SizedBox(height: 20),
 
-              // Color Selection
-              _buildColorSelectionCard(),
-              const SizedBox(height: 24),
+                // Color Selection
+                _buildColorSelectionCard(),
+                const SizedBox(height: 24),
 
-              // Action Buttons
-              _buildActionButtons(),
-              const SizedBox(height: 40),
-            ],
+                // Action Buttons
+                _buildActionButtons(),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
@@ -243,19 +459,19 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
   }
 
   Widget _buildPreviewCard() {
-    final targetAmount =
-        double.tryParse(
-          _targetAmountController.text.replaceAll(RegExp(r'[^\d]'), ''),
-        ) ??
-        0;
-    final initialAmount =
-        double.tryParse(
-          _initialAmountController.text.replaceAll(RegExp(r'[^\d]'), ''),
-        ) ??
-        0;
+    final targetAmount = CurrencyInputFormatter.parse(
+      _targetAmountController.text,
+    );
+    // If Editing, usage currentAmount from goal.
+    // If Creating, use initialAmount input.
+    final currentAmount = _isEditing
+        ? widget.editingGoal!.currentAmount
+        : CurrencyInputFormatter.parse(_initialAmountController.text);
+
     final progress = targetAmount > 0
-        ? (initialAmount / targetAmount).clamp(0.0, 1.0)
+        ? (currentAmount / targetAmount).clamp(0.0, 1.0)
         : 0.0;
+
     final name = _nameController.text.isEmpty
         ? 'Mục tiêu tiết kiệm'
         : _nameController.text;
@@ -349,8 +565,8 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                initialAmount > 0
-                    ? currencyFormat.format(initialAmount)
+                currentAmount > 0
+                    ? currencyFormat.format(currentAmount)
                     : '0 ₫',
                 style: const TextStyle(
                   fontSize: 20,
@@ -425,12 +641,11 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
             icon: LucideIcons.banknote,
             isRequired: true,
             keyboardType: TextInputType.number,
+            inputFormatters: [CurrencyInputFormatter()],
             suffix: '₫',
             validator: (value) {
-              final amount = double.tryParse(
-                value?.replaceAll(RegExp(r'[^\d]'), '') ?? '',
-              );
-              if (amount == null || amount <= 0) {
+              final amount = CurrencyInputFormatter.parse(value ?? '');
+              if (amount <= 0) {
                 return 'Vui lòng nhập số tiền hợp lệ';
               }
               return null;
@@ -440,17 +655,90 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
 
           // Date picker
           _buildDateField(),
-          const SizedBox(height: 16),
 
-          // Initial amount
-          _buildTextField(
-            controller: _initialAmountController,
-            label: 'Số tiền ban đầu',
-            hint: '0',
-            icon: LucideIcons.wallet,
-            keyboardType: TextInputType.number,
-            suffix: '₫',
-          ),
+          if (!_isEditing) ...[
+            const SizedBox(height: 16),
+            // Wallet selection
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.wallet,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Chọn ví',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.slate200),
+                  ),
+                  child: _walletsLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : DropdownButton<String>(
+                          value: _selectedWalletId,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: const Text('Chọn ví để nạp tiền ban đầu'),
+                          items: _wallets.map((wallet) {
+                            return DropdownMenuItem<String>(
+                              value: wallet.id,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(wallet.name),
+                                  Text(
+                                    currencyFormat.format(wallet.balance),
+                                    style: const TextStyle(
+                                      color: AppColors.success,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedWalletId = value);
+                          },
+                        ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Initial amount - Only show when creating
+            _buildTextField(
+              controller: _initialAmountController,
+              label: 'Số tiền ban đầu',
+              hint: '0',
+              icon: LucideIcons.piggyBank,
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
+              suffix: '₫',
+            ),
+          ],
         ],
       ),
     );
@@ -465,6 +753,7 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     TextInputType? keyboardType,
     String? suffix,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,6 +781,7 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -631,34 +921,36 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _availableIcons.map((item) {
-              final isSelected = item['key'] == _selectedIcon;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedIcon = item['key']),
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? _currentColor.withOpacity(0.1)
-                        : AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? _currentColor : Colors.transparent,
-                      width: 2,
+          Center(
+            child: Wrap(
+              spacing: 16, // Increased spacing
+              runSpacing: 16, // Increased spacing
+              children: _availableIcons.map((item) {
+                final isSelected = item['key'] == _selectedIcon;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedIcon = item['key']),
+                  child: Container(
+                    width: 64, // Increased size
+                    height: 64, // Increased size
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? _currentColor.withOpacity(0.1)
+                          : AppColors.background,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? _currentColor : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      item['icon'],
+                      color: isSelected ? _currentColor : AppColors.textMuted,
+                      size: 28, // Increased icon size
                     ),
                   ),
-                  child: Icon(
-                    item['icon'],
-                    color: isSelected ? _currentColor : AppColors.textMuted,
-                    size: 24,
-                  ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -691,45 +983,45 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _availableColors.map((item) {
-              final isSelected = item['key'] == _selectedColor;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedColor = item['key']),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: item['gradient']),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.textPrimary
-                          : Colors.transparent,
-                      width: 3,
+          Center(
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: _availableColors.map((item) {
+                final isSelected = item['key'] == _selectedColor;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedColor = item['key']),
+                  child: Container(
+                    width: 50, // Increased size
+                    height: 50, // Increased size
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: item['gradient']),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.textPrimary
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: (item['color'] as Color).withOpacity(
+                                  0.4,
+                                ),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: item['color'].withOpacity(0.4),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 24)
                         : null,
                   ),
-                  child: isSelected
-                      ? const Icon(
-                          LucideIcons.check,
-                          color: Colors.white,
-                          size: 20,
-                        )
-                      : null,
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -737,70 +1029,37 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _submitForm,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _currentColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              disabledBackgroundColor: _currentColor.withOpacity(0.5),
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(LucideIcons.check, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'Tạo mục tiêu',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _submitForm,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _currentColor,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
+          elevation: 4,
+          shadowColor: _currentColor.withOpacity(0.4),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton(
-            onPressed: _isLoading ? null : () => Navigator.pop(context),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.3),
-                width: 1.5,
+        child: _isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                _isEditing ? 'Lưu thay đổi' : 'Tạo mục tiêu',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: const Text(
-              'Hủy',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

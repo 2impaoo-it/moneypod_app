@@ -11,6 +11,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       super(DashboardInitial()) {
     on<DashboardLoadRequested>(_onLoadRequested);
     on<DashboardRefreshRequested>(_onRefreshRequested);
+    on<DashboardReset>(_onReset);
+  }
+
+  void _onReset(DashboardReset event, Emitter<DashboardState> emit) {
+    emit(DashboardInitial());
   }
 
   Future<void> _onLoadRequested(
@@ -20,7 +25,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     emit(DashboardLoading());
     try {
       final data = await _repository.getDashboardData();
-      emit(DashboardLoaded(data));
+      final stats = await _fetchMonthlyStats();
+      emit(DashboardLoaded(data, categoryStats: stats));
     } catch (e) {
       emit(DashboardError(e.toString()));
     }
@@ -30,12 +36,42 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     DashboardRefreshRequested event,
     Emitter<DashboardState> emit,
   ) async {
-    // Không emit loading state khi refresh để tránh flicker
     try {
       final data = await _repository.getDashboardData();
-      emit(DashboardLoaded(data));
+      final stats = await _fetchMonthlyStats();
+      emit(DashboardLoaded(data, categoryStats: stats));
     } catch (e) {
       emit(DashboardError(e.toString()));
+    }
+  }
+
+  Future<Map<String, double>> _fetchMonthlyStats() async {
+    try {
+      final now = DateTime.now();
+      final rawTransactions = await _repository.getTransactionsWithFilter(
+        month: now.month,
+        year: now.year,
+        type: 'expense',
+      );
+
+      final Map<String, double> stats = {};
+      for (var item in rawTransactions) {
+        final category = item['category'] ?? 'Khác';
+        double amount = 0.0;
+
+        if (item['amount'] is num) {
+          amount = (item['amount'] as num).toDouble();
+        } else if (item['amount'] is String) {
+          amount = double.tryParse(item['amount']) ?? 0.0;
+        }
+
+        // Use absolute value for stats (chart needs positive values)
+        stats[category] = (stats[category] ?? 0) + amount.abs();
+      }
+      return stats;
+    } catch (e) {
+      print('Error calculating stats: $e');
+      return {};
     }
   }
 }

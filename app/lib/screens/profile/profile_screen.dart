@@ -14,6 +14,11 @@ import 'package:MoneyPod/bloc/auth/auth_bloc.dart';
 import 'package:MoneyPod/bloc/auth/auth_event.dart';
 import 'package:MoneyPod/services/biometric_service.dart';
 import '../../main.dart';
+import '../../utils/popup_notification.dart';
+import '../../bloc/dashboard/dashboard_bloc.dart';
+import '../../bloc/dashboard/dashboard_event.dart';
+import '../../bloc/savings/savings_bloc.dart';
+import '../../bloc/savings/savings_event.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileService profileService;
@@ -69,6 +74,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _error = 'Không tải được thông tin: $e';
         _loading = false;
       });
+    }
+
+    // Auto-sync for biometric storage (silent update)
+    if (_profile != null &&
+        _profile!.email != null &&
+        _profile!.email!.isNotEmpty) {
+      try {
+        final email = _profile!.email!;
+        final password = await _biometricService.getPassword(email);
+        if (password != null) {
+          await _biometricService.saveAccount(
+            email: email,
+            password: password,
+            name: _profile!.fullName ?? email,
+            avatarUrl: _profile!.avatarUrl,
+          );
+        }
+      } catch (_) {}
     }
   }
 
@@ -166,33 +189,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _onVerificationSuccess(String phone) async {
     // Call backend API
-    final success = await widget.profileService.updatePhoneNumber(
-      widget.token,
-      phone,
-    );
+    try {
+      await widget.profileService.updatePhoneNumber(widget.token, phone);
 
-    if (success) {
       if (mounted) Navigator.pop(context); // Close sheet
       await _loadProfile();
       _showSuccess('Liên kết số điện thoại thành công!');
-    } else {
+    } catch (e) {
       setState(() => _loading = false);
-      _showError('Lỗi cập nhật số điện thoại lên server');
+      String msg = e.toString();
+      if (msg.startsWith("Exception: ")) {
+        msg = msg.substring(11); // Remove "Exception: " prefix
+      }
+      _showError(msg);
     }
   }
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
-    );
+    PopupNotification.showError(context, msg);
   }
 
   void _showSuccess(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.success),
-    );
+    PopupNotification.showSuccess(context, msg);
   }
 
   void _showPhoneInputSheet() {
@@ -339,10 +359,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _timer = Timer.periodic(
                                       const Duration(seconds: 1),
                                       (timer) {
-                                        if (_countdown == 0)
+                                        if (_countdown == 0) {
                                           timer.cancel();
-                                        else
+                                        } else {
                                           _countdown--;
+                                        }
                                         setSheetState(() {});
                                       },
                                     );
@@ -414,6 +435,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Dispatch logout event to bloc
       if (mounted) {
         context.read<AuthBloc>().add(AuthLogoutRequested());
+
+        // Reset Global Blocs
+        context.read<SavingsBloc>().add(ResetSavings());
+        context.read<DashboardBloc>().add(DashboardReset());
+
         // Navigate to login
         context.go('/login');
       }
@@ -546,12 +572,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateProfile(String newName) async {
     if (newName.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tên không được để trống'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Tên không được để trống');
       return;
     }
 
@@ -565,35 +586,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (updated != null) {
-        setState(() {
-          _profile = updated;
-          _loading = false;
-        });
+        // Reload full profile to get all fields including avatar
+        await _loadProfile();
+
+        // Sync new name to Biometric storage if exists
+        try {
+          final email = _profile?.email;
+          if (email != null) {
+            final password = await _biometricService.getPassword(email);
+            if (password != null) {
+              await _biometricService.saveAccount(
+                email: email,
+                password: password,
+                name: newName.trim(),
+                avatarUrl: _profile?.avatarUrl,
+              );
+            }
+          }
+        } catch (e) {
+          print('Error syncing biometric name: $e');
+        }
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thành công'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          // Refresh Dashboard to sync user info
+          context.read<DashboardBloc>().add(DashboardRefreshRequested());
+          PopupNotification.showSuccess(context, 'Cập nhật thành công');
         }
       } else {
         setState(() => _loading = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thất bại'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          PopupNotification.showError(context, 'Cập nhật thất bại');
         }
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
   }
@@ -688,32 +716,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (avatarUrl != null) {
           await _loadProfile(); // Reload to get updated avatar
+
+          // Sync new avatar to Biometric storage if exists
+          try {
+            final email = _profile?.email;
+            if (email != null) {
+              final password = await _biometricService.getPassword(email);
+              if (password != null) {
+                await _biometricService.saveAccount(
+                  email: email,
+                  password: password,
+                  name: _profile?.fullName ?? email,
+                  avatarUrl: avatarUrl,
+                );
+              }
+            }
+          } catch (e) {
+            print('Error syncing biometric avatar: $e');
+          }
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cập nhật ảnh đại diện thành công'),
-                backgroundColor: AppColors.success,
-              ),
+            PopupNotification.showSuccess(
+              context,
+              'Cập nhật ảnh đại diện thành công',
             );
           }
         } else {
           setState(() => _loading = false);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Không thể tải ảnh lên'),
-                backgroundColor: AppColors.danger,
-              ),
-            );
+            PopupNotification.showError(context, 'Không thể tải ảnh lên');
           }
         }
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
   }
@@ -1048,8 +1086,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Thông báo',
             iconColor: AppColors.warning,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
+              PopupNotification.showSuccess(
+                context,
+                'Chức năng đang phát triển',
               );
             },
           ),
@@ -1058,11 +1097,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: LucideIcons.lock,
             label: 'Đổi mật khẩu',
             iconColor: AppColors.primary,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
-              );
-            },
+            onTap: () => context.push('/profile/change-password'),
           ),
           Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
           _buildSettingsItem(
@@ -1070,8 +1105,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Trợ giúp & Hỗ trợ',
             iconColor: AppColors.textSecondary,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
+              PopupNotification.showSuccess(
+                context,
+                'Chức năng đang phát triển',
               );
             },
           ),
@@ -1098,10 +1134,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBiometricToggle() {
-    return FutureBuilder<bool>(
-      future: _biometricService.isBiometricEnabled(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _biometricService.getSavedAccounts(),
       builder: (context, snapshot) {
-        final isEnabled = snapshot.data ?? false;
+        final accounts = snapshot.data ?? [];
+        final currentAccount = accounts.firstWhere(
+          (acc) => acc['email'] == _profile?.email,
+          orElse: () => <String, dynamic>{},
+        );
+        // Check if account exists AND has biometric enabled
+        final isEnabled =
+            currentAccount.isNotEmpty &&
+            (currentAccount['biometric_enabled'] ?? false) == true;
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -1132,7 +1176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Switch(
                 value: isEnabled,
-                activeColor: AppColors.primary,
+                activeThumbColor: AppColors.primary,
                 onChanged: (value) => _handleBiometricToggle(value),
               ),
             ],
@@ -1147,67 +1191,225 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Bật: Cần nhập mật khẩu để lưu
       final authorized = await _showPasswordDialog();
       if (authorized != null) {
-        final success = await _biometricService.enableBiometricLogin(
-          _profile?.email ?? '',
-          authorized,
+        // Verify password using AuthService
+        // Note: Using AuthService to re-login verifies the password
+        final result = await _authService.login(
+          email: _profile?.email ?? '',
+          password: authorized,
         );
-        if (success) {
-          setState(() {}); // Rebuild to update toggle
+
+        if (result['success'] == true) {
+          // 1. Authenticate first to ensure user can use biometrics
+          final authenticated = await _biometricService.authenticate();
+
+          if (authenticated) {
+            // 2. Save full account details
+            // Proper fallback: check for null AND empty string
+            String displayName = _profile?.email ?? 'User';
+            if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) {
+              displayName = _profile!.fullName!;
+            }
+
+            await _biometricService.saveAccount(
+              email: _profile?.email ?? '',
+              password: authorized,
+              name: displayName,
+              avatarUrl: _profile?.avatarUrl,
+            );
+
+            setState(() {}); // Rebuild to update toggle
+            if (mounted) {
+              PopupNotification.showSuccess(
+                context,
+                'Đã bật đăng nhập bằng sinh trắc học',
+              );
+            }
+          } else {
+            if (mounted) {
+              PopupNotification.showError(
+                context,
+                'Xác thực sinh trắc học thất bại',
+              );
+            }
+          }
+        } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đã bật đăng nhập bằng sinh trắc học'),
-                backgroundColor: AppColors.success,
-              ),
+            PopupNotification.showError(
+              context,
+              'Mật khẩu không đúng. Vui lòng thử lại.',
             );
           }
         }
       }
     } else {
-      // Tắt
-      await _biometricService.disableBiometricLogin();
-      setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã tắt đăng nhập bằng sinh trắc học')),
+      // Tắt - Yêu cầu xác thực mật khẩu trước khi tắt
+      final authorized = await _showPasswordDialog();
+      if (authorized != null) {
+        final result = await _authService.login(
+          email: _profile?.email ?? '',
+          password: authorized,
         );
+
+        if (result['success'] == true) {
+          if (_profile?.email != null) {
+            // Update account to disabled biometric but keep info
+            // Proper fallback: check for null AND empty string
+            String displayName = _profile?.email ?? 'User';
+            if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) {
+              displayName = _profile!.fullName!;
+            }
+
+            await _biometricService.saveAccount(
+              email: _profile!.email!,
+              name: displayName,
+              avatarUrl: _profile?.avatarUrl,
+              password: null, // No password needed for disabled state
+              biometricEnabled: false,
+            );
+          }
+          setState(() {});
+          if (mounted) {
+            PopupNotification.showSuccess(
+              context,
+              'Đã tắt đăng nhập bằng sinh trắc học',
+            );
+          }
+        } else {
+          if (mounted) {
+            PopupNotification.showError(
+              context,
+              'Mật khẩu không đúng. Vui lòng thử lại.',
+            );
+          }
+        }
       }
     }
   }
 
   Future<String?> _showPasswordDialog() async {
     final passwordController = TextEditingController();
+    bool isObscure = true;
+
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận mật khẩu'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Vui lòng nhập mật khẩu hiện tại để kích hoạt tính năng này.',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Mật khẩu',
-                border: OutlineInputBorder(),
+            title: const Text(
+              'Xác nhận mật khẩu',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
+              textAlign: TextAlign.center,
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, passwordController.text),
-            child: const Text('Xác nhận'),
-          ),
-        ],
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Vui lòng nhập mật khẩu hiện tại để xác thực hành động này.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: passwordController,
+                  obscureText: isObscure,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 16),
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 2,
+                      ),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        isObscure ? LucideIcons.eye : LucideIcons.eyeOff,
+                        color: AppColors.textMuted,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          isObscure = !isObscure;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Hủy',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          Navigator.pop(context, passwordController.text),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Xác nhận',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

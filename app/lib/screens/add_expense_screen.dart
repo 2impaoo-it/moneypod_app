@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../main.dart'; // Import for AppColors
+
 import '../models/profile.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import '../utils/currency_input_formatter.dart';
+import '../utils/popup_notification.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final String? preSelectedGroupId;
@@ -32,7 +35,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _currentUserId;
 
   // Multi-image
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false;
@@ -78,14 +81,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               _loadGroupMembers(_selectedGroupId!);
             }
           }
+          // Default payer to current user if available
+          if (_selectedPayerId == null && _currentUserId != null) {
+            _selectedPayerId = _currentUserId;
+          }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingGroups = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi tải dữ liệu: $e')));
+        PopupNotification.showError(context, 'Lỗi tải dữ liệu: $e');
       }
     }
   }
@@ -116,18 +121,67 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  Future<void> _pickImages() async {
+  void _showImageOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Chụp ảnh'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromCamera();
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library,
+                color: AppColors.primary,
+              ),
+              title: const Text('Chọn từ thư viện'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickMultiImage();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImageFromCamera() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage();
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        setState(() {
+          _selectedImages.add(File(image.path));
+        });
+      }
+    } catch (e) {
+      PopupNotification.showError(context, 'Lỗi chụp ảnh: $e');
+    }
+  }
+
+  Future<void> _pickMultiImage() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(imageQuality: 85);
       if (images.isNotEmpty) {
         setState(() {
           _selectedImages.addAll(images.map((img) => File(img.path)));
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi chọn ảnh: $e')));
+      PopupNotification.showError(context, 'Lỗi chọn ảnh: $e');
     }
   }
 
@@ -155,21 +209,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           _descriptionController.text = desc;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Đã phân tích hóa đơn!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        PopupNotification.showSuccess(context, '✅ Đã phân tích hóa đơn!');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Lỗi AI: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        PopupNotification.showError(context, '⚠️ Lỗi AI: $e');
       }
     } finally {
       setState(() => _isAnalyzing = false);
@@ -181,31 +225,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final description = _descriptionController.text.trim();
 
     if (amountText.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số tiền')));
+      PopupNotification.showError(context, 'Vui lòng nhập số tiền');
       return;
     }
 
     final amount = parseCurrency(amountText);
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Số tiền không hợp lệ')));
+      PopupNotification.showError(context, 'Số tiền không hợp lệ');
       return;
     }
 
     if (_selectedGroupId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn nhóm')));
+      PopupNotification.showError(context, 'Vui lòng chọn nhóm');
       return;
     }
 
     if (description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập nội dung chi tiêu')),
-      );
+      PopupNotification.showError(context, 'Vui lòng nhập nội dung chi tiêu');
       return;
     }
 
@@ -240,12 +276,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         if ((totalSplit - amount).abs() > 1000) {
           // Tolerance 1000 VND
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Tổng tiền chia (${formatCurrency(totalSplit)}) không khớp với tổng hóa đơn (${formatCurrency(amount)})',
-                ),
-              ),
+            PopupNotification.showError(
+              context,
+              'Tổng tiền chia (${formatCurrency(totalSplit)}) không khớp với tổng hóa đơn (${formatCurrency(amount)})',
             );
             setState(() => _isLoading = false);
             return;
@@ -263,19 +296,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Đã thêm chi tiêu thành công!'),
-            backgroundColor: Colors.green,
-          ),
+        PopupNotification.showSuccess(
+          context,
+          '✅ Đã thêm chi tiêu thành công!',
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Lỗi: $e'), backgroundColor: Colors.red),
-        );
+        PopupNotification.showError(context, '❌ Lỗi: $e');
         setState(() => _isLoading = false);
       }
     }
@@ -355,13 +384,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 hintText: 'Ví dụ: Ăn trưa, xem phim...',
                 filled: true,
                 fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 16,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
@@ -398,8 +427,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     onChanged: (val) {
                       setState(() {
                         _selectedGroupId = val;
-                        // Reset Payer to default "Me"
-                        _selectedPayerId = null;
+                        // Reset Payer to current user
+                        if (_currentUserId != null) {
+                          _selectedPayerId = _currentUserId;
+                        }
                         // Load members for new group
                         if (val != null) {
                           _loadGroupMembers(val);
@@ -481,7 +512,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 const Divider(),
               ] else
                 Container(
@@ -527,32 +558,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: _selectedPayerId,
+                  // Updated: check if value exists in list or defaults
+                  value:
+                      _groupMembers.any((m) {
+                        final u = m['user'] ?? {};
+                        final uid = u['id'] ?? m['id'] ?? '';
+                        return uid.toString() == _selectedPayerId;
+                      })
+                      ? _selectedPayerId
+                      : null,
                   isExpanded: true,
-                  hint: const Text("Tôi (Mặc định)"),
+                  hint: const Text("Chọn người trả"),
                   icon: const Icon(Icons.person),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text("Tôi (Mặc định)"),
-                    ),
-                    ..._groupMembers.map((m) {
-                      // m is {user: {}, role: ...} or sometimes flat depending on API
-                      // Let's assume standard structure from getGroupDetails
-                      final user = m['user'] ?? {};
-                      final userId = user['id'] ?? m['id'] ?? ''; // Fallback
-                      final userName =
-                          user['full_name'] ??
-                          user['name'] ??
-                          m['email'] ??
-                          'Thành viên';
+                  items: _groupMembers.map((m) {
+                    final user = m['user'] ?? {};
+                    final userId = user['id'] ?? m['id'] ?? ''; // Fallback
+                    final userName =
+                        user['full_name'] ??
+                        user['name'] ??
+                        m['email'] ??
+                        'Thành viên';
 
-                      return DropdownMenuItem<String>(
-                        value: userId.toString(),
-                        child: Text(userName),
-                      );
-                    }).toList(),
-                  ],
+                    return DropdownMenuItem<String>(
+                      value: userId.toString(),
+                      child: Text(userName),
+                    );
+                  }).toList(),
                   onChanged: (val) {
                     setState(() => _selectedPayerId = val);
                   },
@@ -594,7 +625,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 children: [
                   // Add Button
                   GestureDetector(
-                    onTap: _pickImages,
+                    onTap: _showImageOptions,
                     child: Container(
                       width: 100,
                       height: 100,
@@ -661,7 +692,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

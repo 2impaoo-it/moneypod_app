@@ -11,8 +11,9 @@ class DashboardLoading extends DashboardState {}
 /// Trạng thái đã load thành công
 class DashboardLoaded extends DashboardState {
   final DashboardData data;
+  final Map<String, double> categoryStats; // { 'Category': totalAmount }
 
-  DashboardLoaded(this.data);
+  DashboardLoaded(this.data, {this.categoryStats = const {}});
 }
 
 /// Trạng thái lỗi

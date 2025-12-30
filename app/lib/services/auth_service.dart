@@ -96,4 +96,76 @@ class AuthService {
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
+
+  // Đổi mật khẩu (khi đã đăng nhập)
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Bạn cần đăng nhập lại'};
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/change-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'old_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Đổi mật khẩu thành công',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? 'Đổi mật khẩu thất bại',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    }
+  }
+
+  // Quên mật khẩu (gửi email reset)
+  Future<Map<String, dynamic>> forgotPassword({required String email}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/forgot-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'email': email}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Đã gửi email khôi phục mật khẩu',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? 'Không thể gửi email khôi phục',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
@@ -10,9 +11,7 @@ import '../bloc/dashboard/dashboard_event.dart';
 import '../models/transaction.dart' as model;
 import '../widgets/header_widget.dart';
 import '../models/profile.dart';
-import 'bill_scan_screen.dart';
-import 'create_wallet_screen.dart';
-import 'wallet_list_screen.dart';
+import '../utils/popup_notification.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,6 +21,12 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<DashboardBloc>().add(DashboardLoadRequested());
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(
@@ -155,12 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         // Nút xem danh sách ví
                         InkWell(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const WalletListScreen(),
-                              ),
-                            );
+                            context.push('/wallet-list');
                           },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
@@ -213,12 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         LucideIcons.scanLine,
                         "Quét Bill",
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const BillScanScreen(),
-                            ),
-                          );
+                          context.push('/bill-scan');
                         },
                       ),
                       _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
@@ -233,22 +228,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         "Thêm ví",
                         onTap: () async {
                           // Mở màn hình tạo ví và chờ kết quả
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CreateWalletScreen(),
-                            ),
-                          );
+                          final result = await context.push('/create-wallet');
 
                           // Nếu tạo thành công (result == true)
-                          // TODO: Reload danh sách ví ở đây
                           if (result == true && context.mounted) {
-                            // context.read<WalletBloc>().add(LoadWalletList());
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Vui lòng làm mới để xem ví mới'),
-                                duration: Duration(seconds: 2),
-                              ),
+                            context.read<DashboardBloc>().add(
+                              DashboardRefreshRequested(),
+                            );
+                            PopupNotification.showSuccess(
+                              context,
+                              'Ví mới đã được tạo!',
                             );
                           }
                         },
@@ -315,74 +304,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 24),
 
                   // --- SPENDING CHART ---
-                  const Text(
-                    "Phân bổ chi tiêu",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: PieChart(
-                            PieChartData(
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 40,
-                              sections: [
-                                _buildPieSection(
-                                  40,
-                                  AppColors.primary,
-                                ), // Ăn uống
-                                _buildPieSection(25, Colors.blue), // Di chuyển
-                                _buildPieSection(15, Colors.pink), // Mua sắm
-                                _buildPieSection(
-                                  10,
-                                  AppColors.purple,
-                                ), // Giải trí
-                                _buildPieSection(10, Colors.grey), // Khác
-                              ],
+                  if (state.categoryStats.isNotEmpty) ...[
+                    const Text(
+                      "Phân bổ chi tiêu tháng này",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: PieChart(
+                              PieChartData(
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 40,
+                                sections: _generatePieSections(
+                                  state.categoryStats,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          flex: 1,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _ChartLegend(
-                                color: AppColors.primary,
-                                label: "Ăn uống",
-                                percent: "40%",
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: _generateLegends(state.categoryStats),
                               ),
-                              _ChartLegend(
-                                color: Colors.blue,
-                                label: "Di chuyển",
-                                percent: "25%",
-                              ),
-                              _ChartLegend(
-                                color: Colors.pink,
-                                label: "Mua sắm",
-                                percent: "15%",
-                              ),
-                              _ChartLegend(
-                                color: AppColors.purple,
-                                label: "Giải trí",
-                                percent: "10%",
-                              ),
-                              _ChartLegend(
-                                color: Colors.grey,
-                                label: "Khác",
-                                percent: "10%",
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    const Text(
+                      "Phân bổ chi tiêu",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      height: 150,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text("Chưa có dữ liệu chi tiêu tháng này"),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
                   const SizedBox(height: 24),
 
                   // --- RECENT TRANSACTIONS ---
@@ -397,7 +376,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          context.go('/transactions');
+                        },
                         child: const Text(
                           "Xem tất cả",
                           style: TextStyle(color: AppColors.primary),
@@ -501,16 +482,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  PieChartSectionData _buildPieSection(double value, Color color) {
-    return PieChartSectionData(
-      color: color,
-      value: value,
-      title: '',
-      radius: 20,
-    );
+  // --- HELPER METHODS FOR CHART ---
+
+  List<PieChartSectionData> _generatePieSections(Map<String, double> stats) {
+    double total = stats.values.fold(0, (sum, item) => sum + item);
+    if (total == 0) return [];
+
+    return stats.entries.map((entry) {
+      final percentage = (entry.value / total) * 100;
+      final color = _getColorForCategory(entry.key);
+      return PieChartSectionData(
+        color: color,
+        value: percentage,
+        title: '',
+        radius: 20,
+      );
+    }).toList();
+  }
+
+  List<Widget> _generateLegends(Map<String, double> stats) {
+    double total = stats.values.fold(0, (sum, item) => sum + item);
+    if (total == 0) return [];
+
+    return stats.entries.map((entry) {
+      final percentage = (entry.value / total) * 100;
+      return _ChartLegend(
+        color: _getColorForCategory(entry.key),
+        label: entry.key,
+        percent: "${percentage.toStringAsFixed(1)}%",
+      );
+    }).toList();
+  }
+
+  Color _getColorForCategory(String category) {
+    switch (category) {
+      case 'Ăn uống':
+        return AppColors.primary;
+      case 'Di chuyển':
+        return Colors.blue;
+      case 'Mua sắm':
+        return Colors.pink;
+      case 'Giải trí':
+        return AppColors.purple;
+      case 'Y tế':
+        return Colors.red;
+      case 'Giáo dục':
+        return Colors.orange;
+      case 'Hóa đơn':
+        return Colors.cyan;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildTransactionItem(model.Transaction tx, NumberFormat fmt) {
+    // Mapping style based on category
+    final style = _getCategoryStyle(tx.category);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -524,22 +552,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.background,
+              color: style.bgColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              tx.category == 'Ăn uống'
-                  ? LucideIcons.coffee
-                  : tx.category == 'Di chuyển'
-                  ? LucideIcons.car
-                  : tx.category == 'Mua sắm'
-                  ? LucideIcons.shoppingBag
-                  : tx.category == 'Lương'
-                  ? LucideIcons.banknote
-                  : LucideIcons.gamepad2,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            child: Icon(style.icon, color: style.iconColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -563,7 +579,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    if (tx.hashtag != null) ...[
+                    if (tx.hashtag != null && tx.hashtag != tx.category) ...[
                       const SizedBox(width: 8),
                       Text(
                         tx.hashtag!,
@@ -601,6 +617,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  _CategoryStyle _getCategoryStyle(String category) {
+    final lowerCategory = category.toLowerCase();
+
+    if (lowerCategory.contains('ăn') ||
+        lowerCategory.contains('food') ||
+        lowerCategory.contains('ăn uống')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFCCFBF1), // teal-100
+        iconColor: const Color(0xFF0D9488), // teal-600
+        icon: LucideIcons.utensils,
+      );
+    } else if (lowerCategory.contains('di chuyển') ||
+        lowerCategory.contains('transport')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFDBEAFE), // blue-100
+        iconColor: const Color(0xFF2563EB), // blue-600
+        icon: LucideIcons.car,
+      );
+    } else if (lowerCategory.contains('mua sắm') ||
+        lowerCategory.contains('shopping')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFCE7F3), // pink-100
+        iconColor: const Color(0xFFDB2777), // pink-600
+        icon: LucideIcons.shoppingBag,
+      );
+    } else if (lowerCategory.contains('giải trí') ||
+        lowerCategory.contains('entertainment')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFF3E8FF), // purple-100
+        iconColor: const Color(0xFF9333EA), // purple-600
+        icon: LucideIcons.gamepad2,
+      );
+    } else if (lowerCategory.contains('lương') ||
+        lowerCategory.contains('salary')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFDCFCE7), // green-100
+        iconColor: const Color(0xFF16A34A), // green-600
+        icon: LucideIcons.wallet,
+      );
+    } else if (lowerCategory.contains('hóa đơn') ||
+        lowerCategory.contains('bill')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFFEDD5), // orange-100
+        iconColor: const Color(0xFFEA580C), // orange-600
+        icon: LucideIcons.fileText,
+      );
+    } else if (lowerCategory.contains('sức khỏe') ||
+        lowerCategory.contains('health')) {
+      return _CategoryStyle(
+        bgColor: const Color(0xFFFEE2E2), // red-100
+        iconColor: const Color(0xFFDC2626), // red-600
+        icon: LucideIcons.heart,
+      );
+    }
+
+    return _CategoryStyle(
+      bgColor: const Color(0xFFF3F4F6), // gray-100
+      iconColor: const Color(0xFF4B5563), // gray-600
+      icon: LucideIcons.moreHorizontal,
     );
   }
 }
@@ -645,4 +723,16 @@ class _ChartLegend extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CategoryStyle {
+  final Color bgColor;
+  final Color iconColor;
+  final IconData icon;
+
+  _CategoryStyle({
+    required this.bgColor,
+    required this.iconColor,
+    required this.icon,
+  });
 }

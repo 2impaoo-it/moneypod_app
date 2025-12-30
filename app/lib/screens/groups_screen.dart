@@ -4,6 +4,7 @@ import '../repositories/group_repository.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
+import '../utils/popup_notification.dart';
 
 // Helper format tiền tệ đơn giản (VD: 2500000 -> 2.500.000 ₫)
 String formatCurrency(int amount) {
@@ -128,9 +129,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi tải danh sách nhóm: $e')));
+        PopupNotification.showError(context, 'Lỗi tải danh sách nhóm: $e');
       }
     }
   }
@@ -145,6 +144,166 @@ class _GroupsScreenState extends State<GroupsScreen> {
     context.push(
       '/groups/${group['id']}',
       extra: {'groupName': group['name'], 'inviteCode': group['inviteCode']},
+    );
+  }
+
+  void _showJoinGroupDialog() {
+    final codeController = TextEditingController();
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.slate300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Title
+                  const Text(
+                    'Tham gia nhóm',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.slate900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Nhập mã mời để tham gia nhóm chi tiêu',
+                    style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                  ),
+                  const SizedBox(height: 20),
+                  // Input field
+                  TextField(
+                    controller: codeController,
+                    textCapitalization: TextCapitalization.characters,
+                    autofocus: true,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Nhập mã mời',
+                      hintStyle: const TextStyle(
+                        fontWeight: FontWeight.normal,
+                        letterSpacing: 0,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.vpn_key_outlined,
+                        color: AppColors.teal500,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.teal500,
+                          width: 2,
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.slate50,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Submit button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              final code = codeController.text.trim();
+                              if (code.isEmpty) {
+                                PopupNotification.showError(
+                                  context,
+                                  'Vui lòng nhập mã mời',
+                                );
+                                return;
+                              }
+
+                              setModalState(() => isLoading = true);
+
+                              try {
+                                await _groupRepository.joinGroup(code: code);
+                                if (mounted) {
+                                  Navigator.pop(ctx);
+                                  await PopupNotification.showSuccess(
+                                    context,
+                                    'Tham gia nhóm thành công!',
+                                  );
+                                  _fetchGroups();
+                                }
+                              } catch (e) {
+                                setModalState(() => isLoading = false);
+                                if (mounted) {
+                                  PopupNotification.showError(
+                                    context,
+                                    e.toString().replaceAll('Exception: ', ''),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.teal500,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Tham gia',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -252,7 +411,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   // 1. Header
   Widget _buildHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           "Nhóm chi tiêu",
@@ -262,31 +422,70 @@ class _GroupsScreenState extends State<GroupsScreen> {
             color: AppColors.slate900,
           ),
         ),
-        const Spacer(),
-        InkWell(
-          onTap: _navigateToCreateGroup,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.teal500,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.add, color: Colors.white, size: 16),
-                SizedBox(width: 4),
-                Text(
-                  "Tạo nhóm mới",
-                  style: TextStyle(
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            // Nút Tham gia nhóm
+            Expanded(
+              child: InkWell(
+                onTap: _showJoinGroupDialog,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.teal500),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.group_add, color: AppColors.teal500, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        "Tham gia",
+                        style: TextStyle(
+                          color: AppColors.teal500,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            // Nút Tạo nhóm mới
+            Expanded(
+              child: InkWell(
+                onTap: _navigateToCreateGroup,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.teal500,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.add, color: Colors.white, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        "Tạo nhóm mới",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
