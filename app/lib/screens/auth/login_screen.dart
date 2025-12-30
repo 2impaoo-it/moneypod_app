@@ -89,6 +89,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Handle account tap - check if biometric is enabled or disabled
+  Future<void> _handleAccountTap(Map<String, dynamic> account) async {
+    final biometricEnabled = account['biometric_enabled'] ?? true;
+    final email = account['email'] ?? '';
+
+    if (biometricEnabled) {
+      // Biometric enabled - use biometric login
+      await _handleBiometricLogin(account);
+    } else {
+      // Biometric disabled - show password form with email prefilled
+      setState(() {
+        _showLoginForm = true;
+        _emailController.text = email;
+      });
+    }
+  }
+
   // Xóa tài khoản đã lưu
   Future<void> _removeSavedAccount(String email) async {
     await BiometricService().removeAccount(email);
@@ -124,11 +141,33 @@ class _LoginScreenState extends State<LoginScreen> {
             );
 
             if (isAlreadySaved) {
+              // Preserve the existing biometric_enabled status and profile data
+              final existingAccount = savedAccounts.firstWhere(
+                (acc) => acc['email'] == user.email,
+              );
+              final biometricEnabled =
+                  existingAccount['biometric_enabled'] ?? true;
+
+              // Preserve existing name/avatar if new data is empty
+              String nameToSave = displayName;
+              if (displayName == user.email || displayName.isEmpty) {
+                final existingName = existingAccount['name'] as String?;
+                if (existingName != null && existingName.isNotEmpty) {
+                  nameToSave = existingName;
+                }
+              }
+
+              String? avatarToSave = user.avatarUrl;
+              if (avatarToSave == null || avatarToSave.isEmpty) {
+                avatarToSave = existingAccount['avatar_url'] as String?;
+              }
+
               await BiometricService().saveAccount(
                 email: user.email,
-                password: passwordToSave,
-                name: displayName,
-                avatarUrl: user.avatarUrl,
+                password: biometricEnabled ? passwordToSave : null,
+                name: nameToSave,
+                avatarUrl: avatarToSave,
+                biometricEnabled: biometricEnabled,
               );
             }
           }
@@ -249,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 subtitle: Text(email),
                 trailing: const Icon(LucideIcons.chevronRight),
-                onTap: () => _handleBiometricLogin(account),
+                onTap: () => _handleAccountTap(account),
                 onLongPress: () => _showDeleteAccountDialog(account),
               ),
             );

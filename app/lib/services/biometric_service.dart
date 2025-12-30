@@ -96,8 +96,12 @@ class BiometricService {
 
     try {
       final List<dynamic> list = jsonDecode(jsonStr);
-      return list.cast<Map<String, dynamic>>();
+      // Properly cast each item to Map<String, dynamic>
+      return list
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
     } catch (e) {
+      print('Error loading saved accounts: $e');
       return [];
     }
   }

@@ -1138,9 +1138,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       future: _biometricService.getSavedAccounts(),
       builder: (context, snapshot) {
         final accounts = snapshot.data ?? [];
-        final isEnabled = accounts.any(
+        final currentAccount = accounts.firstWhere(
           (acc) => acc['email'] == _profile?.email,
+          orElse: () => <String, dynamic>{},
         );
+        // Check if account exists AND has biometric enabled
+        final isEnabled =
+            currentAccount.isNotEmpty &&
+            (currentAccount['biometric_enabled'] ?? false) == true;
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -1199,10 +1204,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           if (authenticated) {
             // 2. Save full account details
+            // Proper fallback: check for null AND empty string
+            String displayName = _profile?.email ?? 'User';
+            if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) {
+              displayName = _profile!.fullName!;
+            }
+
             await _biometricService.saveAccount(
               email: _profile?.email ?? '',
               password: authorized,
-              name: _profile?.fullName ?? _profile?.email ?? 'User',
+              name: displayName,
               avatarUrl: _profile?.avatarUrl,
             );
 
@@ -1242,9 +1253,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (result['success'] == true) {
           if (_profile?.email != null) {
             // Update account to disabled biometric but keep info
+            // Proper fallback: check for null AND empty string
+            String displayName = _profile?.email ?? 'User';
+            if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) {
+              displayName = _profile!.fullName!;
+            }
+
             await _biometricService.saveAccount(
               email: _profile!.email!,
-              name: _profile?.fullName ?? _profile?.email ?? 'User',
+              name: displayName,
               avatarUrl: _profile?.avatarUrl,
               password: null, // No password needed for disabled state
               biometricEnabled: false,
