@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
-import '../utils/popup_notification.dart';
+import '../bloc/savings/savings_bloc.dart';
+import '../bloc/savings/savings_event.dart';
+import '../bloc/savings/savings_state.dart';
+import '../repositories/savings_repository.dart';
 
 /// Màn hình tạo mục tiêu tiết kiệm mới
-class CreateSavingsGoalScreen extends StatefulWidget {
+class CreateSavingsGoalScreen extends StatelessWidget {
   const CreateSavingsGoalScreen({super.key});
 
   @override
-  State<CreateSavingsGoalScreen> createState() =>
-      _CreateSavingsGoalScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => SavingsBloc(SavingsRepository()),
+      child: const CreateSavingsGoalContent(),
+    );
+  }
 }
 
-class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
+class CreateSavingsGoalContent extends StatefulWidget {
+  const CreateSavingsGoalContent({super.key});
+
+  @override
+  State<CreateSavingsGoalContent> createState() =>
+      _CreateSavingsGoalContentState();
+}
+
+class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _targetAmountController = TextEditingController();
@@ -135,7 +151,7 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
       context: context,
       initialDate:
           _selectedDate ?? DateTime.now().add(const Duration(days: 180)),
-      firstDate: DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
       builder: (context, child) {
         return Theme(
@@ -162,74 +178,149 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      PopupNotification.showError(context, 'Vui lòng chọn ngày mục tiêu');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn ngày mục tiêu'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
 
-    // Giả lập API call
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // Parse số tiền
+      final targetAmount =
+          double.tryParse(
+            _targetAmountController.text.replaceAll(RegExp(r'[^\d]'), ''),
+          ) ??
+          0;
 
-    setState(() => _isLoading = false);
+      // Convert color key to hex
+      String colorHex = '#8B5CF6'; // Default purple
+      switch (_selectedColor) {
+        case 'blue':
+          colorHex = '#3B82F6';
+          break;
+        case 'teal':
+          colorHex = '#14B8A6';
+          break;
+        case 'purple':
+          colorHex = '#8B5CF6';
+          break;
+        case 'orange':
+          colorHex = '#F97316';
+          break;
+        case 'green':
+          colorHex = '#22C55E';
+          break;
+        case 'red':
+          colorHex = '#EF4444';
+          break;
+        case 'pink':
+          colorHex = '#EC4899';
+          break;
+        case 'indigo':
+          colorHex = '#6366F1';
+          break;
+      }
 
-    if (mounted) {
-      await PopupNotification.showSuccess(
-        context,
-        'Tạo mục tiêu tiết kiệm thành công!',
+      // Tạo mục tiêu qua Bloc
+      context.read<SavingsBloc>().add(
+        CreateSavingsGoal(
+          name: _nameController.text,
+          targetAmount: targetAmount,
+          color: colorHex,
+          icon: _selectedIcon,
+          deadline: _selectedDate,
+        ),
       );
-      if (mounted) context.pop(true);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.x, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Mục tiêu mới',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+    return BlocListener<SavingsBloc, SavingsState>(
+      listener: (context, state) {
+        if (state is SavingsLoading) {
+          setState(() => _isLoading = true);
+        } else if (state is SavingsActionSuccess) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          context.pop(true);
+        } else if (state is SavingsError) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(LucideIcons.x, color: AppColors.textPrimary),
+            onPressed: () => Navigator.pop(context),
           ),
+          title: const Text(
+            'Mục tiêu mới',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Preview Card
-              _buildPreviewCard(),
-              const SizedBox(height: 20),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Preview Card
+                _buildPreviewCard(),
+                const SizedBox(height: 20),
 
-              // Basic Info
-              _buildBasicInfoCard(),
-              const SizedBox(height: 20),
+                // Basic Info
+                _buildBasicInfoCard(),
+                const SizedBox(height: 20),
 
-              // Icon Selection
-              _buildIconSelectionCard(),
-              const SizedBox(height: 20),
+                // Icon Selection
+                _buildIconSelectionCard(),
+                const SizedBox(height: 20),
 
-              // Color Selection
-              _buildColorSelectionCard(),
-              const SizedBox(height: 24),
+                // Color Selection
+                _buildColorSelectionCard(),
+                const SizedBox(height: 24),
 
-              // Action Buttons
-              _buildActionButtons(),
-              const SizedBox(height: 40),
-            ],
+                // Action Buttons
+                _buildActionButtons(),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
