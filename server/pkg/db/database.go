@@ -38,6 +38,7 @@ func ConnectDatabase() {
 		&models.GroupMember{},
 		&models.Expense{},
 		&models.Debt{},
+		&models.DebtPaymentRequest{}, // Bảng debt_payment_requests
 		&models.SavingsGoal{},        // Bảng savings_goals
 		&models.SavingsTransaction{}, // Bảng savings_transactions
 	)

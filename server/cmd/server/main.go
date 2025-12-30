@@ -144,6 +144,13 @@ func main() {
 		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember)         // Kick thành viên
 		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)                      // Rời nhóm
 		protected.PUT("/groups/debts/:debt_id/paid", groupHandler.MarkDebtPaid)
+		
+		// Payment Request System (New)
+		protected.POST("/groups/debts/:debt_id/payment-request", groupHandler.RequestDebtPayment)       // Người nợ gửi request trả nợ
+		protected.GET("/groups/payment-requests", groupHandler.GetPendingPaymentRequests)               // Lấy danh sách request chờ xác nhận
+		protected.POST("/groups/payment-requests/:request_id/confirm", groupHandler.ConfirmDebtPayment) // Chủ nợ xác nhận
+		protected.POST("/groups/payment-requests/:request_id/reject", groupHandler.RejectDebtPayment)   // Chủ nợ từ chối
+		
 		protected.GET("/groups/:id/my-debts", groupHandler.GetMyDebts)
 		protected.GET("/groups/:id/debts-to-me", groupHandler.GetDebtsToMe)
 		protected.DELETE("/groups/:id", groupHandler.DeleteGroup)

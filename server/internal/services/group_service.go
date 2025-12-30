@@ -729,3 +729,239 @@ func (s *GroupService) UpdateExpense(requesterID uuid.UUID, expenseID uuid.UUID,
 
 	return tx.Commit().Error
 }
+
+// RequestDebtPayment: Người nợ gửi request đã trả nợ
+func (s *GroupService) RequestDebtPayment(debtID uuid.UUID, fromUserID uuid.UUID, paymentWalletID uuid.UUID, note string) error {
+	// 1. Kiểm tra debt có tồn tại không
+	var debt models.Debt
+	if err := s.db.Preload("Expense").First(&debt, "id = ?", debtID).Error; err != nil {
+		return errors.New("khoản nợ không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền: Phải là người nợ (FromUserID)
+	if debt.FromUserID != fromUserID {
+		return errors.New("bạn không phải người nợ của khoản này")
+	}
+
+	// 3. Kiểm tra đã trả chưa
+	if debt.IsPaid {
+		return errors.New("khoản nợ này đã được thanh toán rồi")
+	}
+
+	// 4. Kiểm tra đã có request pending chưa
+	var existingRequest models.DebtPaymentRequest
+	err := s.db.Where("debt_id = ? AND status = ?", debtID, "PENDING").First(&existingRequest).Error
+	if err == nil {
+		return errors.New("đã có request trả nợ đang chờ xác nhận")
+	}
+
+	// 5. Kiểm tra ví có thuộc về người nợ không
+	var wallet models.Wallet
+	if err := s.db.Where("id = ? AND user_id = ?", paymentWalletID, fromUserID).First(&wallet).Error; err != nil {
+		return errors.New("ví thanh toán không hợp lệ hoặc không thuộc về bạn")
+	}
+
+	// 6. Kiểm tra số dư
+	if wallet.Balance < debt.Amount {
+		return errors.New("số dư ví không đủ để thanh toán")
+	}
+
+	// 7. Tạo payment request
+	paymentRequest := models.DebtPaymentRequest{
+		DebtID:          debtID,
+		FromUserID:      fromUserID,
+		ToUserID:        debt.ToUserID,
+		PaymentWalletID: paymentWalletID,
+		Amount:          debt.Amount,
+		Status:          "PENDING",
+		Note:            note,
+	}
+
+	if err := s.db.Create(&paymentRequest).Error; err != nil {
+		return err
+	}
+
+	// 8. Gửi thông báo cho chủ nợ
+	go func() {
+		var debtor, creditor models.User
+		s.db.Select("full_name, fcm_token").First(&debtor, "id = ?", fromUserID)
+		s.db.Select("full_name, fcm_token").First(&creditor, "id = ?", debt.ToUserID)
+
+		if creditor.FCMToken != "" && s.notifService != nil {
+			title := "💰 Yêu cầu xác nhận thanh toán"
+			body := fmt.Sprintf("%s thông báo đã trả nợ %.0f đ. Vui lòng xác nhận!", debtor.FullName, debt.Amount)
+			s.notifService.SendNotification(creditor.FCMToken, title, body)
+		}
+	}()
+
+	return nil
+}
+
+// GetPendingPaymentRequests: Lấy danh sách request trả nợ chờ xác nhận (của chủ nợ)
+func (s *GroupService) GetPendingPaymentRequests(userID uuid.UUID) ([]models.DebtPaymentRequest, error) {
+	var requests []models.DebtPaymentRequest
+
+	err := s.db.Preload("Debt").Preload("Debt.Expense").
+		Where("to_user_id = ? AND status = ?", userID, "PENDING").
+		Order("created_at desc").
+		Find(&requests).Error
+
+	return requests, err
+}
+
+// ConfirmDebtPayment: Chủ nợ xác nhận đã nhận tiền
+func (s *GroupService) ConfirmDebtPayment(requestID uuid.UUID, creditorID uuid.UUID, receiveWalletID uuid.UUID) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 1. Lấy payment request
+	var paymentRequest models.DebtPaymentRequest
+	if err := tx.Preload("Debt").First(&paymentRequest, "id = ?", requestID).Error; err != nil {
+		tx.Rollback()
+		return errors.New("request không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền: Phải là chủ nợ
+	if paymentRequest.ToUserID != creditorID {
+		tx.Rollback()
+		return errors.New("bạn không phải chủ nợ của khoản này")
+	}
+
+	// 3. Kiểm tra status
+	if paymentRequest.Status != "PENDING" {
+		tx.Rollback()
+		return errors.New("request này đã được xử lý rồi")
+	}
+
+	// 4. Kiểm tra ví nhận tiền có thuộc về chủ nợ không
+	var receiveWallet models.Wallet
+	if err := tx.Where("id = ? AND user_id = ?", receiveWalletID, creditorID).First(&receiveWallet).Error; err != nil {
+		tx.Rollback()
+		return errors.New("ví nhận tiền không hợp lệ hoặc không thuộc về bạn")
+	}
+
+	// 5. Lấy ví trả tiền của người nợ
+	var paymentWallet models.Wallet
+	if err := tx.Where("id = ?", paymentRequest.PaymentWalletID).First(&paymentWallet).Error; err != nil {
+		tx.Rollback()
+		return errors.New("ví thanh toán không tồn tại")
+	}
+
+	// 6. Kiểm tra số dư người nợ
+	if paymentWallet.Balance < paymentRequest.Amount {
+		tx.Rollback()
+		return errors.New("người nợ không đủ số dư trong ví để thanh toán")
+	}
+
+	// 7. Thực hiện chuyển tiền
+	// Trừ tiền ví người nợ
+	paymentWallet.Balance -= paymentRequest.Amount
+	if err := tx.Save(&paymentWallet).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Cộng tiền ví chủ nợ
+	receiveWallet.Balance += paymentRequest.Amount
+	if err := tx.Save(&receiveWallet).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 8. Cập nhật debt status
+	var debt models.Debt
+	if err := tx.First(&debt, "id = ?", paymentRequest.DebtID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	debt.IsPaid = true
+	if err := tx.Save(&debt).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 9. Cập nhật payment request status
+	paymentRequest.Status = "CONFIRMED"
+	paymentRequest.ReceiveWalletID = &receiveWalletID
+	if err := tx.Save(&paymentRequest).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 10. Gửi thông báo cho người nợ
+	go func() {
+		if s.notifService == nil {
+			return
+		}
+		var debtor, creditor models.User
+		s.db.Select("full_name, fcm_token").First(&debtor, "id = ?", paymentRequest.FromUserID)
+		s.db.Select("full_name, fcm_token").First(&creditor, "id = ?", creditorID)
+
+		if debtor.FCMToken != "" {
+			title := "✅ Thanh toán đã được xác nhận"
+			body := fmt.Sprintf("%s đã xác nhận nhận được %.0f đ. Bạn đã thanh toán thành công!", creditor.FullName, paymentRequest.Amount)
+			s.notifService.SendNotification(debtor.FCMToken, title, body)
+		}
+	}()
+
+	return nil
+}
+
+// RejectDebtPayment: Chủ nợ từ chối request trả nợ
+func (s *GroupService) RejectDebtPayment(requestID uuid.UUID, creditorID uuid.UUID, reason string) error {
+	// 1. Lấy payment request
+	var paymentRequest models.DebtPaymentRequest
+	if err := s.db.First(&paymentRequest, "id = ?", requestID).Error; err != nil {
+		return errors.New("request không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền
+	if paymentRequest.ToUserID != creditorID {
+		return errors.New("bạn không phải chủ nợ của khoản này")
+	}
+
+	// 3. Kiểm tra status
+	if paymentRequest.Status != "PENDING" {
+		return errors.New("request này đã được xử lý rồi")
+	}
+
+	// 4. Cập nhật status
+	paymentRequest.Status = "REJECTED"
+	if reason != "" {
+		paymentRequest.Note = reason
+	}
+
+	if err := s.db.Save(&paymentRequest).Error; err != nil {
+		return err
+	}
+
+	// 5. Gửi thông báo cho người nợ
+	go func() {
+		if s.notifService == nil {
+			return
+		}
+		var debtor, creditor models.User
+		s.db.Select("full_name, fcm_token").First(&debtor, "id = ?", paymentRequest.FromUserID)
+		s.db.Select("full_name, fcm_token").First(&creditor, "id = ?", creditorID)
+
+		if debtor.FCMToken != "" {
+			title := "❌ Thanh toán bị từ chối"
+			body := fmt.Sprintf("%s đã từ chối xác nhận thanh toán %.0f đ", creditor.FullName, paymentRequest.Amount)
+			if reason != "" {
+				body += fmt.Sprintf(". Lý do: %s", reason)
+			}
+			s.notifService.SendNotification(debtor.FCMToken, title, body)
+		}
+	}()
+
+	return nil
+}

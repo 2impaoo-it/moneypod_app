@@ -432,3 +432,108 @@ func (h *GroupHandler) UpdateExpense(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "Cập nhật hóa đơn thành công!"})
 }
+
+// RequestDebtPayment: Người nợ gửi request đã trả nợ
+type RequestDebtPaymentRequest struct {
+	PaymentWalletID uuid.UUID `json:"payment_wallet_id" binding:"required"`
+	Note            string    `json:"note"`
+}
+
+func (h *GroupHandler) RequestDebtPayment(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	debtID, err := uuid.Parse(c.Param("debt_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID khoản nợ không hợp lệ"})
+		return
+	}
+
+	var req RequestDebtPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.RequestDebtPayment(debtID, userID, req.PaymentWalletID, req.Note)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã gửi yêu cầu xác nhận thanh toán!"})
+}
+
+// GetPendingPaymentRequests: Lấy danh sách request trả nợ chờ xác nhận
+func (h *GroupHandler) GetPendingPaymentRequests(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	requests, err := h.service.GetPendingPaymentRequests(userID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"data": requests})
+}
+
+// ConfirmDebtPayment: Chủ nợ xác nhận đã nhận tiền
+type ConfirmDebtPaymentRequest struct {
+	ReceiveWalletID uuid.UUID `json:"receive_wallet_id" binding:"required"`
+}
+
+func (h *GroupHandler) ConfirmDebtPayment(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	requestID, err := uuid.Parse(c.Param("request_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID request không hợp lệ"})
+		return
+	}
+
+	var req ConfirmDebtPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.ConfirmDebtPayment(requestID, userID, req.ReceiveWalletID)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã xác nhận thanh toán thành công!"})
+}
+
+// RejectDebtPayment: Chủ nợ từ chối request trả nợ
+type RejectDebtPaymentRequest struct {
+	Reason string `json:"reason"`
+}
+
+func (h *GroupHandler) RejectDebtPayment(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	requestID, err := uuid.Parse(c.Param("request_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID request không hợp lệ"})
+		return
+	}
+
+	var req RejectDebtPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.RejectDebtPayment(requestID, userID, req.Reason)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã từ chối yêu cầu thanh toán!"})
+}
