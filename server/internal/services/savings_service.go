@@ -183,3 +183,106 @@ func (s *SavingsService) Withdraw(userID uuid.UUID, goalID uuid.UUID, walletID u
 
 	return tx.Commit().Error
 }
+
+// UpdateGoal: Sửa mục tiêu (tên, màu, target, deadline)
+func (s *SavingsService) UpdateGoal(userID uuid.UUID, goalID uuid.UUID, name, color, icon string, targetAmount float64, deadline *time.Time) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	goal, err := s.savingsRepo.GetGoalByID(tx, goalID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("quỹ không tồn tại")
+	}
+
+	// Kiểm tra quyền sở hữu
+	if goal.UserID != userID {
+		tx.Rollback()
+		return errors.New("bạn không có quyền chỉnh sửa mục tiêu này")
+	}
+
+	// Cập nhật các trường
+	if name != "" {
+		goal.Name = name
+	}
+	if color != "" {
+		goal.Color = color
+	}
+	if icon != "" {
+		goal.Icon = icon
+	}
+	if targetAmount > 0 {
+		goal.TargetAmount = targetAmount
+	}
+	if deadline != nil {
+		goal.Deadline = deadline
+	}
+
+	if err := s.savingsRepo.UpdateGoal(tx, goal); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// DeleteGoal: Xóa mục tiêu (phải rút hết tiền trước)
+func (s *SavingsService) DeleteGoal(userID uuid.UUID, goalID uuid.UUID) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	goal, err := s.savingsRepo.GetGoalByID(tx, goalID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("quỹ không tồn tại")
+	}
+
+	// Kiểm tra quyền sở hữu
+	if goal.UserID != userID {
+		tx.Rollback()
+		return errors.New("bạn không có quyền xóa mục tiêu này")
+	}
+
+	// Kiểm tra còn tiền không
+	if goal.CurrentAmount > 0 {
+		tx.Rollback()
+		return errors.New("vui lòng rút hết tiền trước khi xóa mục tiêu")
+	}
+
+	// Xóa lịch sử giao dịch liên quan
+	if err := s.savingsRepo.DeleteTransactionsByGoalID(tx, goalID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Xóa mục tiêu
+	if err := s.savingsRepo.DeleteGoal(tx, goalID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// GetGoalTransactions: Xem lịch sử nạp/rút của một mục tiêu
+func (s *SavingsService) GetGoalTransactions(userID uuid.UUID, goalID uuid.UUID) ([]models.SavingsTransaction, error) {
+	// Kiểm tra quyền sở hữu
+	goal, err := s.savingsRepo.GetGoalByID(s.db, goalID)
+	if err != nil {
+		return nil, errors.New("quỹ không tồn tại")
+	}
+
+	if goal.UserID != userID {
+		return nil, errors.New("bạn không có quyền xem lịch sử mục tiêu này")
+	}
+
+	return s.savingsRepo.GetTransactionsByGoalID(goalID)
+}

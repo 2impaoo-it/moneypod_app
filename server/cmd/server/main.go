@@ -153,10 +153,13 @@ func main() {
 		protected.POST("/upload", uploadHandler.UploadImage)
 
 		// ROUTES TIẾT KIỆM
-		protected.POST("/savings", savingsHandler.Create)                // Tạo heo đất
-		protected.GET("/savings", savingsHandler.GetList)                // Xem heo đất
-		protected.POST("/savings/:id/deposit", savingsHandler.Deposit)   // Cho heo ăn
-		protected.POST("/savings/:id/withdraw", savingsHandler.Withdraw) // Đập heo
+		protected.POST("/savings", savingsHandler.Create)                         // Tạo heo đất
+		protected.GET("/savings", savingsHandler.GetList)                         // Xem heo đất
+		protected.PUT("/savings/:id", savingsHandler.UpdateGoal)                  // Sửa mục tiêu
+		protected.DELETE("/savings/:id", savingsHandler.DeleteGoal)               // Xóa mục tiêu
+		protected.POST("/savings/:id/deposit", savingsHandler.Deposit)            // Cho heo ăn
+		protected.POST("/savings/:id/withdraw", savingsHandler.Withdraw)          // Đập heo
+		protected.GET("/savings/:id/transactions", savingsHandler.GetGoalTransactions) // Lịch sử nạp/rút
 	}
 
 	// Chạy Server

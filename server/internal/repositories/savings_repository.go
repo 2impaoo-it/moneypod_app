@@ -47,3 +47,20 @@ func (r *SavingsRepository) UpdateGoal(tx *gorm.DB, goal *models.SavingsGoal) er
 func (r *SavingsRepository) CreateSavingsTrans(tx *gorm.DB, trans *models.SavingsTransaction) error {
 	return tx.Create(trans).Error
 }
+
+// DeleteGoal: Xóa mục tiêu
+func (r *SavingsRepository) DeleteGoal(tx *gorm.DB, goalID uuid.UUID) error {
+	return tx.Delete(&models.SavingsGoal{}, goalID).Error
+}
+
+// DeleteTransactionsByGoalID: Xóa tất cả lịch sử giao dịch của mục tiêu
+func (r *SavingsRepository) DeleteTransactionsByGoalID(tx *gorm.DB, goalID uuid.UUID) error {
+	return tx.Where("goal_id = ?", goalID).Delete(&models.SavingsTransaction{}).Error
+}
+
+// GetTransactionsByGoalID: Lấy lịch sử giao dịch của mục tiêu
+func (r *SavingsRepository) GetTransactionsByGoalID(goalID uuid.UUID) ([]models.SavingsTransaction, error) {
+	var transactions []models.SavingsTransaction
+	err := r.db.Where("goal_id = ?", goalID).Order("created_at desc").Find(&transactions).Error
+	return transactions, err
+}
