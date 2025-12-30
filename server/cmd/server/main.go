@@ -48,7 +48,22 @@ func main() {
 		log.Fatal("❌ Lỗi khởi tạo Gemini AI:", err)
 	}
 
-	authService := services.NewAuthService(userRepo)
+	// ✅ Email Service với SMTP
+	emailConfig := services.SMTPConfig{
+		Host:     config.AppConfig.SMTPHost,
+		Port:     config.AppConfig.SMTPPort,
+		Username: config.AppConfig.SMTPUsername,
+		Password: config.AppConfig.SMTPPassword,
+		From:     config.AppConfig.SMTPFrom,
+	}
+	emailService := services.NewSimpleEmailService(emailConfig)
+	if emailConfig.Host == "" {
+		log.Println("⚠️ SMTP không được cấu hình - Email sẽ chỉ log ra console (Development mode)")
+	} else {
+		log.Printf("✅ Đã cấu hình SMTP Email Service: %s:%s\n", emailConfig.Host, emailConfig.Port)
+	}
+
+	authService := services.NewAuthService(userRepo, emailService)
 	walletService := services.NewWalletService(walletRepo)
 	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
 	transService := services.NewTransactionService(db.DB, transRepo, walletRepo)

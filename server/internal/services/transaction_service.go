@@ -5,6 +5,7 @@ import (
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/backend/pkg/constants"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -38,13 +39,13 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 	}
 
 	// 3. Tính toán số dư mới
-	if req.Type == "expense" {
+	if req.Type == constants.TransactionTypeExpense {
 		if wallet.Balance < req.Amount {
 			tx.Rollback()
 			return errors.New("số dư không đủ để chi tiêu")
 		}
 		wallet.Balance -= req.Amount
-	} else if req.Type == "income" {
+	} else if req.Type == constants.TransactionTypeIncome {
 		wallet.Balance += req.Amount
 	} else {
 		tx.Rollback()
@@ -69,8 +70,11 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 }
 
 func (s *TransactionService) GetMyTransactions(userID uuid.UUID) ([]models.Transaction, error) {
-	// Lấy tất cả giao dịch của user này, sắp xếp mới nhất lên đầu
-	return s.repo.GetByUserID(userID)
+	// Sử dụng phân trang mặc định để tránh lấy quá nhiều dữ liệu
+	// Lấy 100 giao dịch gần nhất, sắp xếp mới nhất lên đầu
+	const defaultPageSize = 100
+	transactions, _, err := s.repo.GetByUserIDWithFilters(userID, "", "", 0, 0, 0, defaultPageSize)
+	return transactions, err
 }
 
 // UpdateTransaction sửa giao dịch (phải tính toán lại số dư)
@@ -98,7 +102,7 @@ func (s *TransactionService) UpdateTransaction(transactionID, userID uuid.UUID, 
 	}
 
 	// Hoàn lại số dư cũ trước
-	if oldTransaction.Type == "expense" {
+	if oldTransaction.Type == constants.TransactionTypeExpense {
 		wallet.Balance += oldTransaction.Amount
 	} else {
 		wallet.Balance -= oldTransaction.Amount
@@ -119,7 +123,7 @@ func (s *TransactionService) UpdateTransaction(transactionID, userID uuid.UUID, 
 	}
 
 	// Tính toán lại số dư
-	if oldTransaction.Type == "expense" {
+	if oldTransaction.Type == constants.TransactionTypeExpense {
 		if wallet.Balance < oldTransaction.Amount {
 			tx.Rollback()
 			return errors.New("số dư không đủ")
@@ -169,7 +173,7 @@ func (s *TransactionService) DeleteTransaction(transactionID, userID uuid.UUID) 
 	}
 
 	// Hoàn lại số dư
-	if transaction.Type == "expense" {
+	if transaction.Type == constants.TransactionTypeExpense {
 		wallet.Balance += transaction.Amount
 	} else {
 		wallet.Balance -= transaction.Amount

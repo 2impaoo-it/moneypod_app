@@ -6,6 +6,7 @@ import (
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/backend/pkg/constants"
 	"github.com/2impaoo-it/moneypod_app/backend/pkg/utils"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -63,9 +64,9 @@ func (s *GroupService) CreateGroup(creatorID uuid.UUID, name, description string
 		var role string
 
 		// Xử lý logic "current_user"
-		if memberInput.UserID == "current_user" {
+		if memberInput.UserID == constants.CurrentUser {
 			memberUserID = creatorID
-			role = "leader" // Người tạo là leader
+			role = constants.RoleLeader // Người tạo là leader
 			leaderFound = true
 		} else {
 			// 🔥 LOGIC MỚI: Kiểm tra xem là UUID hay SĐT
@@ -92,7 +93,7 @@ func (s *GroupService) CreateGroup(creatorID uuid.UUID, name, description string
 				}
 				memberUserID = user.ID
 			}
-			role = "member"
+			role = constants.RoleMember
 		}
 
 		// Tạo member
@@ -572,7 +573,7 @@ func (s *GroupService) LeaveGroup(userID uuid.UUID, groupID uuid.UUID) error {
 	}
 
 	// 2. Không cho phép leader rời nhóm (phải xóa nhóm hoặc chuyển quyền trước)
-	if member.Role == "leader" {
+	if member.Role == constants.RoleLeader {
 		return errors.New("trưởng nhóm không thể rời nhóm. Hãy xóa nhóm hoặc chuyển quyền trước")
 	}
 
@@ -698,9 +699,36 @@ func (s *GroupService) UpdateExpense(requesterID uuid.UUID, expenseID uuid.UUID,
 		return err
 	}
 
-	// 5. Nếu có split details mới, xóa debts cũ và tạo lại
+	// 5. Nếu có split details mới, kiểm tra và xóa debts cũ rồi tạo lại
 	if len(splitDetails) > 0 {
-		// Xóa debts cũ
+		// 🔥 KIỂM TRA: Nếu có bất kỳ debt nào đã có payment request được confirmed, không cho sửa
+		var paidDebts []models.Debt
+		if err := tx.Where("expense_id = ? AND is_paid = ?", expenseID, true).Find(&paidDebts).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		if len(paidDebts) > 0 {
+			tx.Rollback()
+			return errors.New("không thể sửa hóa đơn này vì đã có người trả nợ. Vui lòng tạo hóa đơn mới")
+		}
+
+		// Kiểm tra thêm: Có debt nào đang có payment request pending không
+		var pendingPayments int64
+		if err := tx.Model(&models.DebtPaymentRequest{}).
+			Joins("JOIN debts ON debts.id = debt_payment_requests.debt_id").
+			Where("debts.expense_id = ? AND debt_payment_requests.status = ?", expenseID, constants.DebtStatusPending).
+			Count(&pendingPayments).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		if pendingPayments > 0 {
+			tx.Rollback()
+			return errors.New("không thể sửa hóa đơn này vì đang có yêu cầu trả nợ đang chờ xử lý")
+		}
+
+		// Xóa debts cũ (chỉ khi chưa có ai trả)
 		if err := tx.Where("expense_id = ?", expenseID).Delete(&models.Debt{}).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -750,7 +778,7 @@ func (s *GroupService) RequestDebtPayment(debtID uuid.UUID, fromUserID uuid.UUID
 
 	// 4. Kiểm tra đã có request pending chưa
 	var existingRequest models.DebtPaymentRequest
-	err := s.db.Where("debt_id = ? AND status = ?", debtID, "PENDING").First(&existingRequest).Error
+	err := s.db.Where("debt_id = ? AND status = ?", debtID, constants.DebtStatusPending).First(&existingRequest).Error
 	if err == nil {
 		return errors.New("đã có request trả nợ đang chờ xác nhận")
 	}
@@ -773,7 +801,7 @@ func (s *GroupService) RequestDebtPayment(debtID uuid.UUID, fromUserID uuid.UUID
 		ToUserID:        debt.ToUserID,
 		PaymentWalletID: paymentWalletID,
 		Amount:          debt.Amount,
-		Status:          "PENDING",
+		Status:          constants.DebtStatusPending,
 		Note:            note,
 	}
 
@@ -802,7 +830,7 @@ func (s *GroupService) GetPendingPaymentRequests(userID uuid.UUID) ([]models.Deb
 	var requests []models.DebtPaymentRequest
 
 	err := s.db.Preload("Debt").Preload("Debt.Expense").
-		Where("to_user_id = ? AND status = ?", userID, "PENDING").
+		Where("to_user_id = ? AND status = ?", userID, constants.DebtStatusPending).
 		Order("created_at desc").
 		Find(&requests).Error
 
@@ -832,7 +860,7 @@ func (s *GroupService) ConfirmDebtPayment(requestID uuid.UUID, creditorID uuid.U
 	}
 
 	// 3. Kiểm tra status
-	if paymentRequest.Status != "PENDING" {
+	if paymentRequest.Status != constants.DebtStatusPending {
 		tx.Rollback()
 		return errors.New("request này đã được xử lý rồi")
 	}
@@ -885,7 +913,7 @@ func (s *GroupService) ConfirmDebtPayment(requestID uuid.UUID, creditorID uuid.U
 	}
 
 	// 9. Cập nhật payment request status
-	paymentRequest.Status = "CONFIRMED"
+	paymentRequest.Status = constants.DebtStatusConfirmed
 	paymentRequest.ReceiveWalletID = &receiveWalletID
 	if err := tx.Save(&paymentRequest).Error; err != nil {
 		tx.Rollback()
@@ -930,12 +958,12 @@ func (s *GroupService) RejectDebtPayment(requestID uuid.UUID, creditorID uuid.UU
 	}
 
 	// 3. Kiểm tra status
-	if paymentRequest.Status != "PENDING" {
+	if paymentRequest.Status != constants.DebtStatusPending {
 		return errors.New("request này đã được xử lý rồi")
 	}
 
 	// 4. Cập nhật status
-	paymentRequest.Status = "REJECTED"
+	paymentRequest.Status = constants.DebtStatusRejected
 	if reason != "" {
 		paymentRequest.Note = reason
 	}

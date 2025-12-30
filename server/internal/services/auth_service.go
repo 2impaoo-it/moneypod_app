@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
@@ -13,15 +14,19 @@ import (
 )
 
 type AuthService struct {
-	userRepo *repositories.UserRepository
+	userRepo     *repositories.UserRepository
+	emailService EmailService
 }
 
 func (s *AuthService) GetUserProfile(userID uuid.UUID) (*models.User, error) {
 	return s.userRepo.FindByID(userID)
 }
 
-func NewAuthService(userRepo *repositories.UserRepository) *AuthService {
-	return &AuthService{userRepo: userRepo}
+func NewAuthService(userRepo *repositories.UserRepository, emailService EmailService) *AuthService {
+	return &AuthService{
+		userRepo:     userRepo,
+		emailService: emailService,
+	}
 }
 
 func (s *AuthService) Register(email, password, fullName string) error {
@@ -138,28 +143,36 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, oldPassword, newPassword 
 	return s.userRepo.UpdatePassword(userID, string(hashedPassword))
 }
 
-// ForgotPassword: Gửi email reset password (simplified version)
-// Note: Trong production thực tế, bạn cần:
+// ForgotPassword: Gửi email reset password với mật khẩu tạm thời
+// Production-ready version với email service integration
+// Note: Trong production thực tế, bạn có thể cải thiện thêm:
 // - Tạo reset token và lưu vào DB với thời gian hết hạn
-// - Gửi email với link reset có token
+// - Gửi email với link reset có token thay vì gửi trực tiếp mật khẩu
 // - Tạo API verify token và reset password
-// Ở đây tôi implement version đơn giản: chỉ reset về password mặc định
 func (s *AuthService) ForgotPassword(email string) error {
 	// 1. Tìm user theo email
 	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
 		// Không nên báo cụ thể email không tồn tại để tránh hacker dò
-		return nil // Vẫn trả về success để không lộ thông tin
+		// Vẫn trả về success để không lộ thông tin
+		// Nhưng vẫn gửi email service để không lộ timing attack
+		_ = s.emailService.SendPasswordResetEmail(email, "")
+		return nil
 	}
 
-	// 2. Tạo password mới (trong thực tế nên gửi qua email)
-	// Để đơn giản, tôi sẽ reset về password mặc định
-	temporaryPassword := "TempPass123!" // Trong thực tế nên random
+	// 2. Tạo password ngẫu nhiên an toàn
+	temporaryPassword, err := generateRandomPassword(12)
+	if err != nil {
+		return errors.New("không thể tạo mật khẩu tạm thời")
+	}
+
+	// Thêm ký tự đặc biệt để đảm bảo độ mạnh
+	temporaryPassword = "Temp" + temporaryPassword + "!@"
 
 	// 3. Mã hóa password mới
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(temporaryPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return errors.New("không thể mã hóa mật khẩu")
 	}
 
 	// 4. Cập nhật password
@@ -168,11 +181,15 @@ func (s *AuthService) ForgotPassword(email string) error {
 		return err
 	}
 
-	// TODO: Gửi email thông báo password mới
-	// Trong production, bạn nên dùng service như SendGrid, AWS SES, etc.
-	// Ở đây tôi chỉ log ra console
-	println("🔑 Password mới cho", email, "là:", temporaryPassword)
-	println("📧 [TODO] Gửi email thông báo password mới đến:", email)
+	// 5. Gửi email thông báo password mới
+	err = s.emailService.SendPasswordResetEmail(email, temporaryPassword)
+	if err != nil {
+		// Log lỗi nhưng vẫn coi như thành công để không lộ thông tin
+		fmt.Printf("⚠️  Lỗi khi gửi email đến %s: %v\n", email, err)
+	}
+
+	// Log để debug (trong production nên dùng proper logging service)
+	fmt.Printf("✅ Đã reset mật khẩu cho email: %s\n", email)
 
 	return nil
 }
