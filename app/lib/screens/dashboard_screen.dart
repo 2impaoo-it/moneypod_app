@@ -22,6 +22,12 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
+  void initState() {
+    super.initState();
+    context.read<DashboardBloc>().add(DashboardLoadRequested());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(
       locale: 'vi_VN',
@@ -298,8 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 24),
 
                   // --- SPENDING CHART ---
-                  if (state is DashboardLoaded &&
-                      state.categoryStats.isNotEmpty) ...[
+                  if (state.categoryStats.isNotEmpty) ...[
                     const Text(
                       "Phân bổ chi tiêu tháng này",
                       style: TextStyle(

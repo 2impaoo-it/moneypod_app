@@ -116,12 +116,21 @@ class _LoginScreenState extends State<LoginScreen> {
               displayName = user.fullName!;
             }
 
-            await BiometricService().saveAccount(
-              email: user.email,
-              password: passwordToSave,
-              name: displayName,
-              avatarUrl: user.avatarUrl,
+            // Chỉ lưu/cập nhật nếu tài khoản ĐÃ có trong danh sách (tức là đang bật biometric)
+            // Không tự động thêm mới nếu người dùng chưa bật.
+            final savedAccounts = await BiometricService().getSavedAccounts();
+            final isAlreadySaved = savedAccounts.any(
+              (acc) => acc['email'] == user.email,
             );
+
+            if (isAlreadySaved) {
+              await BiometricService().saveAccount(
+                email: user.email,
+                password: passwordToSave,
+                name: displayName,
+                avatarUrl: user.avatarUrl,
+              );
+            }
           }
 
           // Refresh dashboard

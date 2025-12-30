@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import '../../models/savings_goal.dart';
 
 /// Savings Events
 abstract class SavingsEvent extends Equatable {
@@ -11,6 +10,9 @@ abstract class SavingsEvent extends Equatable {
 
 /// Load danh sách mục tiêu
 class LoadSavingsGoals extends SavingsEvent {}
+
+/// Reset trạng thái (khi logout)
+class ResetSavings extends SavingsEvent {}
 
 /// Tạo mục tiêu mới
 class CreateSavingsGoal extends SavingsEvent {

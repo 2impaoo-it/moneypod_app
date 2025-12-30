@@ -11,6 +11,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       super(DashboardInitial()) {
     on<DashboardLoadRequested>(_onLoadRequested);
     on<DashboardRefreshRequested>(_onRefreshRequested);
+    on<DashboardReset>(_onReset);
+  }
+
+  void _onReset(DashboardReset event, Emitter<DashboardState> emit) {
+    emit(DashboardInitial());
   }
 
   Future<void> _onLoadRequested(

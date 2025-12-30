@@ -14,6 +14,11 @@ class SavingsBloc extends Bloc<SavingsEvent, SavingsState> {
     on<UpdateSavingsGoal>(_onUpdateSavingsGoal);
     on<DeleteSavingsGoal>(_onDeleteSavingsGoal);
     on<LoadGoalTransactions>(_onLoadGoalTransactions);
+    on<ResetSavings>(_onResetSavings);
+  }
+
+  void _onResetSavings(ResetSavings event, Emitter<SavingsState> emit) {
+    emit(SavingsInitial());
   }
 
   /// Load danh sách mục tiêu
@@ -153,10 +158,8 @@ class SavingsBloc extends Bloc<SavingsEvent, SavingsState> {
       await _repository.deleteSavingsGoal(event.goalId);
 
       // Reload danh sách sau khi xóa
-      final goals = await _repository.getSavingsGoals();
-      emit(
-        SavingsActionSuccess(message: 'Xóa mục tiêu thành công!', goals: goals),
-      );
+      // final goals = await _repository.getSavingsGoals(); // Không cần lấy lại danh sách vì sẽ pop
+      emit(SavingsDeleteSuccess(message: 'Xóa mục tiêu thành công!'));
     } catch (e) {
       emit(SavingsError(e.toString()));
     }

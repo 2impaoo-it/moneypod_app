@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
 import '../../utils/popup_notification.dart';
+import '../../services/biometric_service.dart';
 
 /// Màn hình đổi mật khẩu (khi đã đăng nhập)
 class ChangePasswordScreen extends StatefulWidget {
@@ -46,6 +47,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     if (mounted) {
       if (result['success'] == true) {
+        // Tắt sinh trắc học để yêu cầu người dùng bật lại với mật khẩu mới
+        await BiometricService().disableBiometricLogin();
+
         await PopupNotification.showSuccess(context, result['message']);
         if (mounted) Navigator.pop(context);
       } else {

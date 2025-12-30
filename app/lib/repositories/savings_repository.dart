@@ -257,8 +257,9 @@ class SavingsRepository {
       if (color != null) requestBody['color'] = color;
       if (icon != null) requestBody['icon'] = icon;
       if (targetAmount != null) requestBody['target_amount'] = targetAmount;
-      if (deadline != null)
+      if (deadline != null) {
         requestBody['deadline'] = _formatDateTimeForServer(deadline);
+      }
 
       final url = '$_baseUrl/savings/$goalId';
       final response = await http.put(

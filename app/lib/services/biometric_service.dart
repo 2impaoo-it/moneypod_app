@@ -50,11 +50,13 @@ class BiometricService {
   }
 
   /// Lưu thông tin tài khoản (khi đăng nhập thành công hoặc bật biometric)
+  /// Lưu thông tin tài khoản (khi đăng nhập thành công hoặc bật biometric)
   Future<void> saveAccount({
     required String email,
-    required String password,
     required String name,
+    String? password, // Password optional if disabling biometric
     String? avatarUrl,
+    bool biometricEnabled = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -70,13 +72,20 @@ class BiometricService {
       'name': name,
       'avatar_url': avatarUrl,
       'last_login': DateTime.now().toIso8601String(),
+      'biometric_enabled': biometricEnabled,
     });
 
     // 4. Save metadata to Prefs
     await prefs.setString(_savedAccountsKey, jsonEncode(accounts));
 
-    // 5. Save password to SecureStorage
-    await _storage.write(key: '$_passPrefix$email', value: password);
+    // 5. Handle Password
+    if (biometricEnabled && password != null) {
+      // Save password to SecureStorage
+      await _storage.write(key: '$_passPrefix$email', value: password);
+    } else if (!biometricEnabled) {
+      // Remove password if biometric disabled
+      await _storage.delete(key: '$_passPrefix$email');
+    }
   }
 
   /// Lấy danh sách tài khoản đã lưu

@@ -35,7 +35,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _currentUserId;
 
   // Multi-image
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false;
@@ -512,7 +512,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 const Divider(),
               ] else
                 Container(

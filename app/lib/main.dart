@@ -13,6 +13,9 @@ import 'bloc/transaction/transaction_bloc.dart';
 import 'bloc/transaction/transaction_event.dart';
 import 'bloc/dashboard/dashboard_bloc.dart';
 import 'bloc/dashboard/dashboard_event.dart';
+import 'bloc/savings/savings_bloc.dart';
+import 'bloc/savings/savings_event.dart';
+import 'repositories/savings_repository.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
@@ -38,7 +41,9 @@ import 'widgets/profile_widget.dart';
 import 'screens/add_expense_screen.dart';
 import 'screens/create_wallet_screen.dart';
 import 'screens/bill_scan_screen.dart';
+
 import 'screens/wallet_list_screen.dart';
+import 'models/savings_goal.dart'; // Added import
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -174,7 +179,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
             ),
             GoRoute(
               path: '/savings/create',
-              builder: (context, state) => const CreateSavingsGoalScreen(),
+              builder: (context, state) {
+                final goal = state.extra as SavingsGoal?;
+                return CreateSavingsGoalScreen(editingGoal: goal);
+              },
             ),
             GoRoute(
               path: '/savings/:id',
@@ -255,6 +263,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
         ),
         BlocProvider(
           create: (context) => DashboardBloc()..add(DashboardLoadRequested()),
+        ),
+        BlocProvider(
+          create: (context) =>
+              SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
         ),
       ],
       child: MaterialApp.router(
@@ -355,8 +367,9 @@ class _MainWrapperState extends State<MainWrapper> {
     // Ẩn FAB trên các màn hình tạo mới, chi tiết, profile
     if (location.contains('/create')) return false;
     if (location.startsWith('/groups/') && location != '/groups') return false;
-    if (location.startsWith('/savings/') && location != '/savings')
+    if (location.startsWith('/savings/') && location != '/savings') {
       return false;
+    }
     if (location.startsWith('/profile')) return false;
     if (location.startsWith('/change-password')) return false;
 
@@ -364,12 +377,19 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   // Xác định action khi nhấn FAB dựa trên màn hình hiện tại
-  void _handleFABPressed(BuildContext context) {
+  void _handleFABPressed(BuildContext context) async {
     final String location = GoRouterState.of(context).uri.toString();
 
     if (location == '/groups') {
       // Trên màn hình Nhóm chi tiêu -> Thêm chi tiêu nhóm
       _openAddExpenseScreen(context);
+    } else if (location == '/savings') {
+      // Trên màn hình Tiết kiệm -> Tạo mục tiêu mới
+      final result = await context.push('/savings/create');
+      if (result == true && mounted) {
+        context.read<SavingsBloc>().add(LoadSavingsGoals());
+        context.read<DashboardBloc>().add(DashboardLoadRequested());
+      }
     } else {
       // Các màn hình khác -> Thêm giao dịch cá nhân
       _showAddTransactionModal(context);

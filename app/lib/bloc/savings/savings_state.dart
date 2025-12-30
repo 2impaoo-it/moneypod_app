@@ -30,13 +30,20 @@ class SavingsActionSuccess extends SavingsState {
   final String message;
   final List<SavingsGoal> goals;
 
-  const SavingsActionSuccess({
-    required this.message,
-    required this.goals,
-  });
+  const SavingsActionSuccess({required this.message, required this.goals});
 
   @override
   List<Object> get props => [message, goals];
+}
+
+/// Xóa thành công
+class SavingsDeleteSuccess extends SavingsState {
+  final String message;
+
+  const SavingsDeleteSuccess({required this.message});
+
+  @override
+  List<Object> get props => [message];
 }
 
 /// Goal completed state - Đạt mục tiêu
@@ -44,10 +51,7 @@ class SavingsGoalCompleted extends SavingsState {
   final String message;
   final List<SavingsGoal> goals;
 
-  const SavingsGoalCompleted({
-    required this.message,
-    required this.goals,
-  });
+  const SavingsGoalCompleted({required this.message, required this.goals});
 
   @override
   List<Object> get props => [message, goals];

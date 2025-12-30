@@ -17,6 +17,8 @@ import '../../main.dart';
 import '../../utils/popup_notification.dart';
 import '../../bloc/dashboard/dashboard_bloc.dart';
 import '../../bloc/dashboard/dashboard_event.dart';
+import '../../bloc/savings/savings_bloc.dart';
+import '../../bloc/savings/savings_event.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileService profileService;
@@ -357,10 +359,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _timer = Timer.periodic(
                                       const Duration(seconds: 1),
                                       (timer) {
-                                        if (_countdown == 0)
+                                        if (_countdown == 0) {
                                           timer.cancel();
-                                        else
+                                        } else {
                                           _countdown--;
+                                        }
                                         setSheetState(() {});
                                       },
                                     );
@@ -432,6 +435,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Dispatch logout event to bloc
       if (mounted) {
         context.read<AuthBloc>().add(AuthLogoutRequested());
+
+        // Reset Global Blocs
+        context.read<SavingsBloc>().add(ResetSavings());
+        context.read<DashboardBloc>().add(DashboardReset());
+
         // Navigate to login
         context.go('/login');
       }
@@ -1126,10 +1134,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBiometricToggle() {
-    return FutureBuilder<bool>(
-      future: _biometricService.isBiometricEnabled(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _biometricService.getSavedAccounts(),
       builder: (context, snapshot) {
-        final isEnabled = snapshot.data ?? false;
+        final accounts = snapshot.data ?? [];
+        final isEnabled = accounts.any(
+          (acc) => acc['email'] == _profile?.email,
+        );
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -1160,7 +1171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Switch(
                 value: isEnabled,
-                activeColor: AppColors.primary,
+                activeThumbColor: AppColors.primary,
                 onChanged: (value) => _handleBiometricToggle(value),
               ),
             ],
@@ -1175,66 +1186,213 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Bật: Cần nhập mật khẩu để lưu
       final authorized = await _showPasswordDialog();
       if (authorized != null) {
-        final success = await _biometricService.enableBiometricLogin(
-          _profile?.email ?? '',
-          authorized,
+        // Verify password using AuthService
+        // Note: Using AuthService to re-login verifies the password
+        final result = await _authService.login(
+          email: _profile?.email ?? '',
+          password: authorized,
         );
-        if (success) {
-          setState(() {}); // Rebuild to update toggle
+
+        if (result['success'] == true) {
+          // 1. Authenticate first to ensure user can use biometrics
+          final authenticated = await _biometricService.authenticate();
+
+          if (authenticated) {
+            // 2. Save full account details
+            await _biometricService.saveAccount(
+              email: _profile?.email ?? '',
+              password: authorized,
+              name: _profile?.fullName ?? _profile?.email ?? 'User',
+              avatarUrl: _profile?.avatarUrl,
+            );
+
+            setState(() {}); // Rebuild to update toggle
+            if (mounted) {
+              PopupNotification.showSuccess(
+                context,
+                'Đã bật đăng nhập bằng sinh trắc học',
+              );
+            }
+          } else {
+            if (mounted) {
+              PopupNotification.showError(
+                context,
+                'Xác thực sinh trắc học thất bại',
+              );
+            }
+          }
+        } else {
           if (mounted) {
-            PopupNotification.showSuccess(
+            PopupNotification.showError(
               context,
-              'Đã bật đăng nhập bằng sinh trắc học',
+              'Mật khẩu không đúng. Vui lòng thử lại.',
             );
           }
         }
       }
     } else {
-      // Tắt
-      await _biometricService.disableBiometricLogin();
-      setState(() {});
-      if (mounted) {
-        PopupNotification.showSuccess(
-          context,
-          'Đã tắt đăng nhập bằng sinh trắc học',
+      // Tắt - Yêu cầu xác thực mật khẩu trước khi tắt
+      final authorized = await _showPasswordDialog();
+      if (authorized != null) {
+        final result = await _authService.login(
+          email: _profile?.email ?? '',
+          password: authorized,
         );
+
+        if (result['success'] == true) {
+          if (_profile?.email != null) {
+            // Update account to disabled biometric but keep info
+            await _biometricService.saveAccount(
+              email: _profile!.email!,
+              name: _profile?.fullName ?? _profile?.email ?? 'User',
+              avatarUrl: _profile?.avatarUrl,
+              password: null, // No password needed for disabled state
+              biometricEnabled: false,
+            );
+          }
+          setState(() {});
+          if (mounted) {
+            PopupNotification.showSuccess(
+              context,
+              'Đã tắt đăng nhập bằng sinh trắc học',
+            );
+          }
+        } else {
+          if (mounted) {
+            PopupNotification.showError(
+              context,
+              'Mật khẩu không đúng. Vui lòng thử lại.',
+            );
+          }
+        }
       }
     }
   }
 
   Future<String?> _showPasswordDialog() async {
     final passwordController = TextEditingController();
+    bool isObscure = true;
+
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xác nhận mật khẩu'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Vui lòng nhập mật khẩu hiện tại để kích hoạt tính năng này.',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Mật khẩu',
-                border: OutlineInputBorder(),
+            title: const Text(
+              'Xác nhận mật khẩu',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
+              textAlign: TextAlign.center,
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, passwordController.text),
-            child: const Text('Xác nhận'),
-          ),
-        ],
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Vui lòng nhập mật khẩu hiện tại để xác thực hành động này.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: passwordController,
+                  obscureText: isObscure,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 16),
+                  decoration: InputDecoration(
+                    labelText: 'Mật khẩu',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 2,
+                      ),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        isObscure ? LucideIcons.eye : LucideIcons.eyeOff,
+                        color: AppColors.textMuted,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          isObscure = !isObscure;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Hủy',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          Navigator.pop(context, passwordController.text),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Xác nhận',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
