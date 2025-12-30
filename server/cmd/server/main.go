@@ -101,6 +101,7 @@ func main() {
 		})
 		public.POST("/register", authHandler.Register)
 		public.POST("/login", authHandler.Login)
+		public.POST("/forgot-password", authHandler.ForgotPassword) // Quên mật khẩu
 	}
 
 	// --- PROTECTED API ---
@@ -114,7 +115,8 @@ func main() {
 		protected.GET("/profile", authHandler.GetProfile)
 		protected.PUT("/profile", authHandler.UpdateProfile)
 		protected.PUT("/profile/avatar", authHandler.UpdateAvatar)
-		protected.POST("/profile/phone", authHandler.LinkPhone) // API cập nhật SĐT
+		protected.POST("/profile/phone", authHandler.LinkPhone)            // API cập nhật SĐT
+		protected.PUT("/change-password", authHandler.ChangePassword)      // Đổi mật khẩu
 		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)

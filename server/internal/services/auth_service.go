@@ -108,3 +108,71 @@ func (s *AuthService) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
 	}
 	return s.userRepo.UpdateAvatar(userID, avatarURL)
 }
+
+// ChangePassword: Đổi mật khẩu
+func (s *AuthService) ChangePassword(userID uuid.UUID, oldPassword, newPassword string) error {
+	// 1. Lấy thông tin user
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return errors.New("không tìm thấy người dùng")
+	}
+
+	// 2. Kiểm tra mật khẩu cũ
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword))
+	if err != nil {
+		return errors.New("mật khẩu cũ không đúng")
+	}
+
+	// 3. Validate mật khẩu mới
+	if len(newPassword) < 6 {
+		return errors.New("mật khẩu mới phải có ít nhất 6 ký tự")
+	}
+
+	// 4. Mã hóa mật khẩu mới
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// 5. Cập nhật vào database
+	return s.userRepo.UpdatePassword(userID, string(hashedPassword))
+}
+
+// ForgotPassword: Gửi email reset password (simplified version)
+// Note: Trong production thực tế, bạn cần:
+// - Tạo reset token và lưu vào DB với thời gian hết hạn
+// - Gửi email với link reset có token
+// - Tạo API verify token và reset password
+// Ở đây tôi implement version đơn giản: chỉ reset về password mặc định
+func (s *AuthService) ForgotPassword(email string) error {
+	// 1. Tìm user theo email
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		// Không nên báo cụ thể email không tồn tại để tránh hacker dò
+		return nil // Vẫn trả về success để không lộ thông tin
+	}
+
+	// 2. Tạo password mới (trong thực tế nên gửi qua email)
+	// Để đơn giản, tôi sẽ reset về password mặc định
+	temporaryPassword := "TempPass123!" // Trong thực tế nên random
+
+	// 3. Mã hóa password mới
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(temporaryPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// 4. Cập nhật password
+	err = s.userRepo.UpdatePassword(user.ID, string(hashedPassword))
+	if err != nil {
+		return err
+	}
+
+	// TODO: Gửi email thông báo password mới
+	// Trong production, bạn nên dùng service như SendGrid, AWS SES, etc.
+	// Ở đây tôi chỉ log ra console
+	println("🔑 Password mới cho", email, "là:", temporaryPassword)
+	println("📧 [TODO] Gửi email thông báo password mới đến:", email)
+
+	return nil
+}

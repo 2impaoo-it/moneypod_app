@@ -81,3 +81,8 @@ func (r *UserRepository) UpdateFullName(userID uuid.UUID, newName string) error 
 func (r *UserRepository) UpdateAvatar(userID uuid.UUID, avatarURL string) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error
 }
+
+// UpdatePassword: Cập nhật mật khẩu
+func (r *UserRepository) UpdatePassword(userID uuid.UUID, hashedPassword string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("password", hashedPassword).Error
+}

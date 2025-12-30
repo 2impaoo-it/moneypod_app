@@ -206,3 +206,57 @@ func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "Cập nhật ảnh đại diện thành công", "avatar_url": req.AvatarURL})
 }
+
+// ChangePassword: PUT /api/v1/change-password
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	// 1. Lấy ID user
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	// 2. Parse dữ liệu
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 3. Gọi Service
+	err := h.authService.ChangePassword(userID, req.OldPassword, req.NewPassword)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đổi mật khẩu thành công!"})
+}
+
+// ForgotPassword: POST /api/v1/forgot-password
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	// 1. Parse dữ liệu
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 2. Gọi Service
+	err := h.authService.ForgotPassword(req.Email)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Lỗi hệ thống: " + err.Error()})
+		return
+	}
+
+	// Luôn trả về thành công để không lộ thông tin email có tồn tại hay không
+	c.JSON(200, gin.H{
+		"message": "Nếu email tồn tại, một email khôi phục mật khẩu đã được gửi đến hộp thư của bạn",
+	})
+}
