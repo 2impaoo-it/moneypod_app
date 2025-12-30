@@ -52,7 +52,7 @@ class CustomBottomNavBar extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildNavItem(2, Icons.group_outlined, Icons.group, "Quỹ nhóm"),
+                _buildNavItem(2, Icons.group_outlined, Icons.group, "Nhóm"),
                 _buildNavItem(
                   3,
                   Icons.savings_outlined,

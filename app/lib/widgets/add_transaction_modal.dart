@@ -6,6 +6,7 @@ import '../repositories/wallet_repository.dart';
 
 import '../models/wallet.dart';
 import '../utils/currency_input_formatter.dart';
+import '../utils/popup_notification.dart';
 
 // Copy lại AppColors để đảm bảo file chạy độc lập
 class ModalColors {
@@ -83,9 +84,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingWallets = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Lỗi khi tải ví: $e')));
+        PopupNotification.showError(context, 'Lỗi khi tải ví: $e');
       }
     }
   }
@@ -100,17 +99,13 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   void _handleSave() async {
     // Validate input
     if (_amountController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số tiền')));
+      PopupNotification.showError(context, 'Vui lòng nhập số tiền');
       return;
     }
 
     final amount = parseCurrency(_amountController.text);
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Số tiền không hợp lệ')));
+      PopupNotification.showError(context, 'Số tiền không hợp lệ');
       return;
     }
 
@@ -130,23 +125,14 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Lưu thành công!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
+        await PopupNotification.showSuccess(context, 'Lưu thành công!');
+        if (mounted) Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '❌ Lỗi: ${e.toString().replaceAll('Exception: ', '')}',
-            ),
-            backgroundColor: Colors.red,
-          ),
+        PopupNotification.showError(
+          context,
+          'Lỗi: ${e.toString().replaceAll('Exception: ', '')}',
         );
       }
     } finally {

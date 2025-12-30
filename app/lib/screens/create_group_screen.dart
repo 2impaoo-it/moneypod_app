@@ -5,6 +5,7 @@ import '../repositories/group_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/popup_notification.dart';
 
 /// Màn hình tạo nhóm mới với UI/UX hoàn chỉnh
 class CreateGroupScreen extends StatefulWidget {
@@ -117,13 +118,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   void _addMember(Map<String, dynamic> contact) {
     if (_members.any((m) => m['id'] == contact['id'])) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thành viên đã có trong danh sách'),
-          backgroundColor: AppColors
-              .warning, // Assumed AppColors exists or imported via main.dart
-        ),
-      );
+      PopupNotification.showError(context, 'Thành viên đã có trong danh sách');
       return;
     }
 
@@ -155,13 +150,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     if (_currentUserId == null) {
       await _loadCurrentUser();
       if (_currentUserId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Không thể lấy thông tin người dùng. Vui lòng thử lại.',
-            ),
-            backgroundColor: AppColors.danger,
-          ),
+        PopupNotification.showError(
+          context,
+          'Không thể lấy thông tin người dùng. Vui lòng thử lại.',
         );
         return;
       }
@@ -197,24 +188,17 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         if (inviteCode.isNotEmpty) {
           _showInviteCodeDialog(inviteCode);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tạo nhóm thành công!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          context.pop(true);
+          await PopupNotification.showSuccess(context, 'Tạo nhóm thành công!');
+          if (mounted) context.pop(true);
         }
       }
     } catch (e) {
       setState(() => _isLoading = false);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppColors.danger,
-          ),
+        PopupNotification.showError(
+          context,
+          'Lỗi: ${e.toString().replaceAll('Exception: ', '')}',
         );
       }
     }
@@ -268,12 +252,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   const SizedBox(width: 12),
                   IconButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Đã sao chép mã mời'),
-                          backgroundColor: AppColors.success,
-                          behavior: SnackBarBehavior.floating,
-                        ),
+                      PopupNotification.showSuccess(
+                        context,
+                        'Đã sao chép mã mời',
                       );
                     },
                     icon: const Icon(

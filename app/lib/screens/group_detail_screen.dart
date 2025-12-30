@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../utils/popup_notification.dart';
 import '../main.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/profile_repository.dart';
@@ -45,6 +46,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   List<Map<String, dynamic>> _debtsToMe = [];
   String? _currentUserId;
   bool _isLeader = false;
+  List<Map<String, dynamic>> _transactions = []; // List transaction history
 
   @override
   void initState() {
@@ -74,11 +76,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       final myDebts = await _groupRepo.getMyDebts(widget.groupId);
       final debtsToMe = await _groupRepo.getDebtsToMe(widget.groupId);
 
+      // Load history
+      final history = await _groupRepo.getGroupExpenses(widget.groupId);
+
       if (mounted) {
         setState(() {
           _groupData = groupDetails;
           _myDebts = myDebts;
           _debtsToMe = debtsToMe;
+          _transactions = history;
 
           // Check leader
           final members = _groupData['members'] as List<dynamic>? ?? [];
@@ -111,12 +117,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     try {
       await _groupRepo.markDebtPaid(debtId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã đánh dấu đã trả'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
         _loadAllData(); // Reload
       }
     } catch (e) {
@@ -155,15 +156,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         await _groupRepo.deleteGroup(widget.groupId);
         if (mounted) {
           context.pop(); // Close detail screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Đã xóa nhóm thành công")),
-          );
+          PopupNotification.showSuccess(context, 'Đã xóa nhóm thành công');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
+          PopupNotification.showError(context, 'Lỗi: $e');
         }
       }
     }
@@ -201,11 +198,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                   Navigator.pop(context);
                   if (widget.inviteCode != null) {
                     Clipboard.setData(ClipboardData(text: widget.inviteCode!));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã sao chép mã mời!'),
-                        backgroundColor: Colors.green,
-                      ),
+                    PopupNotification.showSuccess(
+                      context,
+                      'Đã sao chép mã mời!',
                     );
                   }
                 },
@@ -286,11 +281,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     try {
       await _groupRepo.addMemberByPhone(widget.groupId, formattedPhone);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã thêm thành viên $formattedPhone thành công!'),
-            backgroundColor: Colors.green,
-          ),
+        PopupNotification.showSuccess(
+          context,
+          'Đã thêm thành viên $formattedPhone thành công!',
         );
         _loadAllData(); // Reload member list
       }
@@ -424,12 +417,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                         Clipboard.setData(
                           ClipboardData(text: widget.inviteCode!),
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã sao chép mã mời!'),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 1),
-                          ),
+                        PopupNotification.showSuccess(
+                          context,
+                          'Đã sao chép mã mời!',
                         );
                       },
                       child: Container(
@@ -889,17 +879,152 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     );
   }
 
-  // Placeholder for Transactions Tab
+  // Transactions Tab - Lịch sử hoạt động
   Widget _buildTransactionsTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(LucideIcons.history, size: 48, color: Colors.grey),
-          SizedBox(height: 12),
-          Text("Lịch sử hoạt động"),
-        ],
-      ),
+    if (_transactions.isEmpty) {
+      return _buildEmptyState("Chưa có lịch sử hoạt động nào");
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _transactions.length,
+      itemBuilder: (context, index) {
+        final tx = _transactions[index];
+        final payer = tx['payer'];
+        final payerName = payer?['full_name'] ?? payer?['name'] ?? 'Unknown';
+        final amount = (tx['amount'] as num).toDouble();
+        final description = tx['description'] ?? 'Chi tiêu nhóm';
+        final imageUrl = tx['image_url'];
+        final createdAtStr = tx['created_at'];
+
+        DateTime? createdAt;
+        if (createdAtStr != null) {
+          try {
+            createdAt = DateTime.parse(createdAtStr).toLocal();
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Avatar + Info + Amount
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    backgroundImage: (payer?['avatar_url'] != null)
+                        ? NetworkImage(payer['avatar_url'])
+                        : null,
+                    child: (payer?['avatar_url'] == null)
+                        ? Text(
+                            payerName.isNotEmpty
+                                ? payerName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AppColors.textPrimary,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: payerName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const TextSpan(text: ' đã trả '),
+                              TextSpan(
+                                text: currencyFormat.format(amount),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.danger,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (createdAt != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('dd/MM/yyyy HH:mm').format(createdAt),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Description
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+
+              // Image (if any)
+              if (imageUrl != null && imageUrl.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    imageUrl,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, stack) {
+                      return Container(
+                        height: 150,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.broken_image, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

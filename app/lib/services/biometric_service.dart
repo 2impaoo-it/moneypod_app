@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BiometricService {
   final LocalAuthentication _auth = LocalAuthentication();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  static const String _biometricEnabledKey = 'biometric_enabled';
-  static const String _userEmailKey = 'biometric_user_email';
-  static const String _userPasswordKey = 'biometric_user_password';
+  static const String _savedAccountsKey =
+      'biometric_saved_accounts'; // Key cho SharedPreferences
+  static const String _passPrefix =
+      'biometric_pass_'; // Prefix cho SecureStorage
 
   /// Kiểm tra xem thiết bị có hỗ trợ sinh trắc học không
   Future<bool> isBiometricAvailable() async {
@@ -22,13 +25,7 @@ class BiometricService {
     }
   }
 
-  /// Kiểm tra xem người dùng đã bật tính năng này chưa
-  Future<bool> isBiometricEnabled() async {
-    final enabled = await _storage.read(key: _biometricEnabledKey);
-    return enabled == 'true';
-  }
-
-  /// Lấy danh sách các loại sinh trắc học được hỗ trợ (Vân tay, Khuôn mặt,...)
+  /// Lấy danh sách các loại sinh trắc học được hỗ trợ
   Future<List<BiometricType>> getAvailableBiometrics() async {
     try {
       return await _auth.getAvailableBiometrics();
@@ -40,46 +37,119 @@ class BiometricService {
   /// Thực hiện xác thực sinh trắc học
   Future<bool> authenticate() async {
     try {
-      // Sử dụng API cơ bản nhất để đảm bảo tương thích
+      // Gọi hàm authenticate cơ bản nhất để tránh lỗi version compatibility
+      // Nếu cần customize (stickyAuth, biometricOnly), cần đảm bảo version local_auth đúng
+      // Hiện tại dùng default options để đảm bảo compile thành công
       return await _auth.authenticate(
-        localizedReason: 'Vui lòng xác thực để tiếp tục',
+        localizedReason: 'Vui lòng xác thực để đăng nhập',
       );
-    } on PlatformException catch (e) {
+    } catch (e) {
       print('Biometric Error: $e');
       return false;
     }
   }
 
-  /// Bật tính năng đăng nhập bằng sinh trắc học
-  /// Cần truyền email và password để lưu vào SecureStorage
+  /// Lưu thông tin tài khoản (khi đăng nhập thành công hoặc bật biometric)
+  Future<void> saveAccount({
+    required String email,
+    required String password,
+    required String name,
+    String? avatarUrl,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Get current list
+    List<Map<String, dynamic>> accounts = await getSavedAccounts();
+
+    // 2. Remove existing if any (to update)
+    accounts.removeWhere((acc) => acc['email'] == email);
+
+    // 3. Add new info
+    accounts.insert(0, {
+      'email': email,
+      'name': name,
+      'avatar_url': avatarUrl,
+      'last_login': DateTime.now().toIso8601String(),
+    });
+
+    // 4. Save metadata to Prefs
+    await prefs.setString(_savedAccountsKey, jsonEncode(accounts));
+
+    // 5. Save password to SecureStorage
+    await _storage.write(key: '$_passPrefix$email', value: password);
+  }
+
+  /// Lấy danh sách tài khoản đã lưu
+  Future<List<Map<String, dynamic>>> getSavedAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonStr = prefs.getString(_savedAccountsKey);
+    if (jsonStr == null || jsonStr.isEmpty) return [];
+
+    try {
+      final List<dynamic> list = jsonDecode(jsonStr);
+      return list.cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Lấy password của 1 account
+  Future<String?> getPassword(String email) async {
+    return await _storage.read(key: '$_passPrefix$email');
+  }
+
+  /// Xóa tài khoản khỏi danh sách lưu
+  Future<void> removeAccount(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Update list metadata
+    List<Map<String, dynamic>> accounts = await getSavedAccounts();
+    accounts.removeWhere((acc) => acc['email'] == email);
+    await prefs.setString(_savedAccountsKey, jsonEncode(accounts));
+
+    // 2. Remove password
+    await _storage.delete(key: '$_passPrefix$email');
+  }
+
+  // --- LEGACY SUPPORT ---
+
+  @Deprecated('Use getSavedAccounts instead')
+  Future<bool> isBiometricEnabled() async {
+    final accounts = await getSavedAccounts();
+    return accounts.isNotEmpty;
+  }
+
+  @Deprecated('Use saveAccount instead')
   Future<bool> enableBiometricLogin(String email, String password) async {
-    // 1. Xác thực trước khi bật
     final authenticated = await authenticate();
     if (!authenticated) return false;
 
-    // 2. Lưu thông tin an toàn
-    await _storage.write(key: _biometricEnabledKey, value: 'true');
-    await _storage.write(key: _userEmailKey, value: email);
-    await _storage.write(key: _userPasswordKey, value: password);
+    await saveAccount(
+      email: email,
+      password: password,
+      name: 'User',
+      avatarUrl: null,
+    );
     return true;
   }
 
-  /// Tắt tính năng đăng nhập bằng sinh trắc học
+  @Deprecated('Use removeAccount instead')
   Future<void> disableBiometricLogin() async {
-    await _storage.delete(key: _biometricEnabledKey);
-    await _storage.delete(key: _userEmailKey);
-    await _storage.delete(key: _userPasswordKey);
+    // Clear all for safety in legacy mode
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_savedAccountsKey);
   }
 
-  /// Lấy thông tin đăng nhập đã lưu (nếu đã bật và xác thực thành công)
+  @Deprecated('Use getSavedAccounts and getPassword instead')
   Future<Map<String, String>?> getStoredCredentials() async {
-    final enabled = await isBiometricEnabled();
-    if (!enabled) return null;
+    final accounts = await getSavedAccounts();
+    if (accounts.isEmpty) return null;
 
-    final email = await _storage.read(key: _userEmailKey);
-    final password = await _storage.read(key: _userPasswordKey);
+    final first = accounts.first;
+    final email = first['email'] as String;
+    final password = await getPassword(email);
 
-    if (email != null && password != null) {
+    if (password != null) {
       return {'email': email, 'password': password};
     }
     return null;

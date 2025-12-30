@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:ui';
+import '../utils/popup_notification.dart';
 
 // --- UTILS: Colors & Styles ---
 class AppColors {
@@ -180,11 +181,9 @@ class _SavingsScreenState extends State<SavingsScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã thêm tiền (Mock)'),
-                        backgroundColor: AppColors.teal500,
-                      ),
+                    PopupNotification.showSuccess(
+                      context,
+                      'Đã thêm tiền thành công!',
                     );
                   },
                   style: ElevatedButton.styleFrom(

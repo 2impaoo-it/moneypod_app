@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../utils/popup_notification.dart';
 import '../main.dart';
 
 /// Màn hình chi tiết mục tiêu tiết kiệm
@@ -273,11 +274,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã thêm tiền vào mục tiêu (Mock)'),
-                            backgroundColor: AppColors.success,
-                          ),
+                        PopupNotification.showSuccess(
+                          context,
+                          'Đã thêm tiền vào mục tiêu (Mock)',
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -474,11 +473,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã rút tiền (Mock)'),
-                            backgroundColor: AppColors.warning,
-                          ),
+                        PopupNotification.showSuccess(
+                          context,
+                          'Đã rút tiền (Mock)',
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -537,8 +534,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                 title: const Text('Chỉnh sửa mục tiêu'),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Chức năng chỉnh sửa (Mock)')),
+                  PopupNotification.showSuccess(
+                    context,
+                    'Chức năng chỉnh sửa (Mock)',
                   );
                 },
               ),
@@ -558,10 +556,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                 title: const Text('Tạm dừng mục tiêu'),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã tạm dừng mục tiêu (Mock)'),
-                    ),
+                  PopupNotification.showSuccess(
+                    context,
+                    'Đã tạm dừng mục tiêu (Mock)',
                   );
                 },
               ),
@@ -619,12 +616,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
             onPressed: () {
               Navigator.pop(context); // Close dialog
               Navigator.pop(context, true); // Go back with result
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã xóa mục tiêu (Mock)'),
-                  backgroundColor: AppColors.danger,
-                ),
-              );
+              PopupNotification.showSuccess(context, 'Đã xóa mục tiêu (Mock)');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.danger,

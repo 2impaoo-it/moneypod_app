@@ -513,4 +513,31 @@ class GroupRepository {
       rethrow;
     }
   }
+
+  /// Lấy lịch sử chi tiêu của nhóm
+  /// GET /groups/:id/expenses
+  Future<List<Map<String, dynamic>>> getGroupExpenses(String groupId) async {
+    try {
+      final token = await _authService.getToken();
+      final url = '$_baseUrl/groups/$groupId/expenses';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      } else {
+        throw Exception('Failed to load transactions');
+      }
+    } catch (e) {
+      print('Error getGroupExpenses: $e');
+      return [];
+    }
+  }
 }

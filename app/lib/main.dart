@@ -17,6 +17,7 @@ import 'bloc/dashboard/dashboard_event.dart';
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
 import 'utils/session_manager.dart';
+import 'utils/popup_notification.dart';
 
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
 import 'screens/splash_screen.dart';
@@ -30,8 +31,14 @@ import 'screens/create_savings_goal_screen.dart';
 import 'screens/savings_detail_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/profile/change_password_screen.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/profile_widget.dart';
+import 'screens/add_expense_screen.dart';
+import 'screens/create_wallet_screen.dart';
+import 'screens/bill_scan_screen.dart';
+import 'screens/wallet_list_screen.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -48,8 +55,9 @@ class AppColors {
   static const purple = Color(0xFF8B5CF6); // Violet-500
 }
 
-// Global key for navigation from outside context (used for session timeout)
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+// Global key for navigation
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> shellNavigatorKey = GlobalKey<NavigatorState>();
 
 // --- MAIN APP SETUP ---
 void main() async {
@@ -89,6 +97,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
 
     // Khởi tạo router với initialLocation dựa vào forceLogin
     _appRouter = GoRouter(
+      navigatorKey: rootNavigatorKey,
       initialLocation: widget.forceLogin ? '/login' : '/splash',
       routes: [
         // Splash screen - Kiểm tra server trước
@@ -105,8 +114,28 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
         ),
+        GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/create-wallet',
+          builder: (context, state) => const CreateWalletScreen(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/bill-scan',
+          builder: (context, state) => const BillScanScreen(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/wallet-list',
+          builder: (context, state) => const WalletListScreen(),
+        ),
         // Main app routes (có bottom nav)
         ShellRoute(
+          navigatorKey: shellNavigatorKey,
           builder: (context, state, child) {
             return MainWrapper(child: child);
           },
@@ -158,6 +187,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               path: '/profile',
               builder: (context, state) => ProfileWidget(),
             ),
+            GoRoute(
+              path: '/profile/change-password',
+              builder: (context, state) => const ChangePasswordScreen(),
+            ),
           ],
         ),
       ],
@@ -200,16 +233,9 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
 
       // Hiển thị thông báo
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(
-          navigatorKey.currentContext ?? context,
-        ).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-            ),
-            backgroundColor: AppColors.warning,
-            duration: Duration(seconds: 3),
-          ),
+        PopupNotification.showError(
+          rootNavigatorKey.currentContext ?? context,
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
         );
       });
     }
@@ -309,41 +335,92 @@ class _MainWrapperState extends State<MainWrapper> {
     }
   }
 
+  // Hàm mở màn hình Thêm Chi Tiêu Nhóm
+  void _openAddExpenseScreen(BuildContext context) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+    );
+
+    // Nếu thêm chi tiêu thành công, có thể refresh nếu cần
+    if (result == true && mounted) {
+      // Refresh có thể được xử lý bởi GroupsScreen
+    }
+  }
+
+  // Kiểm tra xem có nên hiển thị FAB hay không
+  bool _shouldShowFAB(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.toString();
+
+    // Ẩn FAB trên các màn hình tạo mới, chi tiết, profile
+    if (location.contains('/create')) return false;
+    if (location.startsWith('/groups/') && location != '/groups') return false;
+    if (location.startsWith('/savings/') && location != '/savings')
+      return false;
+    if (location.startsWith('/profile')) return false;
+    if (location.startsWith('/change-password')) return false;
+
+    return true;
+  }
+
+  // Xác định action khi nhấn FAB dựa trên màn hình hiện tại
+  void _handleFABPressed(BuildContext context) {
+    final String location = GoRouterState.of(context).uri.toString();
+
+    if (location == '/groups') {
+      // Trên màn hình Nhóm chi tiêu -> Thêm chi tiêu nhóm
+      _openAddExpenseScreen(context);
+    } else {
+      // Các màn hình khác -> Thêm giao dịch cá nhân
+      _showAddTransactionModal(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
+    final showFAB = _shouldShowFAB(context);
 
     return Scaffold(
       body: widget.child,
 
       // --- FLOATING ACTION BUTTON (GRADIENT) ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark], // Teal Gradient
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () => _showAddTransactionModal(context),
-          backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(LucideIcons.plus, color: Colors.white, size: 28),
-        ),
-      ),
+      floatingActionButton: showFAB
+          ? Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primaryDark,
+                  ], // Teal Gradient
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                onPressed: () => _handleFABPressed(context),
+                backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
+                elevation: 0,
+                shape: const CircleBorder(),
+                child: const Icon(
+                  LucideIcons.plus,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            )
+          : null,
 
       // --- BOTTOM APP BAR ---
       bottomNavigationBar: BottomAppBar(
@@ -393,7 +470,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     context,
                     2,
                     LucideIcons.users,
-                    "Quỹ nhóm",
+                    "Nhóm",
                     selectedIndex,
                   ),
                   _buildNavItem(

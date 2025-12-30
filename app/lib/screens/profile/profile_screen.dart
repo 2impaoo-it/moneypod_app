@@ -14,6 +14,9 @@ import 'package:MoneyPod/bloc/auth/auth_bloc.dart';
 import 'package:MoneyPod/bloc/auth/auth_event.dart';
 import 'package:MoneyPod/services/biometric_service.dart';
 import '../../main.dart';
+import '../../utils/popup_notification.dart';
+import '../../bloc/dashboard/dashboard_bloc.dart';
+import '../../bloc/dashboard/dashboard_event.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileService profileService;
@@ -69,6 +72,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _error = 'Không tải được thông tin: $e';
         _loading = false;
       });
+    }
+
+    // Auto-sync for biometric storage (silent update)
+    if (_profile != null &&
+        _profile!.email != null &&
+        _profile!.email!.isNotEmpty) {
+      try {
+        final email = _profile!.email!;
+        final password = await _biometricService.getPassword(email);
+        if (password != null) {
+          await _biometricService.saveAccount(
+            email: email,
+            password: password,
+            name: _profile!.fullName ?? email,
+            avatarUrl: _profile!.avatarUrl,
+          );
+        }
+      } catch (_) {}
     }
   }
 
@@ -166,33 +187,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _onVerificationSuccess(String phone) async {
     // Call backend API
-    final success = await widget.profileService.updatePhoneNumber(
-      widget.token,
-      phone,
-    );
+    try {
+      await widget.profileService.updatePhoneNumber(widget.token, phone);
 
-    if (success) {
       if (mounted) Navigator.pop(context); // Close sheet
       await _loadProfile();
       _showSuccess('Liên kết số điện thoại thành công!');
-    } else {
+    } catch (e) {
       setState(() => _loading = false);
-      _showError('Lỗi cập nhật số điện thoại lên server');
+      String msg = e.toString();
+      if (msg.startsWith("Exception: ")) {
+        msg = msg.substring(11); // Remove "Exception: " prefix
+      }
+      _showError(msg);
     }
   }
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
-    );
+    PopupNotification.showError(context, msg);
   }
 
   void _showSuccess(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.success),
-    );
+    PopupNotification.showSuccess(context, msg);
   }
 
   void _showPhoneInputSheet() {
@@ -546,12 +564,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateProfile(String newName) async {
     if (newName.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tên không được để trống'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Tên không được để trống');
       return;
     }
 
@@ -565,35 +578,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (updated != null) {
-        setState(() {
-          _profile = updated;
-          _loading = false;
-        });
+        // Reload full profile to get all fields including avatar
+        await _loadProfile();
+
+        // Sync new name to Biometric storage if exists
+        try {
+          final email = _profile?.email;
+          if (email != null) {
+            final password = await _biometricService.getPassword(email);
+            if (password != null) {
+              await _biometricService.saveAccount(
+                email: email,
+                password: password,
+                name: newName.trim(),
+                avatarUrl: _profile?.avatarUrl,
+              );
+            }
+          }
+        } catch (e) {
+          print('Error syncing biometric name: $e');
+        }
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thành công'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          // Refresh Dashboard to sync user info
+          context.read<DashboardBloc>().add(DashboardRefreshRequested());
+          PopupNotification.showSuccess(context, 'Cập nhật thành công');
         }
       } else {
         setState(() => _loading = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thất bại'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          PopupNotification.showError(context, 'Cập nhật thất bại');
         }
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
   }
@@ -688,32 +708,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (avatarUrl != null) {
           await _loadProfile(); // Reload to get updated avatar
+
+          // Sync new avatar to Biometric storage if exists
+          try {
+            final email = _profile?.email;
+            if (email != null) {
+              final password = await _biometricService.getPassword(email);
+              if (password != null) {
+                await _biometricService.saveAccount(
+                  email: email,
+                  password: password,
+                  name: _profile?.fullName ?? email,
+                  avatarUrl: avatarUrl,
+                );
+              }
+            }
+          } catch (e) {
+            print('Error syncing biometric avatar: $e');
+          }
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cập nhật ảnh đại diện thành công'),
-                backgroundColor: AppColors.success,
-              ),
+            PopupNotification.showSuccess(
+              context,
+              'Cập nhật ảnh đại diện thành công',
             );
           }
         } else {
           setState(() => _loading = false);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Không thể tải ảnh lên'),
-                backgroundColor: AppColors.danger,
-              ),
-            );
+            PopupNotification.showError(context, 'Không thể tải ảnh lên');
           }
         }
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
   }
@@ -1048,8 +1078,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Thông báo',
             iconColor: AppColors.warning,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
+              PopupNotification.showSuccess(
+                context,
+                'Chức năng đang phát triển',
               );
             },
           ),
@@ -1058,11 +1089,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: LucideIcons.lock,
             label: 'Đổi mật khẩu',
             iconColor: AppColors.primary,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
-              );
-            },
+            onTap: () => context.push('/profile/change-password'),
           ),
           Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
           _buildSettingsItem(
@@ -1070,8 +1097,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Trợ giúp & Hỗ trợ',
             iconColor: AppColors.textSecondary,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
+              PopupNotification.showSuccess(
+                context,
+                'Chức năng đang phát triển',
               );
             },
           ),
@@ -1154,11 +1182,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (success) {
           setState(() {}); // Rebuild to update toggle
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đã bật đăng nhập bằng sinh trắc học'),
-                backgroundColor: AppColors.success,
-              ),
+            PopupNotification.showSuccess(
+              context,
+              'Đã bật đăng nhập bằng sinh trắc học',
             );
           }
         }
@@ -1168,8 +1194,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _biometricService.disableBiometricLogin();
       setState(() {});
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã tắt đăng nhập bằng sinh trắc học')),
+        PopupNotification.showSuccess(
+          context,
+          'Đã tắt đăng nhập bằng sinh trắc học',
         );
       }
     }

@@ -120,21 +120,24 @@ class ProfileService {
     return null;
   }
 
-  Future<bool> updatePhoneNumber(String token, String phone) async {
+  Future<void> updatePhoneNumber(String token, String phone) async {
     try {
-      final resp = await _dio.post(
+      await _dio.post(
         '/profile/phone',
         data: {'phone': phone},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      return resp.statusCode == 200;
     } catch (e) {
       if (e is DioException) {
         print('Update phone error: ${e.message} - ${e.response?.data}');
+        final data = e.response?.data;
+        if (data is Map && data['error'] != null) {
+          throw Exception(data['error']);
+        }
       } else {
         print('Update phone error: $e');
       }
-      return false;
+      rethrow;
     }
   }
 }

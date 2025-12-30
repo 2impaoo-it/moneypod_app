@@ -69,4 +69,43 @@ class DashboardRepository {
       throw Exception('Lỗi khi lấy dashboard data: $e');
     }
   }
+
+  /// Lấy danh sách giao dịch theo bộ lọc (tháng, năm, category...)
+  Future<List<dynamic>> getTransactionsWithFilter({
+    int? month,
+    int? year,
+    String? category,
+    String? type,
+    int page = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) return [];
+
+      var url = '$_baseUrl/transactions?page=$page&page_size=$pageSize';
+      if (month != null) url += '&month=$month';
+      if (year != null) url += '&year=$year';
+      if (category != null) url += '&category=$category';
+      if (type != null) url += '&type=$type';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching filtered transactions: $e');
+      return [];
+    }
+  }
 }

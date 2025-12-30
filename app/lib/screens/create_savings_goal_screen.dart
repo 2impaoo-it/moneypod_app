@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
+import '../utils/popup_notification.dart';
 
 /// Màn hình tạo mục tiêu tiết kiệm mới
 class CreateSavingsGoalScreen extends StatefulWidget {
@@ -161,12 +162,7 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn ngày mục tiêu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Vui lòng chọn ngày mục tiêu');
       return;
     }
 
@@ -178,13 +174,11 @@ class _CreateSavingsGoalScreenState extends State<CreateSavingsGoalScreen> {
     setState(() => _isLoading = false);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tạo mục tiêu tiết kiệm thành công!'),
-          backgroundColor: AppColors.success,
-        ),
+      await PopupNotification.showSuccess(
+        context,
+        'Tạo mục tiêu tiết kiệm thành công!',
       );
-      context.pop(true);
+      if (mounted) context.pop(true);
     }
   }
 

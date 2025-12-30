@@ -9,6 +9,7 @@ import '../bloc/create_wallet/create_wallet_bloc.dart';
 import '../bloc/create_wallet/create_wallet_event.dart';
 import '../bloc/create_wallet/create_wallet_state.dart';
 import '../repositories/wallet_repository.dart';
+import '../utils/popup_notification.dart';
 
 /// Màn hình tạo ví mới với Material Design 3
 class CreateWalletScreen extends StatelessWidget {
@@ -84,27 +85,18 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
         centerTitle: true,
       ),
       body: BlocConsumer<CreateWalletBloc, CreateWalletState>(
-        listener: (context, state) {
+        listener: (context, state) async {
           // Xử lý khi tạo thành công
           if (state.status == CreateWalletStatus.success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tạo ví thành công!'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-            Navigator.pop(context, true); // Trả về true để reload dashboard
+            await PopupNotification.showSuccess(context, 'Tạo ví thành công!');
+            if (context.mounted) Navigator.pop(context, true);
           }
 
           // Xử lý khi có lỗi
           if (state.status == CreateWalletStatus.failure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage ?? 'Có lỗi xảy ra'),
-                backgroundColor: AppColors.danger,
-                behavior: SnackBarBehavior.floating,
-              ),
+            PopupNotification.showError(
+              context,
+              state.errorMessage ?? 'Có lỗi xảy ra',
             );
           }
         },
