@@ -14,6 +14,7 @@ import 'package:MoneyPod/bloc/auth/auth_bloc.dart';
 import 'package:MoneyPod/bloc/auth/auth_event.dart';
 import 'package:MoneyPod/services/biometric_service.dart';
 import '../../main.dart';
+import '../../utils/popup_notification.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileService profileService;
@@ -183,16 +184,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
-    );
+    PopupNotification.showError(context, msg);
   }
 
   void _showSuccess(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.success),
-    );
+    PopupNotification.showSuccess(context, msg);
   }
 
   void _showPhoneInputSheet() {
@@ -208,6 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         // Use StatefulBuilder to update sheet UI
@@ -428,6 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -546,12 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateProfile(String newName) async {
     if (newName.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tên không được để trống'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      PopupNotification.showError(context, 'Tên không được để trống');
       return;
     }
 
@@ -570,22 +564,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _loading = false;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thành công'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          PopupNotification.showSuccess(context, 'Cập nhật thành công');
         }
       } else {
         setState(() => _loading = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thất bại'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          PopupNotification.showError(context, 'Cập nhật thất bại');
         }
       }
     } catch (e) {
@@ -689,31 +673,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (avatarUrl != null) {
           await _loadProfile(); // Reload to get updated avatar
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cập nhật ảnh đại diện thành công'),
-                backgroundColor: AppColors.success,
-              ),
+            PopupNotification.showSuccess(
+              context,
+              'Cập nhật ảnh đại diện thành công',
             );
           }
         } else {
           setState(() => _loading = false);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Không thể tải ảnh lên'),
-                backgroundColor: AppColors.danger,
-              ),
-            );
+            PopupNotification.showError(context, 'Không thể tải ảnh lên');
           }
         }
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
   }
@@ -1059,9 +1034,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Đổi mật khẩu',
             iconColor: AppColors.primary,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Chức năng đang phát triển')),
-              );
+              context.push('/change-password');
             },
           ),
           Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),

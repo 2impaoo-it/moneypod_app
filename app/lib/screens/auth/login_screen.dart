@@ -7,6 +7,7 @@ import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../services/biometric_service.dart';
+import '../../utils/popup_notification.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,10 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Không tìm thấy thông tin đăng nhập đã lưu'),
-            ),
+          PopupNotification.showError(
+            context,
+            'Không tìm thấy thông tin đăng nhập đã lưu',
           );
         }
       }
@@ -97,19 +97,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is AuthAuthenticated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đăng nhập thành công!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          context.go('/');
+          await PopupNotification.showSuccess(context, 'Đăng nhập thành công!');
+          if (context.mounted) context.go('/');
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
-          );
+          PopupNotification.showError(context, state.message);
         }
       },
       child: Scaffold(
@@ -213,6 +206,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
                         return null;
                       },
+                    ),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        child: Text(
+                          'Quên mật khẩu?',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF14B8A6),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
 

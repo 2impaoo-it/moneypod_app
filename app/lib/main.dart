@@ -30,6 +30,8 @@ import 'screens/create_savings_goal_screen.dart';
 import 'screens/savings_detail_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/profile/change_password_screen.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/profile_widget.dart';
 
@@ -104,6 +106,14 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
         GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          builder: (context, state) => const ForgotPasswordScreen(),
+        ),
+        GoRoute(
+          path: '/change-password',
+          builder: (context, state) => const ChangePasswordScreen(),
         ),
         // Main app routes (có bottom nav)
         ShellRoute(
