@@ -131,10 +131,13 @@ func main() {
 		protected.POST("/groups", groupHandler.Create)
 		protected.GET("/groups", groupHandler.GetList)
 		protected.GET("/groups/:id", groupHandler.GetDetail)
+		protected.PUT("/groups/:id", groupHandler.UpdateGroup)                            // Cập nhật nhóm
 		protected.POST("/groups/join", groupHandler.Join)
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
 		protected.GET("/groups/:id/expenses", groupHandler.GetGroupExpenses)
 		protected.POST("/groups/:id/members", groupHandler.AddMember)
+		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember)         // Kick thành viên
+		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)                      // Rời nhóm
 		protected.PUT("/groups/debts/:debt_id/paid", groupHandler.MarkDebtPaid)
 		protected.GET("/groups/:id/my-debts", groupHandler.GetMyDebts)
 		protected.GET("/groups/:id/debts-to-me", groupHandler.GetDebtsToMe)

@@ -485,3 +485,116 @@ func (s *GroupService) DeleteGroup(requesterID uuid.UUID, groupID uuid.UUID) err
 
 	return tx.Commit().Error
 }
+
+// UpdateGroup: Cập nhật tên nhóm, mô tả (Chỉ Leader)
+func (s *GroupService) UpdateGroup(requesterID uuid.UUID, groupID uuid.UUID, name, description string) error {
+	// 1. Kiểm tra nhóm tồn tại
+	var group models.Group
+	if err := s.db.First(&group, "id = ?", groupID).Error; err != nil {
+		return errors.New("nhóm không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền: Requester phải là LEADER
+	var member models.GroupMember
+	err := s.db.Where("group_id = ? AND user_id = ?", groupID, requesterID).First(&member).Error
+	if err != nil {
+		return errors.New("bạn không phải thành viên nhóm này")
+	}
+	if member.Role != "leader" {
+		return errors.New("chỉ Trưởng nhóm (Leader) mới có quyền chỉnh sửa thông tin nhóm")
+	}
+
+	// 3. Cập nhật thông tin
+	if name != "" {
+		group.Name = name
+	}
+	if description != "" {
+		group.Description = description
+	}
+
+	return s.db.Save(&group).Error
+}
+
+// KickMember: Leader xóa thành viên ra khỏi nhóm (chỉ khi không có nợ)
+func (s *GroupService) KickMember(requesterID uuid.UUID, groupID uuid.UUID, memberUserID uuid.UUID) error {
+	// 1. Kiểm tra quyền: Requester phải là LEADER
+	var requesterMember models.GroupMember
+	err := s.db.Where("group_id = ? AND user_id = ?", groupID, requesterID).First(&requesterMember).Error
+	if err != nil {
+		return errors.New("bạn không phải thành viên nhóm này")
+	}
+	if requesterMember.Role != "leader" {
+		return errors.New("chỉ Trưởng nhóm (Leader) mới có quyền xóa thành viên")
+	}
+
+	// 2. Không cho phép leader tự kick mình
+	if requesterID == memberUserID {
+		return errors.New("bạn không thể xóa chính mình khỏi nhóm. Hãy dùng chức năng rời nhóm")
+	}
+
+	// 3. Kiểm tra member có tồn tại trong nhóm không
+	var memberToKick models.GroupMember
+	err = s.db.Where("group_id = ? AND user_id = ?", groupID, memberUserID).First(&memberToKick).Error
+	if err != nil {
+		return errors.New("thành viên này không thuộc nhóm")
+	}
+
+	// 4. Kiểm tra xem member có nợ ai không (FromUserID)
+	var debtCount int64
+	s.db.Model(&models.Debt{}).
+		Joins("JOIN expenses ON debts.expense_id = expenses.id").
+		Where("expenses.group_id = ? AND debts.from_user_id = ? AND debts.is_paid = ?", groupID, memberUserID, false).
+		Count(&debtCount)
+	if debtCount > 0 {
+		return errors.New("không thể xóa thành viên này vì họ còn nợ chưa thanh toán")
+	}
+
+	// 5. Kiểm tra xem có ai nợ member này không (ToUserID)
+	s.db.Model(&models.Debt{}).
+		Joins("JOIN expenses ON debts.expense_id = expenses.id").
+		Where("expenses.group_id = ? AND debts.to_user_id = ? AND debts.is_paid = ?", groupID, memberUserID, false).
+		Count(&debtCount)
+	if debtCount > 0 {
+		return errors.New("không thể xóa thành viên này vì còn người nợ họ chưa thanh toán")
+	}
+
+	// 6. Xóa thành viên
+	return s.db.Delete(&memberToKick).Error
+}
+
+// LeaveGroup: Thành viên tự rời nhóm (chỉ khi không có nợ)
+func (s *GroupService) LeaveGroup(userID uuid.UUID, groupID uuid.UUID) error {
+	// 1. Kiểm tra member có tồn tại trong nhóm không
+	var member models.GroupMember
+	err := s.db.Where("group_id = ? AND user_id = ?", groupID, userID).First(&member).Error
+	if err != nil {
+		return errors.New("bạn không phải thành viên nhóm này")
+	}
+
+	// 2. Không cho phép leader rời nhóm (phải xóa nhóm hoặc chuyển quyền trước)
+	if member.Role == "leader" {
+		return errors.New("trưởng nhóm không thể rời nhóm. Hãy xóa nhóm hoặc chuyển quyền trước")
+	}
+
+	// 3. Kiểm tra xem có nợ ai không (FromUserID)
+	var debtCount int64
+	s.db.Model(&models.Debt{}).
+		Joins("JOIN expenses ON debts.expense_id = expenses.id").
+		Where("expenses.group_id = ? AND debts.from_user_id = ? AND debts.is_paid = ?", groupID, userID, false).
+		Count(&debtCount)
+	if debtCount > 0 {
+		return errors.New("bạn không thể rời nhóm vì bạn còn nợ chưa thanh toán")
+	}
+
+	// 4. Kiểm tra xem có ai nợ mình không (ToUserID)
+	s.db.Model(&models.Debt{}).
+		Joins("JOIN expenses ON debts.expense_id = expenses.id").
+		Where("expenses.group_id = ? AND debts.to_user_id = ? AND debts.is_paid = ?", groupID, userID, false).
+		Count(&debtCount)
+	if debtCount > 0 {
+		return errors.New("bạn không thể rời nhóm vì còn người nợ bạn chưa thanh toán")
+	}
+
+	// 5. Rời nhóm
+	return s.db.Delete(&member).Error
+}

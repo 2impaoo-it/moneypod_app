@@ -269,3 +269,88 @@ func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "Đã xóa nhóm thành công"})
 }
+
+// UpdateGroup: Cập nhật tên nhóm, mô tả (Chỉ Leader)
+type UpdateGroupRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (h *GroupHandler) UpdateGroup(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
+	}
+
+	var req UpdateGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.UpdateGroup(requesterID, groupID, req.Name, req.Description)
+	if err != nil {
+		if err.Error() == "chỉ Trưởng nhóm (Leader) mới có quyền chỉnh sửa thông tin nhóm" {
+			c.JSON(403, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Cập nhật nhóm thành công!"})
+}
+
+// KickMember: Leader xóa thành viên
+func (h *GroupHandler) KickMember(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
+	}
+
+	memberUserID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID thành viên không hợp lệ"})
+		return
+	}
+
+	err = h.service.KickMember(requesterID, groupID, memberUserID)
+	if err != nil {
+		if err.Error() == "chỉ Trưởng nhóm (Leader) mới có quyền xóa thành viên" {
+			c.JSON(403, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã xóa thành viên khỏi nhóm!"})
+}
+
+// LeaveGroup: Thành viên tự rời nhóm
+func (h *GroupHandler) LeaveGroup(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID nhóm không hợp lệ"})
+		return
+	}
+
+	err = h.service.LeaveGroup(userID, groupID)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Bạn đã rời nhóm thành công!"})
+}
