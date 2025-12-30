@@ -115,13 +115,13 @@ func main() {
 		protected.GET("/profile", authHandler.GetProfile)
 		protected.PUT("/profile", authHandler.UpdateProfile)
 		protected.PUT("/profile/avatar", authHandler.UpdateAvatar)
-		protected.POST("/profile/phone", authHandler.LinkPhone)            // API cập nhật SĐT
-		protected.PUT("/change-password", authHandler.ChangePassword)      // Đổi mật khẩu
+		protected.POST("/profile/phone", authHandler.LinkPhone)       // API cập nhật SĐT
+		protected.PUT("/change-password", authHandler.ChangePassword) // Đổi mật khẩu
 		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)
-		protected.PUT("/wallets/:id", walletHandler.UpdateWallet)       // Cập nhật ví
-		protected.DELETE("/wallets/:id", walletHandler.DeleteWallet)    // Xóa ví
+		protected.PUT("/wallets/:id", walletHandler.UpdateWallet)    // Cập nhật ví
+		protected.DELETE("/wallets/:id", walletHandler.DeleteWallet) // Xóa ví
 
 		// Giao dịch
 		protected.POST("/transactions", transHandler.Create)
@@ -133,24 +133,24 @@ func main() {
 		protected.POST("/groups", groupHandler.Create)
 		protected.GET("/groups", groupHandler.GetList)
 		protected.GET("/groups/:id", groupHandler.GetDetail)
-		protected.PUT("/groups/:id", groupHandler.UpdateGroup)                            // Cập nhật nhóm
+		protected.PUT("/groups/:id", groupHandler.UpdateGroup) // Cập nhật nhóm
 		protected.POST("/groups/join", groupHandler.Join)
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
 		protected.GET("/groups/:id/expenses", groupHandler.GetGroupExpenses)
-		protected.GET("/groups/expenses/:expense_id", groupHandler.GetExpenseDetail)      // Xem chi tiết hóa đơn
-		protected.DELETE("/groups/expenses/:expense_id", groupHandler.DeleteExpense)      // Xóa hóa đơn
-		protected.PUT("/groups/expenses/:expense_id", groupHandler.UpdateExpense)         // Sửa hóa đơn
+		protected.GET("/groups/expenses/:expense_id", groupHandler.GetExpenseDetail) // Xem chi tiết hóa đơn
+		protected.DELETE("/groups/expenses/:expense_id", groupHandler.DeleteExpense) // Xóa hóa đơn
+		protected.PUT("/groups/expenses/:expense_id", groupHandler.UpdateExpense)    // Sửa hóa đơn
 		protected.POST("/groups/:id/members", groupHandler.AddMember)
-		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember)         // Kick thành viên
-		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)                      // Rời nhóm
+		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember) // Kick thành viên
+		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)              // Rời nhóm
 		protected.PUT("/groups/debts/:debt_id/paid", groupHandler.MarkDebtPaid)
-		
+
 		// Payment Request System (New)
 		protected.POST("/groups/debts/:debt_id/payment-request", groupHandler.RequestDebtPayment)       // Người nợ gửi request trả nợ
 		protected.GET("/groups/payment-requests", groupHandler.GetPendingPaymentRequests)               // Lấy danh sách request chờ xác nhận
 		protected.POST("/groups/payment-requests/:request_id/confirm", groupHandler.ConfirmDebtPayment) // Chủ nợ xác nhận
 		protected.POST("/groups/payment-requests/:request_id/reject", groupHandler.RejectDebtPayment)   // Chủ nợ từ chối
-		
+
 		protected.GET("/groups/:id/my-debts", groupHandler.GetMyDebts)
 		protected.GET("/groups/:id/debts-to-me", groupHandler.GetDebtsToMe)
 		protected.DELETE("/groups/:id", groupHandler.DeleteGroup)
@@ -162,12 +162,12 @@ func main() {
 		protected.POST("/upload", uploadHandler.UploadImage)
 
 		// ROUTES TIẾT KIỆM
-		protected.POST("/savings", savingsHandler.Create)                         // Tạo heo đất
-		protected.GET("/savings", savingsHandler.GetList)                         // Xem heo đất
-		protected.PUT("/savings/:id", savingsHandler.UpdateGoal)                  // Sửa mục tiêu
-		protected.DELETE("/savings/:id", savingsHandler.DeleteGoal)               // Xóa mục tiêu
-		protected.POST("/savings/:id/deposit", savingsHandler.Deposit)            // Cho heo ăn
-		protected.POST("/savings/:id/withdraw", savingsHandler.Withdraw)          // Đập heo
+		protected.POST("/savings", savingsHandler.Create)                              // Tạo heo đất
+		protected.GET("/savings", savingsHandler.GetList)                              // Xem heo đất
+		protected.PUT("/savings/:id", savingsHandler.UpdateGoal)                       // Sửa mục tiêu
+		protected.DELETE("/savings/:id", savingsHandler.DeleteGoal)                    // Xóa mục tiêu
+		protected.POST("/savings/:id/deposit", savingsHandler.Deposit)                 // Cho heo ăn
+		protected.POST("/savings/:id/withdraw", savingsHandler.Withdraw)               // Đập heo
 		protected.GET("/savings/:id/transactions", savingsHandler.GetGoalTransactions) // Lịch sử nạp/rút
 	}
 
