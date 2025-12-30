@@ -598,3 +598,134 @@ func (s *GroupService) LeaveGroup(userID uuid.UUID, groupID uuid.UUID) error {
 	// 5. Rời nhóm
 	return s.db.Delete(&member).Error
 }
+
+// GetExpenseDetail: Xem chi tiết một hóa đơn
+func (s *GroupService) GetExpenseDetail(expenseID uuid.UUID) (*models.Expense, error) {
+	var expense models.Expense
+
+	// Preload Debts để xem chi tiết ai nợ bao nhiêu
+	err := s.db.Preload("Debts").First(&expense, "id = ?", expenseID).Error
+	if err != nil {
+		return nil, errors.New("hóa đơn không tồn tại")
+	}
+
+	return &expense, nil
+}
+
+// DeleteExpense: Xóa hóa đơn (phải xóa luôn các khoản nợ)
+func (s *GroupService) DeleteExpense(requesterID uuid.UUID, expenseID uuid.UUID) error {
+	// 1. Lấy thông tin expense
+	var expense models.Expense
+	if err := s.db.First(&expense, "id = ?", expenseID).Error; err != nil {
+		return errors.New("hóa đơn không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền: Chỉ người trả tiền (Payer) hoặc Leader mới được xóa
+	var member models.GroupMember
+	err := s.db.Where("group_id = ? AND user_id = ?", expense.GroupID, requesterID).First(&member).Error
+	if err != nil {
+		return errors.New("bạn không phải thành viên nhóm này")
+	}
+
+	// Kiểm tra phải là Payer hoặc Leader
+	if expense.PayerID != requesterID && member.Role != "leader" {
+		return errors.New("chỉ người trả tiền hoặc Trưởng nhóm mới được xóa hóa đơn này")
+	}
+
+	// 3. Bắt đầu transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 4. Xóa các khoản nợ liên quan
+	if err := tx.Where("expense_id = ?", expenseID).Delete(&models.Debt{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 5. Xóa hóa đơn
+	if err := tx.Delete(&expense).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// UpdateExpense: Sửa hóa đơn (Phức tạp - thường khuyến nghị xóa và tạo lại)
+func (s *GroupService) UpdateExpense(requesterID uuid.UUID, expenseID uuid.UUID, amount float64, description, imageURL string, splitDetails []SplitItem) error {
+	// 1. Lấy thông tin expense cũ
+	var expense models.Expense
+	if err := s.db.Preload("Debts").First(&expense, "id = ?", expenseID).Error; err != nil {
+		return errors.New("hóa đơn không tồn tại")
+	}
+
+	// 2. Kiểm tra quyền: Chỉ người trả tiền (Payer) hoặc Leader mới được sửa
+	var member models.GroupMember
+	err := s.db.Where("group_id = ? AND user_id = ?", expense.GroupID, requesterID).First(&member).Error
+	if err != nil {
+		return errors.New("bạn không phải thành viên nhóm này")
+	}
+
+	if expense.PayerID != requesterID && member.Role != "leader" {
+		return errors.New("chỉ người trả tiền hoặc Trưởng nhóm mới được sửa hóa đơn này")
+	}
+
+	// 3. Bắt đầu transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 4. Cập nhật thông tin expense
+	if amount > 0 {
+		expense.Amount = amount
+	}
+	if description != "" {
+		expense.Description = description
+	}
+	if imageURL != "" {
+		expense.ImageURL = imageURL
+	}
+
+	if err := tx.Save(&expense).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 5. Nếu có split details mới, xóa debts cũ và tạo lại
+	if len(splitDetails) > 0 {
+		// Xóa debts cũ
+		if err := tx.Where("expense_id = ?", expenseID).Delete(&models.Debt{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// Tạo debts mới
+		for _, item := range splitDetails {
+			if item.UserID == expense.PayerID {
+				continue
+			}
+
+			debt := models.Debt{
+				ExpenseID:  expense.ID,
+				FromUserID: item.UserID,
+				ToUserID:   expense.PayerID,
+				Amount:     item.Amount,
+				IsPaid:     false,
+			}
+
+			if err := tx.Create(&debt).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	return tx.Commit().Error
+}

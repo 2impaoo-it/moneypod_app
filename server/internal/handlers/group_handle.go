@@ -354,3 +354,81 @@ func (h *GroupHandler) LeaveGroup(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "Bạn đã rời nhóm thành công!"})
 }
+
+// GetExpenseDetail: Xem chi tiết một hóa đơn
+func (h *GroupHandler) GetExpenseDetail(c *gin.Context) {
+	expenseID, err := uuid.Parse(c.Param("expense_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID hóa đơn không hợp lệ"})
+		return
+	}
+
+	expense, err := h.service.GetExpenseDetail(expenseID)
+	if err != nil {
+		c.JSON(404, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"data": expense})
+}
+
+// DeleteExpense: Xóa hóa đơn
+func (h *GroupHandler) DeleteExpense(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	expenseID, err := uuid.Parse(c.Param("expense_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID hóa đơn không hợp lệ"})
+		return
+	}
+
+	err = h.service.DeleteExpense(requesterID, expenseID)
+	if err != nil {
+		if err.Error() == "chỉ người trả tiền hoặc Trưởng nhóm mới được xóa hóa đơn này" {
+			c.JSON(403, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã xóa hóa đơn thành công!"})
+}
+
+// UpdateExpense: Sửa hóa đơn
+type UpdateExpenseRequest struct {
+	Amount       float64              `json:"amount"`
+	Description  string               `json:"description"`
+	ImageURL     string               `json:"image_url"`
+	SplitDetails []services.SplitItem `json:"split_details"`
+}
+
+func (h *GroupHandler) UpdateExpense(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	requesterID, _ := uuid.Parse(idVal.(string))
+
+	expenseID, err := uuid.Parse(c.Param("expense_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "ID hóa đơn không hợp lệ"})
+		return
+	}
+
+	var req UpdateExpenseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.UpdateExpense(requesterID, expenseID, req.Amount, req.Description, req.ImageURL, req.SplitDetails)
+	if err != nil {
+		if err.Error() == "chỉ người trả tiền hoặc Trưởng nhóm mới được sửa hóa đơn này" {
+			c.JSON(403, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(400, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Cập nhật hóa đơn thành công!"})
+}

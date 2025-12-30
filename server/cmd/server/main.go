@@ -135,6 +135,9 @@ func main() {
 		protected.POST("/groups/join", groupHandler.Join)
 		protected.POST("/groups/expenses", groupHandler.AddExpense)
 		protected.GET("/groups/:id/expenses", groupHandler.GetGroupExpenses)
+		protected.GET("/groups/expenses/:expense_id", groupHandler.GetExpenseDetail)      // Xem chi tiết hóa đơn
+		protected.DELETE("/groups/expenses/:expense_id", groupHandler.DeleteExpense)      // Xóa hóa đơn
+		protected.PUT("/groups/expenses/:expense_id", groupHandler.UpdateExpense)         // Sửa hóa đơn
 		protected.POST("/groups/:id/members", groupHandler.AddMember)
 		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember)         // Kick thành viên
 		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)                      // Rời nhóm
