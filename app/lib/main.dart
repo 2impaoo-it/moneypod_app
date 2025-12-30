@@ -32,6 +32,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/profile_widget.dart';
+import 'widgets/top_notification.dart';
+
+import 'screens/add_expense_screen.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -200,16 +203,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
 
       // Hiển thị thông báo
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(
+        TopNotification.show(
           navigatorKey.currentContext ?? context,
-        ).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-            ),
-            backgroundColor: AppColors.warning,
-            duration: Duration(seconds: 3),
-          ),
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          type: NotificationType.warning,
         );
       });
     }
@@ -309,41 +306,95 @@ class _MainWrapperState extends State<MainWrapper> {
     }
   }
 
+  // Kiểm tra xem có nên hiển thị FAB không
+  bool _shouldShowFAB(String location) {
+    // Ẩn FAB trên các màn hình phụ
+    if (location.startsWith('/profile')) return false;
+    if (location.startsWith('/groups/create')) return false;
+    if (location.startsWith('/savings/create')) return false;
+    // Ẩn trên detail screens (trừ Group Detail)
+    // if (RegExp(r'^/groups/[^/]+$').hasMatch(location)) return false; // Cho phép hiển thị ở Group Detail
+    if (RegExp(r'^/savings/[^/]+$').hasMatch(location)) return false;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
+    final String location = GoRouterState.of(context).uri.toString();
+    final showFAB = _shouldShowFAB(location);
 
     return Scaffold(
       body: widget.child,
 
       // --- FLOATING ACTION BUTTON (GRADIENT) ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark], // Teal Gradient
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () => _showAddTransactionModal(context),
-          backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(LucideIcons.plus, color: Colors.white, size: 28),
-        ),
-      ),
+      floatingActionButton: showFAB
+          ? FloatingActionButton(
+              onPressed: () {
+                final location = GoRouterState.of(context).uri.toString();
+
+                // Case 1: In Group Detail Screen (/groups/:id) -> Pre-select group
+                final groupDetailMatch = RegExp(
+                  r'^/groups/([^/]+)$',
+                ).firstMatch(location);
+                if (groupDetailMatch != null) {
+                  final groupId = groupDetailMatch.group(1);
+                  if (groupId != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddExpenseScreen(preSelectedGroupId: groupId),
+                      ),
+                    );
+                    return;
+                  }
+                }
+
+                // Case 2: In Groups List Screen (/groups) -> Open Add Group Expense (no pre-select)
+                // Note: /groups/create starts with /groups so we need exact match or careful check
+                if (location == '/groups') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const AddExpenseScreen(), // No preSelectedGroupId
+                    ),
+                  );
+                  return;
+                }
+
+                // Default: Add Transaction (Personal)
+                _showAddTransactionModal(context);
+              },
+              backgroundColor:
+                  Colors.transparent, // Transparent to show gradient
+              elevation: 0,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  LucideIcons.plus,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            )
+          : null,
 
       // --- BOTTOM APP BAR ---
       bottomNavigationBar: BottomAppBar(

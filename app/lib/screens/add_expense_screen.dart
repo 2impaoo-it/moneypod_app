@@ -32,7 +32,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _currentUserId;
 
   // Multi-image
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false;
@@ -107,6 +107,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             final userId = user['id'] ?? member['id'] ?? '';
             if (userId.toString().isNotEmpty) {
               _splitControllers[userId.toString()] = TextEditingController();
+            }
+          }
+
+          // Default payer to current user if they are in the group
+          if (_currentUserId != null) {
+            final isMember = _groupMembers.any((m) {
+              final u = m['user'] ?? {};
+              final uid = u['id'] ?? m['id'];
+              return uid.toString() == _currentUserId.toString();
+            });
+            if (isMember) {
+              _selectedPayerId = _currentUserId;
             }
           }
         });
@@ -387,27 +399,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     value: _selectedGroupId,
                     isExpanded: true,
                     hint: const Text("Chọn nhóm"),
+                    // Disable Dropdown if preSelectedGroupId is set
+                    onChanged: widget.preSelectedGroupId != null
+                        ? null // Disables the dropdown
+                        : (val) {
+                            setState(() {
+                              _selectedGroupId = val;
+                              // Reset Payer to default "Me"
+                              _selectedPayerId = null;
+                              // Load members for new group
+                              if (val != null) {
+                                _loadGroupMembers(val);
+                              } else {
+                                _groupMembers = [];
+                              }
+                            });
+                          },
                     items: _groups
                         .map(
                           (g) => DropdownMenuItem(
                             value: g['id'] as String,
-                            child: Text(g['name']),
+                            child: Text(
+                              g['name'],
+                              style: TextStyle(
+                                color: widget.preSelectedGroupId != null
+                                    ? Colors.grey
+                                    : Colors.black, // Visual feedback
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedGroupId = val;
-                        // Reset Payer to default "Me"
-                        _selectedPayerId = null;
-                        // Load members for new group
-                        if (val != null) {
-                          _loadGroupMembers(val);
-                        } else {
-                          _groupMembers = [];
-                        }
-                      });
-                    },
                   ),
                 ),
               ),
@@ -481,7 +503,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 const Divider(),
               ] else
                 Container(
@@ -526,35 +548,43 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedPayerId,
-                  isExpanded: true,
-                  hint: const Text("Tôi (Mặc định)"),
-                  icon: const Icon(Icons.person),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text("Tôi (Mặc định)"),
-                    ),
-                    ..._groupMembers.map((m) {
-                      // m is {user: {}, role: ...} or sometimes flat depending on API
-                      // Let's assume standard structure from getGroupDetails
+                child: Builder(
+                  builder: (context) {
+                    final payerItems = _groupMembers.map((m) {
                       final user = m['user'] ?? {};
-                      final userId = user['id'] ?? m['id'] ?? ''; // Fallback
+                      final userId = user['id'] ?? m['id'] ?? '';
                       final userName =
                           user['full_name'] ??
                           user['name'] ??
                           m['email'] ??
                           'Thành viên';
-
                       return DropdownMenuItem<String>(
                         value: userId.toString(),
                         child: Text(userName),
                       );
-                    }).toList(),
-                  ],
-                  onChanged: (val) {
-                    setState(() => _selectedPayerId = val);
+                    }).toList();
+
+                    // Ensure _selectedPayerId is valid found in the list
+                    final isValid =
+                        _selectedPayerId != null &&
+                        payerItems.any(
+                          (item) => item.value == _selectedPayerId,
+                        );
+
+                    final displayValue = isValid ? _selectedPayerId : null;
+
+                    return DropdownButton<String>(
+                      value: displayValue,
+                      isExpanded: true,
+                      hint: const Text("Chọn người trả"),
+                      icon: const Icon(Icons.person),
+                      items: payerItems,
+                      onChanged: payerItems.isEmpty
+                          ? null
+                          : (val) {
+                              setState(() => _selectedPayerId = val);
+                            },
+                    );
                   },
                 ),
               ),
@@ -661,7 +691,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

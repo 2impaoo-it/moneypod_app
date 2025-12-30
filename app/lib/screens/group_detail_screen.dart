@@ -7,7 +7,6 @@ import '../repositories/group_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import 'package:go_router/go_router.dart';
-import 'add_expense_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
@@ -337,26 +336,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         ],
       ),
       // bottomNavigationBar: _buildBottomActionBar(), // Removed per new requirements or kept minimal? Removed for now.
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  AddExpenseScreen(preSelectedGroupId: widget.groupId),
-            ),
-          );
-          if (result == true) {
-            _loadAllData();
-          }
-        },
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          "Thêm chi tiêu",
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
     );
   }
 

@@ -7,6 +7,7 @@ import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../services/biometric_service.dart';
+import '../../widgets/top_notification.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,10 +67,10 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Không tìm thấy thông tin đăng nhập đã lưu'),
-            ),
+          TopNotification.show(
+            context,
+            'Không tìm thấy thông tin đăng nhập đã lưu',
+            type: NotificationType.error,
           );
         }
       }
@@ -99,16 +100,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đăng nhập thành công!'),
-              backgroundColor: Colors.green,
-            ),
+          TopNotification.show(
+            context,
+            'Đăng nhập thành công!',
+            type: NotificationType.success,
           );
           context.go('/');
         } else if (state is AuthError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+          TopNotification.show(
+            context,
+            state.message,
+            type: NotificationType.error,
           );
         }
       },
