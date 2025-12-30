@@ -43,8 +43,8 @@ class SavingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => SavingsBloc(SavingsRepository())
-        ..add(LoadSavingsGoals()),
+      create: (context) =>
+          SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
       child: const SavingsScreenContent(),
     );
   }
@@ -83,7 +83,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
   void _showAddMoneyModal(SavingsGoal goal) async {
     final amountController = TextEditingController();
     final walletRepository = WalletRepository();
-    
+
     // Load wallets
     List<Wallet> wallets = [];
     try {
@@ -108,11 +108,13 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         String? selectedWalletId;
-        
+
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return Container(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -131,6 +133,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                           color: AppColors.slate300,
                           borderRadius: BorderRadius.circular(2),
                         ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -224,7 +227,9 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                           }
 
                           // Validate wallet balance
-                          final selectedWallet = wallets.firstWhere((w) => w.id == selectedWalletId);
+                          final selectedWallet = wallets.firstWhere(
+                            (w) => w.id == selectedWalletId,
+                          );
                           if (selectedWallet.balance < amount) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -236,7 +241,8 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                           }
 
                           // Validate amount doesn't exceed remaining target
-                          final remaining = goal.targetAmount - goal.currentAmount;
+                          final remaining =
+                              goal.targetAmount - goal.currentAmount;
                           if (amount > remaining) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -250,7 +256,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                           }
 
                           Navigator.pop(ctx);
-                          
+
                           // Dispatch deposit event
                           this.context.read<SavingsBloc>().add(
                             DepositToGoal(
@@ -318,9 +324,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
           builder: (context, state) {
             // Loading state
             if (state is SavingsLoading) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             // Get goals from state
@@ -367,7 +371,11 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.add, color: Colors.white, size: 16),
+                                  Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                   SizedBox(width: 4),
                                   Text(
                                     "Tạo mục tiêu",
@@ -385,88 +393,88 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                       ),
                     ),
 
-                // 2. Total Savings Card
-                _buildTotalSavingsCard(goals),
+                    // 2. Total Savings Card
+                    _buildTotalSavingsCard(goals),
 
-                // 3. Savings Goals Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Mục tiêu của bạn",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.slate700,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (goals.isEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.savings_outlined,
-                                  size: 64,
-                                  color: AppColors.slate300,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Chưa có mục tiêu tiết kiệm',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: AppColors.slate500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tạo mục tiêu đầu tiên của bạn!',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.slate400,
-                                  ),
-                                ),
-                              ],
+                    // 3. Savings Goals Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Mục tiêu của bạn",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.slate700,
                             ),
                           ),
-                        )
-                      else
-                        ...goals.map(
-                          (goal) => _buildSavingsGoalCard(goal),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // 4. Suggested Goals Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 24),
-                      const Text(
-                        "Gợi ý cho bạn",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.slate700,
-                        ),
+                          const SizedBox(height: 16),
+                          if (goals.isEmpty)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.savings_outlined,
+                                      size: 64,
+                                      color: AppColors.slate300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Chưa có mục tiêu tiết kiệm',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: AppColors.slate500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tạo mục tiêu đầu tiên của bạn!',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: AppColors.slate400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            ...goals.map((goal) => _buildSavingsGoalCard(goal)),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      ...suggestedGoals.map((sg) => _buildSuggestionCard(sg)),
-                      const SizedBox(height: 40), // Bottom padding
-                    ],
-                  ),
+                    ),
+
+                    // 4. Suggested Goals Section
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 24),
+                          const Text(
+                            "Gợi ý cho bạn",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...suggestedGoals.map(
+                            (sg) => _buildSuggestionCard(sg),
+                          ),
+                          const SizedBox(height: 40), // Bottom padding
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
+              ),
+            );
           },
         ),
       ),
@@ -482,15 +490,17 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
       0,
       (sum, goal) => sum + goal.currentAmount,
     );
-    
+
     // Tính tổng mục tiêu
     final double totalTarget = goals.fold(
       0,
       (sum, goal) => sum + goal.targetAmount,
     );
-    
+
     // Tính phần trăm hoàn thành
-    final double percentComplete = totalTarget > 0 ? (totalSavings / totalTarget * 100) : 0;
+    final double percentComplete = totalTarget > 0
+        ? (totalSavings / totalTarget * 100)
+        : 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -694,7 +704,9 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                                 : "Chưa có deadline",
                             style: TextStyle(
                               fontSize: 12,
-                              color: goal.isOverdue ? Colors.red : AppColors.slate500,
+                              color: goal.isOverdue
+                                  ? Colors.red
+                                  : AppColors.slate500,
                             ),
                           ),
                         ],
