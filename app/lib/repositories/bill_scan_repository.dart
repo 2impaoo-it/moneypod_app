@@ -12,7 +12,8 @@ class BillScanRepository {
   final AuthService _authService = AuthService();
 
   // URL server backend - thay đổi theo môi trường của bạn
-  static const String _baseUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  static const String _baseUrl =
+      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   BillScanRepository();
 
@@ -82,6 +83,7 @@ class BillScanRepository {
 
       // Thêm Authorization header với Bearer token
       request.headers['Authorization'] = 'Bearer $token';
+      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       // Thêm file ảnh vào request
       final stream = http.ByteStream(imageFile.openRead());
@@ -173,6 +175,7 @@ class BillScanRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode(requestBody),
       );

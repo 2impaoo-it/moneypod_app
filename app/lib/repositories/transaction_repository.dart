@@ -7,7 +7,8 @@ import '../services/auth_service.dart';
 /// Repository cho quản lý giao dịch
 class TransactionRepository {
   final AuthService _authService = AuthService();
-  static const String _baseUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  static const String _baseUrl =
+      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   /// Tạo giao dịch mới
   ///
@@ -52,6 +53,7 @@ class TransactionRepository {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode(requestBody),
       );

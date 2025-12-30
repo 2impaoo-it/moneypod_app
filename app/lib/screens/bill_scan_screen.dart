@@ -25,7 +25,11 @@ class _BillScanContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -71,9 +75,7 @@ class _BillScanContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   _buildActionButtons(context, state),
-                      if (state is! BillScanSuccess) 
-                    const SizedBox(height: 60),
-
+                  if (state is! BillScanSuccess) const SizedBox(height: 60),
                 ],
               ),
             ),

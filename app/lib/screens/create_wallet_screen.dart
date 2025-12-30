@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../main.dart';
+import '../utils/currency_input_formatter.dart';
 import '../bloc/create_wallet/create_wallet_bloc.dart';
 import '../bloc/create_wallet/create_wallet_event.dart';
 import '../bloc/create_wallet/create_wallet_state.dart';
@@ -31,7 +33,7 @@ class _CreateWalletContent extends StatefulWidget {
 
 class _CreateWalletContentState extends State<_CreateWalletContent> {
   final _nameController = TextEditingController();
-  final _balanceController = TextEditingController(text: '0');
+  final _balanceController = TextEditingController();
   final _nameFocusNode = FocusNode();
   final _balanceFocusNode = FocusNode();
   final _formKey = GlobalKey<FormState>();
@@ -373,6 +375,10 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
           controller: _balanceController,
           focusNode: _balanceFocusNode,
           keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            CurrencyInputFormatter(),
+          ],
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -422,7 +428,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
           ),
           // Server sẽ xử lý validation chi tiết về giá trị
           validator: (value) {
-            final balance = double.tryParse(value ?? '');
+            final balance = parseCurrency(value ?? '');
             if (balance == null) {
               return 'Vui lòng nhập số hợp lệ';
             }
@@ -430,7 +436,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
             return null;
           },
           onChanged: (value) {
-            final balance = double.tryParse(value) ?? 0.0;
+            final balance = parseCurrency(value) ?? 0.0;
             context.read<CreateWalletBloc>().add(WalletBalanceChanged(balance));
           },
           textInputAction: TextInputAction.done,

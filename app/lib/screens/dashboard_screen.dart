@@ -24,7 +24,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
 
     return BlocBuilder<DashboardBloc, DashboardState>(
       builder: (context, state) {
@@ -89,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       id: userInfo.id,
                       fullName: userInfo.fullName,
                       email: userInfo.email,
-                      avatarUrl: null,
+                      avatarUrl: userInfo.avatarUrl,
                     ),
                   ),
                   const SizedBox(height: 24),
