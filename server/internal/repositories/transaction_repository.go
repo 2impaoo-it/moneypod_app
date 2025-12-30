@@ -44,3 +44,64 @@ func (r *TransactionRepository) GetRecent(userID uuid.UUID, limit int) ([]models
 
 	return transactions, err
 }
+
+// GetByID lấy giao dịch theo ID
+func (r *TransactionRepository) GetByID(transactionID uuid.UUID) (*models.Transaction, error) {
+	var transaction models.Transaction
+	err := r.db.Preload("Wallet").Where("id = ?", transactionID).First(&transaction).Error
+	return &transaction, err
+}
+
+// GetByIDAndUserID lấy giao dịch theo ID và UserID (để bảo mật)
+func (r *TransactionRepository) GetByIDAndUserID(transactionID, userID uuid.UUID) (*models.Transaction, error) {
+	var transaction models.Transaction
+	err := r.db.Preload("Wallet").Where("id = ? AND user_id = ?", transactionID, userID).First(&transaction).Error
+	return &transaction, err
+}
+
+// Update cập nhật giao dịch
+func (r *TransactionRepository) Update(tx *gorm.DB, transaction *models.Transaction) error {
+	return tx.Save(transaction).Error
+}
+
+// Delete xóa giao dịch
+func (r *TransactionRepository) Delete(tx *gorm.DB, transactionID uuid.UUID) error {
+	return tx.Delete(&models.Transaction{}, transactionID).Error
+}
+
+// GetByUserIDWithFilters lấy giao dịch với filter và pagination
+func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, category, transactionType string, month int, year int, offset, limit int) ([]models.Transaction, int64, error) {
+	var transactions []models.Transaction
+	var total int64
+
+	query := r.db.Model(&models.Transaction{}).Where("user_id = ?", userID)
+
+	// Filter by category
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+
+	// Filter by type (income/expense)
+	if transactionType != "" {
+		query = query.Where("type = ?", transactionType)
+	}
+
+	// Filter by month and year
+	if month > 0 && year > 0 {
+		query = query.Where("MONTH(date) = ? AND YEAR(date) = ?", month, year)
+	} else if year > 0 {
+		query = query.Where("YEAR(date) = ?", year)
+	}
+
+	// Count total
+	query.Count(&total)
+
+	// Get paginated results
+	err := query.Preload("Wallet").
+		Order("date desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&transactions).Error
+
+	return transactions, total, err
+}

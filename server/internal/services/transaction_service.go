@@ -72,3 +72,126 @@ func (s *TransactionService) GetMyTransactions(userID uuid.UUID) ([]models.Trans
 	// Lấy tất cả giao dịch của user này, sắp xếp mới nhất lên đầu
 	return s.repo.GetByUserID(userID)
 }
+
+// UpdateTransaction sửa giao dịch (phải tính toán lại số dư)
+func (s *TransactionService) UpdateTransaction(transactionID, userID uuid.UUID, amount float64, category, transactionType, note string) error {
+	// Bắt đầu transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lấy giao dịch cũ
+	oldTransaction, err := s.repo.GetByIDAndUserID(transactionID, userID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("giao dịch không tồn tại hoặc không thuộc về bạn")
+	}
+
+	// Lấy ví
+	wallet, err := s.walletRepo.GetByIDAndUserID(tx, oldTransaction.WalletID, userID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("ví không tồn tại")
+	}
+
+	// Hoàn lại số dư cũ trước
+	if oldTransaction.Type == "expense" {
+		wallet.Balance += oldTransaction.Amount
+	} else {
+		wallet.Balance -= oldTransaction.Amount
+	}
+
+	// Áp dụng số dư mới
+	if amount > 0 {
+		oldTransaction.Amount = amount
+	}
+	if category != "" {
+		oldTransaction.Category = category
+	}
+	if transactionType != "" {
+		oldTransaction.Type = transactionType
+	}
+	if note != "" {
+		oldTransaction.Note = note
+	}
+
+	// Tính toán lại số dư
+	if oldTransaction.Type == "expense" {
+		if wallet.Balance < oldTransaction.Amount {
+			tx.Rollback()
+			return errors.New("số dư không đủ")
+		}
+		wallet.Balance -= oldTransaction.Amount
+	} else {
+		wallet.Balance += oldTransaction.Amount
+	}
+
+	// Cập nhật ví
+	if err := s.walletRepo.Update(tx, wallet); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Cập nhật giao dịch
+	if err := s.repo.Update(tx, oldTransaction); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// DeleteTransaction xóa giao dịch (phải hoàn lại tiền)
+func (s *TransactionService) DeleteTransaction(transactionID, userID uuid.UUID) error {
+	// Bắt đầu transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Lấy giao dịch
+	transaction, err := s.repo.GetByIDAndUserID(transactionID, userID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("giao dịch không tồn tại hoặc không thuộc về bạn")
+	}
+
+	// Lấy ví
+	wallet, err := s.walletRepo.GetByIDAndUserID(tx, transaction.WalletID, userID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("ví không tồn tại")
+	}
+
+	// Hoàn lại số dư
+	if transaction.Type == "expense" {
+		wallet.Balance += transaction.Amount
+	} else {
+		wallet.Balance -= transaction.Amount
+	}
+
+	// Cập nhật ví
+	if err := s.walletRepo.Update(tx, wallet); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Xóa giao dịch
+	if err := s.repo.Delete(tx, transactionID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// GetTransactionsWithFilters lấy giao dịch với filter và pagination
+func (s *TransactionService) GetTransactionsWithFilters(userID uuid.UUID, category, transactionType string, month, year, page, pageSize int) ([]models.Transaction, int64, error) {
+	offset := (page - 1) * pageSize
+	return s.repo.GetByUserIDWithFilters(userID, category, transactionType, month, year, offset, pageSize)
+}

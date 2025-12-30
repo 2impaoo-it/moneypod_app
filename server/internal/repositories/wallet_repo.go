@@ -45,3 +45,27 @@ func (r *WalletRepository) GetByIDAndUserID(tx *gorm.DB, walletID, userID uuid.U
 func (r *WalletRepository) Update(tx *gorm.DB, wallet *models.Wallet) error {
 	return tx.Save(wallet).Error
 }
+
+// GetByID lấy ví theo ID (dùng cho update/delete)
+func (r *WalletRepository) GetByID(walletID uuid.UUID) (*models.Wallet, error) {
+	var wallet models.Wallet
+	err := r.db.Where("id = ?", walletID).First(&wallet).Error
+	return &wallet, err
+}
+
+// UpdateWallet cập nhật thông tin ví (không dùng transaction)
+func (r *WalletRepository) UpdateWallet(wallet *models.Wallet) error {
+	return r.db.Save(wallet).Error
+}
+
+// DeleteWallet xóa ví
+func (r *WalletRepository) DeleteWallet(walletID uuid.UUID) error {
+	return r.db.Delete(&models.Wallet{}, walletID).Error
+}
+
+// CountTransactionsByWalletID đếm số giao dịch của ví
+func (r *WalletRepository) CountTransactionsByWalletID(walletID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Transaction{}).Where("wallet_id = ?", walletID).Count(&count).Error
+	return count, err
+}

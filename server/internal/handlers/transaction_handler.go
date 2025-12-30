@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
@@ -68,6 +70,43 @@ func (h *TransactionHandler) GetList(c *gin.Context) {
 		return
 	}
 
+	// Kiểm tra có filter không
+	category := c.Query("category")
+	transactionType := c.Query("type")
+	month := c.Query("month")
+	year := c.Query("year")
+	page := c.DefaultQuery("page", "1")
+	pageSize := c.DefaultQuery("page_size", "20")
+
+	// Nếu có filter thì dùng GetTransactionsWithFilters
+	if category != "" || transactionType != "" || month != "" || year != "" {
+		var monthInt, yearInt int
+		if month != "" {
+			fmt.Sscanf(month, "%d", &monthInt)
+		}
+		if year != "" {
+			fmt.Sscanf(year, "%d", &yearInt)
+		}
+
+		pageInt, _ := strconv.Atoi(page)
+		pageSizeInt, _ := strconv.Atoi(pageSize)
+
+		transactions, total, err := h.service.GetTransactionsWithFilters(userID, category, transactionType, monthInt, yearInt, pageInt, pageSizeInt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data":      transactions,
+			"total":     total,
+			"page":      pageInt,
+			"page_size": pageSizeInt,
+		})
+		return
+	}
+
+	// Không có filter thì lấy hết
 	transactions, err := h.service.GetMyTransactions(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -75,4 +114,65 @@ func (h *TransactionHandler) GetList(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": transactions})
+}
+
+type UpdateTransactionRequest struct {
+	Amount   float64 `json:"amount"`
+	Category string  `json:"category"`
+	Type     string  `json:"type"`
+	Note     string  `json:"note"`
+}
+
+// UpdateTransaction sửa giao dịch
+func (h *TransactionHandler) UpdateTransaction(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Token ID invalid"})
+		return
+	}
+
+	transactionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID giao dịch không hợp lệ"})
+		return
+	}
+
+	var req UpdateTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.service.UpdateTransaction(transactionID, userID, req.Amount, req.Category, req.Type, req.Note)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật giao dịch thành công!"})
+}
+
+// DeleteTransaction xóa giao dịch
+func (h *TransactionHandler) DeleteTransaction(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Token ID invalid"})
+		return
+	}
+
+	transactionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID giao dịch không hợp lệ"})
+		return
+	}
+
+	err = h.service.DeleteTransaction(transactionID, userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Xóa giao dịch thành công!"})
 }

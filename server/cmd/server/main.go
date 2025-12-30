@@ -118,10 +118,14 @@ func main() {
 		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)
+		protected.PUT("/wallets/:id", walletHandler.UpdateWallet)       // Cập nhật ví
+		protected.DELETE("/wallets/:id", walletHandler.DeleteWallet)    // Xóa ví
 
 		// Giao dịch
 		protected.POST("/transactions", transHandler.Create)
 		protected.GET("/transactions", transHandler.GetList)
+		protected.PUT("/transactions/:id", transHandler.UpdateTransaction)    // Sửa giao dịch
+		protected.DELETE("/transactions/:id", transHandler.DeleteTransaction) // Xóa giao dịch
 
 		// Nhóm & Chi tiêu
 		protected.POST("/groups", groupHandler.Create)
