@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 
 /// Service để kiểm tra kết nối server
 class ApiService {
-  static const String baseUrl = 'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  static const String baseUrl =
+      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   /// Kiểm tra server có hoạt động không
   ///
@@ -18,7 +19,10 @@ class ApiService {
       final response = await http
           .get(
             Uri.parse('$baseUrl/ping'),
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
           )
           .timeout(
             const Duration(seconds: 5),

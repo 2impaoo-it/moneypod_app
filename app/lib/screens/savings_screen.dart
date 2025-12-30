@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:ui';
 
 // --- UTILS: Colors & Styles ---
@@ -95,12 +96,116 @@ class SavingsScreen extends StatefulWidget {
 }
 
 class _SavingsScreenState extends State<SavingsScreen> {
+  // Mock data được quản lý trong state
+  final List<Map<String, dynamic>> _savingsGoalsList = List.from(savingsGoals);
+
   Future<void> _onRefresh() async {
-    // Giả lập delay load lại dữ liệu
     await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      // Logic reload data sẽ nằm ở đây
-    });
+    setState(() {});
+  }
+
+  void _navigateToCreateGoal() async {
+    final result = await context.push('/savings/create');
+    if (result == true) {
+      setState(() {
+        // Reload danh sách sau khi tạo mới
+      });
+    }
+  }
+
+  void _navigateToGoalDetail(Map<String, dynamic> goal) {
+    context.push('/savings/${goal['id']}');
+  }
+
+  void _showAddMoneyModal(Map<String, dynamic> goal) {
+    final amountController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Thêm tiền vào "${goal['name']}"',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.slate900,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  hintText: '0',
+                  suffixText: '₫',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.slate50,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã thêm tiền (Mock)'),
+                        backgroundColor: AppColors.teal500,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.teal500,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Xác nhận',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -119,13 +224,46 @@ class _SavingsScreenState extends State<SavingsScreen> {
                 // 1. Header Section
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: const Text(
-                    "Tiết kiệm",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.slate900,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Tiết kiệm",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.slate900,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _navigateToCreateGoal,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.violet500,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.add, color: Colors.white, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                "Tạo mục tiêu",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -147,9 +285,9 @@ class _SavingsScreenState extends State<SavingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ...savingsGoals
-                          .map((goal) => _buildSavingsGoalCard(goal))
-                          ,
+                      ..._savingsGoalsList.map(
+                        (goal) => _buildSavingsGoalCard(goal),
+                      ),
                     ],
                   ),
                 ),
@@ -170,9 +308,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ...suggestedGoals
-                          .map((sg) => _buildSuggestionCard(sg))
-                          ,
+                      ...suggestedGoals.map((sg) => _buildSuggestionCard(sg)),
                       const SizedBox(height: 40), // Bottom padding
                     ],
                   ),
@@ -314,9 +450,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            print("Xem chi tiết mục tiêu: ${goal['name']}");
-          },
+          onTap: () => _navigateToGoalDetail(goal),
           onLongPress: () {
             _showOptionsDialog(context, goal['name']);
           },
@@ -438,7 +572,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => _showAddMoneyModal(goal),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: buttonColor,
                       foregroundColor: Colors.white,
@@ -542,7 +676,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
               ),
             ),
             InkWell(
-              onTap: () {},
+              onTap: _navigateToCreateGoal,
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(
