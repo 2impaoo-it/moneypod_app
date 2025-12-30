@@ -61,3 +61,29 @@ func (s *NotificationService) SendMulticastNotification(tokens []string, title, 
 
 	log.Printf("✅ FCM: Gửi thành công %d, Thất bại %d\n", br.SuccessCount, br.FailureCount)
 }
+
+// Hàm gửi thông báo cho 1 người
+func (s *NotificationService) SendNotification(token, title, body string) {
+	// Nếu không có token hoặc service chưa khởi tạo được thì bỏ qua
+	if s == nil || s.client == nil || token == "" {
+		return
+	}
+
+	// Tạo gói tin
+	message := &messaging.Message{
+		Notification: &messaging.Notification{
+			Title: title,
+			Body:  body,
+		},
+		Token: token,
+	}
+
+	// Gửi đi
+	_, err := s.client.Send(context.Background(), message)
+	if err != nil {
+		log.Println("❌ Lỗi gửi thông báo FCM:", err)
+		return
+	}
+
+	log.Println("✅ FCM: Gửi thông báo thành công")
+}
