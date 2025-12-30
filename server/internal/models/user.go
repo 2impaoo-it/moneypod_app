@@ -13,6 +13,9 @@ type User struct {
 
 	FullName  string `gorm:"not null" json:"full_name"`
 	AvatarURL string `json:"avatar_url"`
-	Phone     string `gorm:"unique" json:"phone"`
-	FCMToken  string `json:"fcm_token"`
+	// 🔥 Sử dụng con trỏ *string để hỗ trợ NULL (Optional Unique)
+	// Nếu không nhập SĐT -> nil -> NULL trong DB (Postgres cho phép nhiều NULL)
+	// Nếu có nhập -> chuỗi -> DB check Unique bình thường
+	Phone    *string `gorm:"unique" json:"phone"`
+	FCMToken string  `json:"fcm_token"`
 }

@@ -61,7 +61,8 @@ func (r *UserRepository) FindByPhone(phone string) (*models.User, error) {
 
 // Cập nhật số điện thoại cho User (Sau khi OTP thành công)
 func (r *UserRepository) UpdatePhone(userID uuid.UUID, phone string) error {
-	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("phone", phone).Error
+	// 🔥 Truyền &phone (địa chỉ) thay vì phone (giá trị) vì Phone là *string
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("phone", &phone).Error
 }
 
 // Hàm update token vào DB (Thêm vào struct UserRepository)
