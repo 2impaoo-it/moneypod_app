@@ -91,6 +91,36 @@ class AuthService {
     await storage.delete(key: 'auth_token');
   }
 
+  // Cập nhật FCM Token
+  Future<void> updateFCMToken(String fcmToken) async {
+    try {
+      final currentToken = await getToken();
+      if (currentToken == null) {
+        print('No auth token found. Cannot update FCM token.');
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/fcm-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $currentToken', // Include auth token
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'fcm_token': fcmToken}),
+      );
+
+      if (response.statusCode == 200) {
+        print('FCM token updated successfully.');
+      } else {
+        final data = jsonDecode(response.body);
+        print('Failed to update FCM token: ${data['error'] ?? response.body}');
+      }
+    } catch (e) {
+      print('Error updating FCM token: $e');
+    }
+  }
+
   // Kiểm tra đã đăng nhập chưa
   Future<bool> isLoggedIn() async {
     final token = await getToken();

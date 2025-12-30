@@ -45,7 +45,16 @@ func main() {
 	transService := services.NewTransactionService(db.DB)
 	transHandler := handlers.NewTransactionHandler(transService)
 
-	groupService := services.NewGroupService(db.DB)
+	// Initialize Notification Service
+    // Note: Provide path to serviceAccountKey.json if needed, e.g., config.AppConfig.FirebaseCredentialsFile
+    // For now assuming env var GOOGLE_APPLICATION_CREDENTIALS is set or using default.
+	notifService, err := services.NewNotificationService("") 
+    if err != nil {
+        log.Println("⚠️ Warning: Could not init NotificationService (FCM):", err)
+        // We continue even if FCM fails, passing nil to GroupService (which handles nil safely)
+    }
+
+	groupService := services.NewGroupService(db.DB, notifService)
 	groupHandler := handlers.NewGroupHandler(groupService)
 
 	// --- SETUP ROUTER ---
@@ -90,6 +99,7 @@ func main() {
 	{
 		protected.GET("/dashboard", dashboardHandler.GetOverview)
 		protected.GET("/profile", authHandler.GetProfile)
+		protected.POST("/fcm-token", authHandler.UpdateFCMToken)
 
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)

@@ -76,3 +76,7 @@ func (s *AuthService) Login(email, password string) (string, error) {
 
 	return tokenString, nil
 }
+
+func (s *AuthService) UpdateFCMToken(userID uuid.UUID, token string) error {
+	return s.userRepo.UpdateFCMToken(userID, token)
+}

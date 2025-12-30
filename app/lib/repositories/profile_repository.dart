@@ -26,7 +26,7 @@ class ProfileRepository {
       }
     } catch (e) {
       print('ProfileRepo: Error fetching profile: $e');
-      throw e;
+      rethrow;
     }
   }
 }

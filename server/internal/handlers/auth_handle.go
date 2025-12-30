@@ -96,3 +96,37 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	// 4. Trả về Client
 	c.JSON(http.StatusOK, gin.H{"data": user})
 }
+
+// Struct để hứng FCM Token
+type FCMTokenRequest struct {
+	FCMToken string `json:"fcm_token" binding:"required"`
+}
+
+func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
+	// 1. Lấy UserID
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
+
+	// 2. Parse Body
+	var req FCMTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 3. Call Service
+	if err := h.authService.UpdateFCMToken(userID, req.FCMToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi cập nhật token: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật FCM Token thành công"})
+}

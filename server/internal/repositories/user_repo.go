@@ -29,6 +29,11 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
+// UpdateFCMToken cập nhật token FCM cho user
+func (r *UserRepository) UpdateFCMToken(userID uuid.UUID, token string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("fcm_token", token).Error
+}
+
 // FindByID tìm user theo ID
 func (r *UserRepository) FindByID(id uuid.UUID) (*models.User, error) {
 	var user models.User

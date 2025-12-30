@@ -13,4 +13,5 @@ type User struct {
 
 	FullName  string `gorm:"not null" json:"full_name"`
 	AvatarURL string `json:"avatar_url"`
+	FCMToken  string `json:"fcm_token"`
 }

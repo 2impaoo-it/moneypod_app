@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -11,11 +12,12 @@ import (
 )
 
 type GroupService struct {
-	db *gorm.DB
+	db           *gorm.DB
+	notifService *NotificationService
 }
 
-func NewGroupService(db *gorm.DB) *GroupService {
-	return &GroupService{db: db}
+func NewGroupService(db *gorm.DB, notifService *NotificationService) *GroupService {
+	return &GroupService{db: db, notifService: notifService}
 }
 
 // Hàm tạo mã mời ngẫu nhiên 6 ký tự
@@ -180,7 +182,52 @@ func (s *GroupService) AddExpense(groupID uuid.UUID, paidByID uuid.UUID, amount 
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+        return err
+    }
+
+    // --- NOTIFICATION LOGIC ---
+    go func() {
+        // Fetch tokens of members (excluding sender if desired, but user said "User A creates, send to B, C")
+        // We need to fetch Users who are in memberIDs
+        var users []models.User
+        if len(memberIDs) > 0 {
+             // Fetch users to get FCM tokens and Names if needed
+             // Actually memberIDs are passed in.
+             // We also need to fetch Payer's name if we don't have it fully.
+             // But we have `payer` (GroupMember), we need `payer.User.FullName`.
+             // Let's refetch payer with User preload or just use what we have? 
+             // Payer Preload was not done above.
+             var payerUser models.User
+             s.db.First(&payerUser, paidByID)
+
+             s.db.Where("id IN ? AND fcm_token <> ''", memberIDs).Find(&users)
+             
+             var tokens []string
+             for _, u := range users {
+                 // Don't send to self? User said "User A creates... send to User B, C". 
+                 if u.ID != paidByID {
+                     tokens = append(tokens, u.FCMToken)
+                 }
+             }
+
+             if len(tokens) > 0 {
+                title := "💸 Hóa đơn mới!"
+                body := fmt.Sprintf("%s vừa thêm: %s - %.0f đ", payerUser.FullName, note, amount)
+                
+                data := map[string]string{
+                    "group_id": groupID.String(),
+                    "type":     "NEW_EXPENSE",
+                }
+                
+                if s.notifService != nil {
+                     s.notifService.SendMulticastNotification(tokens, title, body, data)
+                }
+             }
+        }
+    }()
+
+    return nil
 }
 
 // 1. GỬI YÊU CẦU TRẢ NỢ (Tạo phiếu Pending)

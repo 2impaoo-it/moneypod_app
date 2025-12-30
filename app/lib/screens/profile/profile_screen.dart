@@ -339,10 +339,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _timer = Timer.periodic(
                                       const Duration(seconds: 1),
                                       (timer) {
-                                        if (_countdown == 0)
+                                        if (_countdown == 0) {
                                           timer.cancel();
-                                        else
+                                        } else {
                                           _countdown--;
+                                        }
                                         setSheetState(() {});
                                       },
                                     );
@@ -1132,7 +1133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Switch(
                 value: isEnabled,
-                activeColor: AppColors.primary,
+                activeThumbColor: AppColors.primary,
                 onChanged: (value) => _handleBiometricToggle(value),
               ),
             ],

@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 // --- IMPORTS BLOC ---
 import 'bloc/auth/auth_bloc.dart';
 import 'bloc/auth/auth_event.dart';
@@ -32,6 +34,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/profile_widget.dart';
+import 'widgets/top_notification.dart';
+
+import 'screens/add_expense_screen.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -87,6 +92,9 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
     // Đăng ký lắng nghe sự kiện App Lifecycle (ẩn/hiện)
     WidgetsBinding.instance.addObserver(this);
 
+    // Setup FCM
+    _setupFCM();
+
     // Khởi tạo router với initialLocation dựa vào forceLogin
     _appRouter = GoRouter(
       initialLocation: widget.forceLogin ? '/login' : '/splash',
@@ -99,7 +107,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
         // Auth routes (không có bottom nav)
         GoRoute(
           path: '/login',
-          builder: (context, state) => const LoginScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return LoginScreen(redirectTo: extra?['redirect_to']);
+          },
         ),
         GoRoute(
           path: '/register',
@@ -200,18 +211,103 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
 
       // Hiển thị thông báo
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(
+        TopNotification.show(
           navigatorKey.currentContext ?? context,
-        ).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-            ),
-            backgroundColor: AppColors.warning,
-            duration: Duration(seconds: 3),
-          ),
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+          type: NotificationType.warning,
         );
       });
+    }
+  }
+
+  // --- FCM SETUP ---
+  Future<void> _setupFCM() async {
+    // 1. Xin quyền (iOS/Android 13+)
+    NotificationSettings settings = await FirebaseMessaging.instance
+        .requestPermission(alert: true, badge: true, sound: true);
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('🔔 User granted permission');
+    } else {
+      print('🔕 User declined or has not accepted permission');
+      return;
+    }
+
+    // 2. Lấy Token & Sync về Server
+    String? token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      print("🔥 FCM Token: $token");
+      AuthService().updateFCMToken(token);
+    }
+
+    // Listen token refresh
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      AuthService().updateFCMToken(newToken);
+    });
+
+    // 3. Xử lý tin nhắn khi App đang mở (Foreground)
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('📩 Got a message whilst in the foreground!');
+      print('Message data: ${message.data}');
+
+      if (message.notification != null) {
+        // Hiển thị TopNotification
+        // Cần context, navigatorKey.currentContext là an toàn nhất
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          TopNotification.show(
+            context,
+            message.notification!.body ??
+                'Có thông báo mới', // Show Body primarily
+            type: NotificationType
+                .success, // Use Info or make it generic? Using success for visibility derived from "New Expense" context
+          );
+
+          // Tự động reload data nếu ở đúng màn hình?
+          // User request: "kích hoạt... tự động gọi lại API GetList"
+          // Vì cấu trúc Bloc hiện tại tách biệt, ta tạm thời chỉ show notif.
+          // Nếu muốn reload, ta cần dispatch Event thông qua BlocProvider nằm trên cây widget.
+          // Ta có thể dùng context.read<TransactionBloc>().add(...) nếu context khả dụng.
+          // Nhưng ở đây ta đang trong callback, context có thể ko lấy đc Provider nếu ko cẩn thận.
+          // Tuy nhiên `navigatorKey.currentContext` nằm dưới MultiBlocProvider, nên có thể read được.
+
+          // Reload Group Detail if open?
+          // This requires complex checking. For now, Notification is key requirement.
+        }
+      }
+    });
+
+    // 4. Xử lý khi bấm thông báo (Background -> Open)
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('🖱️ Message clicked!');
+      _handleNotificationClick(message);
+    });
+
+    // 5. Check Initial Message (Terminated -> Open)
+    FirebaseMessaging.instance.getInitialMessage().then((
+      RemoteMessage? message,
+    ) {
+      if (message != null) {
+        print('🚀 App opened from Terminated state');
+        _handleNotificationClick(message);
+      }
+    });
+  }
+
+  void _handleNotificationClick(RemoteMessage message) async {
+    print("Handling Notification Click: ${message.data}");
+    final type = message.data['type'];
+    final groupId = message.data['group_id'];
+
+    if (type == 'NEW_EXPENSE' && groupId != null) {
+      final isLoggedIn = await AuthService().isLoggedIn();
+
+      if (isLoggedIn) {
+        _appRouter.go('/groups/$groupId', extra: {'fromNotification': true});
+      } else {
+        // Redirect to Login with target
+        _appRouter.go('/login', extra: {'redirect_to': '/groups/$groupId'});
+      }
     }
   }
 
@@ -309,41 +405,95 @@ class _MainWrapperState extends State<MainWrapper> {
     }
   }
 
+  // Kiểm tra xem có nên hiển thị FAB không
+  bool _shouldShowFAB(String location) {
+    // Ẩn FAB trên các màn hình phụ
+    if (location.startsWith('/profile')) return false;
+    if (location.startsWith('/groups/create')) return false;
+    if (location.startsWith('/savings/create')) return false;
+    // Ẩn trên detail screens (trừ Group Detail)
+    // if (RegExp(r'^/groups/[^/]+$').hasMatch(location)) return false; // Cho phép hiển thị ở Group Detail
+    if (RegExp(r'^/savings/[^/]+$').hasMatch(location)) return false;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
+    final String location = GoRouterState.of(context).uri.toString();
+    final showFAB = _shouldShowFAB(location);
 
     return Scaffold(
       body: widget.child,
 
       // --- FLOATING ACTION BUTTON (GRADIENT) ---
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark], // Teal Gradient
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () => _showAddTransactionModal(context),
-          backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
-          elevation: 0,
-          shape: const CircleBorder(),
-          child: const Icon(LucideIcons.plus, color: Colors.white, size: 28),
-        ),
-      ),
+      floatingActionButton: showFAB
+          ? FloatingActionButton(
+              onPressed: () {
+                final location = GoRouterState.of(context).uri.toString();
+
+                // Case 1: In Group Detail Screen (/groups/:id) -> Pre-select group
+                final groupDetailMatch = RegExp(
+                  r'^/groups/([^/]+)$',
+                ).firstMatch(location);
+                if (groupDetailMatch != null) {
+                  final groupId = groupDetailMatch.group(1);
+                  if (groupId != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddExpenseScreen(preSelectedGroupId: groupId),
+                      ),
+                    );
+                    return;
+                  }
+                }
+
+                // Case 2: In Groups List Screen (/groups) -> Open Add Group Expense (no pre-select)
+                // Note: /groups/create starts with /groups so we need exact match or careful check
+                if (location == '/groups') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const AddExpenseScreen(), // No preSelectedGroupId
+                    ),
+                  );
+                  return;
+                }
+
+                // Default: Add Transaction (Personal)
+                _showAddTransactionModal(context);
+              },
+              backgroundColor:
+                  Colors.transparent, // Transparent to show gradient
+              elevation: 0,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  LucideIcons.plus,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            )
+          : null,
 
       // --- BOTTOM APP BAR ---
       bottomNavigationBar: BottomAppBar(

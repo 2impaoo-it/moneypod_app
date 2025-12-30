@@ -337,26 +337,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         ],
       ),
       // bottomNavigationBar: _buildBottomActionBar(), // Removed per new requirements or kept minimal? Removed for now.
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  AddExpenseScreen(preSelectedGroupId: widget.groupId),
-            ),
-          );
-          if (result == true) {
-            _loadAllData();
-          }
-        },
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          "Thêm chi tiêu",
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
     );
   }
 

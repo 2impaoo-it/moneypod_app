@@ -30,9 +30,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _selectedGroupId;
   String? _selectedPayerId; // If null => will use _currentUserId
   String? _currentUserId;
+  String? _currentUserName;
 
   // Multi-image
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false;
@@ -67,6 +68,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         setState(() {
           _groups = groups;
           _currentUserId = profile?.id;
+          _currentUserName = profile?.fullName;
           _isLoadingGroups = false;
           // Ensure pre-selected group is valid
           if (_selectedGroupId != null) {
@@ -91,11 +93,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Future<void> _loadGroupMembers(String groupId) async {
+    print('🔄 Loading members for group: $groupId');
     try {
       final groupDetails = await _groupRepo.getGroupDetails(groupId);
+      print('📦 Group Details: ${groupDetails.keys}');
+      print('👥 Members found: ${groupDetails['members']?.length}');
+
       if (mounted) {
         setState(() {
           _groupMembers = groupDetails['members'] ?? [];
+          print('✅ _groupMembers set: ${_groupMembers.length}');
+
           // Reset split controllers
           for (var controller in _splitControllers.values) {
             controller.dispose();
@@ -112,7 +120,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      print('Error loading members: $e');
+      print('❌ Error loading members: $e');
     }
   }
 
@@ -387,27 +395,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     value: _selectedGroupId,
                     isExpanded: true,
                     hint: const Text("Chọn nhóm"),
+                    // Disable Dropdown if preSelectedGroupId is set
+                    onChanged: widget.preSelectedGroupId != null
+                        ? null // Disables the dropdown
+                        : (val) {
+                            setState(() {
+                              _selectedGroupId = val;
+                              // Reset Payer to default "Me"
+                              _selectedPayerId = null;
+                              // Load members for new group
+                              if (val != null) {
+                                _loadGroupMembers(val);
+                              } else {
+                                _groupMembers = [];
+                              }
+                            });
+                          },
                     items: _groups
                         .map(
                           (g) => DropdownMenuItem(
                             value: g['id'] as String,
-                            child: Text(g['name']),
+                            child: Text(
+                              g['name'],
+                              style: TextStyle(
+                                color: widget.preSelectedGroupId != null
+                                    ? Colors.grey
+                                    : Colors.black, // Visual feedback
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedGroupId = val;
-                        // Reset Payer to default "Me"
-                        _selectedPayerId = null;
-                        // Load members for new group
-                        if (val != null) {
-                          _loadGroupMembers(val);
-                        } else {
-                          _groupMembers = [];
-                        }
-                      });
-                    },
                   ),
                 ),
               ),
@@ -481,7 +499,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 const Divider(),
               ] else
                 Container(
@@ -529,33 +547,45 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 child: DropdownButton<String>(
                   value: _selectedPayerId,
                   isExpanded: true,
-                  hint: const Text("Tôi (Mặc định)"),
+                  hint: _selectedGroupId == null
+                      ? const Text("Vui lòng chọn nhóm trước")
+                      : Text("Tôi (${_currentUserName ?? 'Mặc định'})"),
                   icon: const Icon(Icons.person),
+                  onChanged: _selectedGroupId == null
+                      ? null
+                      : (val) {
+                          setState(() => _selectedPayerId = val);
+                        },
+                  disabledHint: const Text("Vui lòng chọn nhóm trước"),
                   items: [
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                       value: null,
-                      child: Text("Tôi (Mặc định)"),
+                      child: Text("Tôi (${_currentUserName ?? 'Mặc định'})"),
                     ),
-                    ..._groupMembers.map((m) {
-                      // m is {user: {}, role: ...} or sometimes flat depending on API
-                      // Let's assume standard structure from getGroupDetails
-                      final user = m['user'] ?? {};
-                      final userId = user['id'] ?? m['id'] ?? ''; // Fallback
-                      final userName =
-                          user['full_name'] ??
-                          user['name'] ??
-                          m['email'] ??
-                          'Thành viên';
+                    ..._groupMembers
+                        .where((m) {
+                          final user = m['user'] ?? {};
+                          final userId = user['id'] ?? m['id'] ?? '';
+                          return userId.toString() != _currentUserId.toString();
+                        })
+                        .map((m) {
+                          // m is {user: {}, role: ...} or sometimes flat depending on API
+                          // Let's assume standard structure from getGroupDetails
+                          final user = m['user'] ?? {};
+                          final userId =
+                              user['id'] ?? m['id'] ?? ''; // Fallback
+                          final userName =
+                              user['full_name'] ??
+                              user['name'] ??
+                              m['email'] ??
+                              'Thành viên';
 
-                      return DropdownMenuItem<String>(
-                        value: userId.toString(),
-                        child: Text(userName),
-                      );
-                    }).toList(),
+                          return DropdownMenuItem<String>(
+                            value: userId.toString(),
+                            child: Text(userName),
+                          );
+                        }),
                   ],
-                  onChanged: (val) {
-                    setState(() => _selectedPayerId = val);
-                  },
                 ),
               ),
             ),
@@ -661,7 +691,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
