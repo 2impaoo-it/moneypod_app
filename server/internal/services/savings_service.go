@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
@@ -11,16 +12,18 @@ import (
 )
 
 type SavingsService struct {
-	db          *gorm.DB
-	savingsRepo *repositories.SavingsRepository
-	walletRepo  *repositories.WalletRepository
+	db           *gorm.DB
+	savingsRepo  *repositories.SavingsRepository
+	walletRepo   *repositories.WalletRepository
+	notifService *NotificationService
 }
 
-func NewSavingsService(db *gorm.DB, sRepo *repositories.SavingsRepository, wRepo *repositories.WalletRepository) *SavingsService {
+func NewSavingsService(db *gorm.DB, sRepo *repositories.SavingsRepository, wRepo *repositories.WalletRepository, notifService *NotificationService) *SavingsService {
 	return &SavingsService{
-		db:          db,
-		savingsRepo: sRepo,
-		walletRepo:  wRepo,
+		db:           db,
+		savingsRepo:  sRepo,
+		walletRepo:   wRepo,
+		notifService: notifService,
 	}
 }
 
@@ -124,9 +127,49 @@ func (s *SavingsService) Deposit(userID uuid.UUID, goalID uuid.UUID, walletID uu
 		return err
 	}
 
-	// 🔥 Báo hiệu cho Handler biết là đã hoàn thành
+	// 🔥 Gửi thông báo khi đạt mục tiêu
 	if isCompleted {
+		go func() {
+			var user models.User
+			s.db.First(&user, "id = ?", userID)
+
+			if user.FCMToken != "" && s.notifService != nil {
+				title := "🎉 Chúc mừng! Mục tiêu đã hoàn thành"
+				body := fmt.Sprintf("Bạn đã đạt mục tiêu '%s' với %.0f đ!", goal.Name, goal.CurrentAmount)
+				data := map[string]interface{}{
+					"type":    "savings_goal_reached",
+					"goal_id": goalID.String(),
+				}
+				s.notifService.CreateAndSendNotification(userID, "savings_goal_reached", title, body, data, user.FCMToken)
+			}
+		}()
 		return errors.New("GOAL_COMPLETED")
+	}
+
+	// 🔥 Gửi thông báo về tiến độ (50%, 75%, 90%)
+	if goal.TargetAmount > 0 {
+		percentage := (goal.CurrentAmount / goal.TargetAmount) * 100
+
+		// Check milestones
+		if (percentage >= 50 && percentage < 55) ||
+			(percentage >= 75 && percentage < 80) ||
+			(percentage >= 90 && percentage < 95) {
+			go func() {
+				var user models.User
+				s.db.First(&user, "id = ?", userID)
+
+				if user.FCMToken != "" && s.notifService != nil {
+					title := fmt.Sprintf("💪 Đã đạt %.0f%% mục tiêu!", percentage)
+					body := fmt.Sprintf("'%s': %.0f/%.0f đ. Cố lên!", goal.Name, goal.CurrentAmount, goal.TargetAmount)
+					data := map[string]interface{}{
+						"type":       "savings_progress",
+						"goal_id":    goalID.String(),
+						"percentage": percentage,
+					}
+					s.notifService.CreateAndSendNotification(userID, "savings_progress", title, body, data, user.FCMToken)
+				}
+			}()
+		}
 	}
 
 	return nil

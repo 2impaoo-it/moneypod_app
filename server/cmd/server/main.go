@@ -67,9 +67,9 @@ func main() {
 	authService := services.NewAuthService(userRepo, emailService, notifRepo)
 	walletService := services.NewWalletService(walletRepo)
 	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
-	transService := services.NewTransactionService(db.DB, transRepo, walletRepo)
+	transService := services.NewTransactionService(db.DB, transRepo, walletRepo, notifService)
 	groupService := services.NewGroupService(db.DB, notifService, userRepo)
-	savingsService := services.NewSavingsService(db.DB, savingsRepo, walletRepo)
+	savingsService := services.NewSavingsService(db.DB, savingsRepo, walletRepo, notifService)
 
 	// --- KHỞI TẠO HANDLERS ---
 	// 🔥 THÊM DÒNG NÀY: Khởi tạo UploadHandler

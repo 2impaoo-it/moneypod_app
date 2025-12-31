@@ -11,13 +11,19 @@ import (
 )
 
 type TransactionService struct {
-	repo       *repositories.TransactionRepository
-	walletRepo *repositories.WalletRepository
-	db         *gorm.DB // Cần db để quản lý transaction
+	repo         *repositories.TransactionRepository
+	walletRepo   *repositories.WalletRepository
+	db           *gorm.DB
+	notifService *NotificationService
 }
 
-func NewTransactionService(db *gorm.DB, r *repositories.TransactionRepository, w *repositories.WalletRepository) *TransactionService {
-	return &TransactionService{db: db, repo: r, walletRepo: w}
+func NewTransactionService(db *gorm.DB, r *repositories.TransactionRepository, w *repositories.WalletRepository, notifService *NotificationService) *TransactionService {
+	return &TransactionService{
+		db:           db,
+		repo:         r,
+		walletRepo:   w,
+		notifService: notifService,
+	}
 }
 
 func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Transaction) error {
@@ -66,7 +72,31 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 	}
 
 	// 6. Mọi thứ ngon lành -> Commit (Lưu chính thức)
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 7. 🔥 Kiểm tra số dư thấp và gửi thông báo (ngưỡng: 100,000 đ)
+	const lowBalanceThreshold = 100000.0
+	if req.Type == constants.TransactionTypeExpense && wallet.Balance < lowBalanceThreshold {
+		go func() {
+			var user models.User
+			s.db.First(&user, "id = ?", userID)
+
+			if user.FCMToken != "" && s.notifService != nil {
+				title := "⚠️ Cảnh báo: Số dư ví thấp"
+				body := fmt.Sprintf("Ví '%s' chỉ còn %.0f đ. Hãy nạp thêm tiền!", wallet.Name, wallet.Balance)
+				data := map[string]interface{}{
+					"type":      "low_balance",
+					"wallet_id": wallet.ID.String(),
+					"balance":   wallet.Balance,
+				}
+				s.notifService.CreateAndSendNotification(userID, "low_balance", title, body, data, user.FCMToken)
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (s *TransactionService) GetMyTransactions(userID uuid.UUID) ([]models.Transaction, error) {
