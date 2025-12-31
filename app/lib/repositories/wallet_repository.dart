@@ -1,16 +1,22 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../models/wallet.dart';
 import '../services/auth_service.dart';
+import '../utils/dio_client.dart';
 
 /// Repository cho quản lý ví
 class WalletRepository {
   final AuthService _authService = AuthService();
+  late final Dio _dio;
 
   // URL server backend
   static const String _baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+
+  WalletRepository() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = _baseUrl;
+  }
 
   /// Tạo ví mới
   ///
@@ -38,42 +44,37 @@ class WalletRepository {
       print('📦 [WalletRepo] Request body: $requestBody');
 
       // Gửi POST request
-      final url = '$_baseUrl/wallets';
-      print('🌐 [WalletRepo] Gửi POST đến: $url');
+      print('🌐 [WalletRepo] Gửi POST đến: /wallets');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(requestBody),
+      final response = await _dio.post(
+        '/wallets',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [WalletRepo] Status code: ${response.statusCode}');
-      print('📡 [WalletRepo] Response body: ${response.body}');
+      print('📡 [WalletRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        print('❌ [WalletRepo] Lỗi từ server: ${errorData['error']}');
-        throw Exception(errorData['error'] ?? 'Không thể tạo ví');
+        print('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
+        throw Exception(response.data['error'] ?? 'Không thể tạo ví');
       }
 
       print('✅ [WalletRepo] Tạo ví thành công!');
       // Thành công
-    } on SocketException {
-      print('❌ [WalletRepo] Lỗi kết nối mạng');
-      throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
-      );
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        print('❌ [WalletRepo] Lỗi kết nối mạng');
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [WalletRepo] DioException: $e');
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi tạo ví: $e');
     } catch (e) {
       print('❌ [WalletRepo] Exception: $e');
-      if (e.toString().contains('Exception')) {
-        rethrow;
-      }
-      throw Exception('Lỗi khi tạo ví: $e');
+      rethrow;
     }
   }
 
@@ -92,30 +93,24 @@ class WalletRepository {
       print('✅ [WalletRepo] Đã lấy token');
 
       // Gửi GET request
-      final url = '$_baseUrl/wallets';
-      print('🌐 [WalletRepo] Gửi GET đến: $url');
+      print('🌐 [WalletRepo] Gửi GET đến: /wallets');
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _dio.get(
+        '/wallets',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [WalletRepo] Status code: ${response.statusCode}');
-      print('📡 [WalletRepo] Response body: ${response.body}');
+      print('📡 [WalletRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
-        print('❌ [WalletRepo] Lỗi từ server: ${errorData['error']}');
-        throw Exception(errorData['error'] ?? 'Không thể lấy danh sách ví');
+        print('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
+        throw Exception(response.data['error'] ?? 'Không thể lấy danh sách ví');
       }
 
       // Parse response
-      final Map<String, dynamic> responseData = json.decode(response.body);
-      final List<dynamic> walletsJson = responseData['data'] ?? [];
+      final List<dynamic> walletsJson = response.data['data'] ?? [];
 
       // Convert JSON to List<Wallet>
       final List<Wallet> wallets = walletsJson
@@ -124,17 +119,20 @@ class WalletRepository {
 
       print('✅ [WalletRepo] Lấy ${wallets.length} ví thành công!');
       return wallets;
-    } on SocketException {
-      print('❌ [WalletRepo] Lỗi kết nối mạng');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        print('❌ [WalletRepo] Lỗi kết nối mạng');
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [WalletRepo] DioException: $e');
       throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        e.response?.data['error'] ?? 'Lỗi khi lấy danh sách ví: $e',
       );
     } catch (e) {
       print('❌ [WalletRepo] Exception: $e');
-      if (e.toString().contains('Exception')) {
-        rethrow;
-      }
-      throw Exception('Lỗi khi lấy danh sách ví: $e');
+      rethrow;
     }
   }
 

@@ -1,14 +1,20 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../models/transaction.dart' as model;
 import '../services/auth_service.dart';
+import '../utils/dio_client.dart';
 
 /// Repository cho quản lý giao dịch
 class TransactionRepository {
   final AuthService _authService = AuthService();
   static const String _baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  late final Dio _dio;
+
+  TransactionRepository() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = _baseUrl;
+  }
 
   /// Tạo giao dịch mới
   ///
@@ -48,29 +54,28 @@ class TransactionRepository {
       print('📦 [TransactionRepo] Request body: $requestBody');
 
       // Gửi POST request
-      final response = await http.post(
-        Uri.parse('$_baseUrl/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(requestBody),
+      final response = await _dio.post(
+        '/transactions',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [TransactionRepo] Status: ${response.statusCode}');
-      print('📡 [TransactionRepo] Response: ${response.body}');
+      print('📡 [TransactionRepo] Response: ${response.data}');
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Không thể tạo giao dịch');
+        throw Exception(response.data['error'] ?? 'Không thể tạo giao dịch');
       }
 
       print('✅ [TransactionRepo] Tạo giao dịch thành công!');
-    } on SocketException {
-      throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
-      );
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [TransactionRepo] DioException: $e');
+      throw Exception(e.response?.data['error'] ?? 'Không thể tạo giao dịch');
     } catch (e) {
       print('❌ [TransactionRepo] Exception: $e');
       rethrow;
@@ -87,25 +92,20 @@ class TransactionRepository {
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      final response = await http.get(
-        Uri.parse('$_baseUrl/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _dio.get(
+        '/transactions',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [TransactionRepo] Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
         throw Exception(
-          errorData['error'] ?? 'Không thể lấy danh sách giao dịch',
+          response.data['error'] ?? 'Không thể lấy danh sách giao dịch',
         );
       }
 
-      final Map<String, dynamic> responseData = json.decode(response.body);
-      final List<dynamic> transactionsJson = responseData['data'] ?? [];
+      final List<dynamic> transactionsJson = response.data['data'] ?? [];
 
       // Convert JSON to List<Transaction>
       final List<model.Transaction> transactions = transactionsJson
@@ -116,9 +116,15 @@ class TransactionRepository {
         '✅ [TransactionRepo] Lấy ${transactions.length} giao dịch thành công!',
       );
       return transactions;
-    } on SocketException {
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [TransactionRepo] DioException: $e');
       throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        e.response?.data['error'] ?? 'Không thể lấy danh sách giao dịch',
       );
     } catch (e) {
       print('❌ [TransactionRepo] Exception: $e');

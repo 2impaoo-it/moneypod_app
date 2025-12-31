@@ -154,12 +154,17 @@ class FCMService {
 
     debugPrint('🔗 Notification type: $type');
 
-    // TODO: Implement navigation logic based on type
-    // Ví dụ:
-    // if (type == 'group_expense') {
-    //   final groupId = data['group_id'];
-    //   navigatorKey.currentState?.pushNamed('/group-detail', arguments: groupId);
+    // Use NotificationHandler to navigate
+    // Note: This requires navigatorKey to be available
+    // Import: import '../utils/notification_handler.dart';
+    // Usage:
+    // final context = navigatorKey.currentContext;
+    // if (context != null) {
+    //   NotificationHandler.handleFCMNotificationTap(context, data);
     // }
+
+    // For now, just log the data
+    debugPrint('📱 FCM Data: $data');
   }
 
   /// Subscribe to a topic

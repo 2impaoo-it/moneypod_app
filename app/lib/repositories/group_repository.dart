@@ -1,15 +1,23 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
+import '../utils/dio_client.dart';
 
 /// Repository cho quản lý Quỹ nhóm (Groups)
 class GroupRepository {
   final AuthService _authService = AuthService();
+  late final Dio _dio;
 
   // URL server backend
   static const String _baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+
+  GroupRepository() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = _baseUrl;
+  }
 
   /// Tạo quỹ nhóm mới
   ///
@@ -61,45 +69,39 @@ class GroupRepository {
       print('📦 [GroupRepo] Request body: $requestBody');
 
       // Gửi POST request
-      final url = '$_baseUrl/groups';
-      print('🌐 [GroupRepo] Gửi POST đến: $url');
+      print('🌐 [GroupRepo] Gửi POST đến: /groups');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(requestBody),
+      final response = await _dio.post(
+        '/groups',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.body}');
+      print('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        print('❌ [GroupRepo] Lỗi từ server: ${errorData['error']}');
-        throw Exception(errorData['error'] ?? 'Không thể tạo quỹ nhóm');
+        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
+        throw Exception(response.data['error'] ?? 'Không thể tạo quỹ nhóm');
       }
 
       print('✅ [GroupRepo] Tạo quỹ nhóm thành công!');
 
       // Parse response
-      final responseData = json.decode(response.body);
-      return responseData['data'] ?? responseData;
-    } on SocketException {
-      print('❌ [GroupRepo] Lỗi kết nối mạng');
-      throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
-      );
+      return response.data['data'] ?? response.data;
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [GroupRepo] DioException: $e');
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi tạo quỹ nhóm: $e');
     } catch (e) {
       print('❌ [GroupRepo] Exception: $e');
-      if (e.toString().contains('Exception')) {
-        rethrow;
-      }
-      throw Exception('Lỗi khi tạo quỹ nhóm: $e');
+      rethrow;
     }
   }
 
@@ -118,47 +120,43 @@ class GroupRepository {
       print('✅ [GroupRepo] Đã lấy token');
 
       // Gửi GET request
-      final url = '$_baseUrl/groups';
-      print('🌐 [GroupRepo] Gửi GET đến: $url');
+      print('🌐 [GroupRepo] Gửi GET đến: /groups');
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/groups',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.body}');
+      print('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
-        print('❌ [GroupRepo] Lỗi từ server: ${errorData['error']}');
+        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(
-          errorData['error'] ?? 'Không thể lấy danh sách quỹ nhóm',
+          response.data['error'] ?? 'Không thể lấy danh sách quỹ nhóm',
         );
       }
 
       // Parse response
-      final responseData = json.decode(response.body);
-      final List<dynamic> groupsJson = responseData['data'] ?? [];
+      final List<dynamic> groupsJson = response.data['data'] ?? [];
 
       print('✅ [GroupRepo] Lấy ${groupsJson.length} quỹ nhóm thành công!');
       return groupsJson.cast<Map<String, dynamic>>();
-    } on SocketException {
-      print('❌ [GroupRepo] Lỗi kết nối mạng');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [GroupRepo] DioException: $e');
       throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        e.response?.data['error'] ?? 'Lỗi khi lấy danh sách quỹ nhóm: $e',
       );
     } catch (e) {
       print('❌ [GroupRepo] Exception: $e');
-      if (e.toString().contains('Exception')) {
-        rethrow;
-      }
-      throw Exception('Lỗi khi lấy danh sách quỹ nhóm: $e');
+      rethrow;
     }
   }
 
@@ -184,41 +182,40 @@ class GroupRepository {
       print('📦 [GroupRepo] Request body: $requestBody');
 
       // Gửi POST request
-      final url = '$_baseUrl/groups/join';
-      print('🌐 [GroupRepo] Gửi POST đến: $url');
+      print('🌐 [GroupRepo] Gửi POST đến: /groups/join');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(requestBody),
+      final response = await _dio.post(
+        '/groups/join',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.body}');
+      print('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        print('❌ [GroupRepo] Lỗi từ server: ${errorData['error']}');
-        throw Exception(errorData['error'] ?? 'Không thể tham gia quỹ nhóm');
+        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
+        throw Exception(
+          response.data['error'] ?? 'Không thể tham gia quỹ nhóm',
+        );
       }
 
       print('✅ [GroupRepo] Tham gia quỹ nhóm thành công!');
-    } on SocketException {
-      print('❌ [GroupRepo] Lỗi kết nối mạng');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [GroupRepo] DioException: $e');
       throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        e.response?.data['error'] ?? 'Lỗi khi tham gia quỹ nhóm: $e',
       );
     } catch (e) {
       print('❌ [GroupRepo] Exception: $e');
-      if (e.toString().contains('Exception')) {
-        rethrow;
-      }
-      throw Exception('Lỗi khi tham gia quỹ nhóm: $e');
+      rethrow;
     }
   }
 
@@ -236,7 +233,7 @@ class GroupRepository {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
-      final url = '$_baseUrl/groups/expenses';
+      final url = '/groups/expenses';
       final body = <String, dynamic>{
         'group_id': groupId,
         'amount': amount,
@@ -252,19 +249,14 @@ class GroupRepository {
         body['split_details'] = splitDetails;
       }
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(body),
+      final response = await _dio.post(
+        url,
+        data: body,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Lỗi thêm chi tiêu');
+        throw Exception(response.data['error'] ?? 'Lỗi thêm chi tiêu');
       }
     } catch (e) {
       rethrow;

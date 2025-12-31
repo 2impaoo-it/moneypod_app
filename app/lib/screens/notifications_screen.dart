@@ -8,6 +8,7 @@ import '../bloc/notification/notification_event.dart';
 import '../bloc/notification/notification_state.dart';
 import '../models/notification.dart';
 import '../repositories/notification_repository.dart';
+import '../utils/notification_handler.dart';
 import 'notification_settings_screen.dart';
 
 class NotificationsScreen extends StatelessWidget {
@@ -301,8 +302,7 @@ class _NotificationItem extends StatelessWidget {
     BuildContext context,
     AppNotification notification,
   ) {
-    // Handle navigation based on notification type
-    // TODO: Implement navigation logic
-    print('Tapped notification: ${notification.type} - ${notification.data}');
+    // Use NotificationHandler to navigate
+    NotificationHandler.handleNotificationTap(context, notification);
   }
 }

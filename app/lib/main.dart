@@ -16,13 +16,16 @@ import 'bloc/dashboard/dashboard_bloc.dart';
 import 'bloc/dashboard/dashboard_event.dart';
 import 'bloc/savings/savings_bloc.dart';
 import 'bloc/savings/savings_event.dart';
+import 'bloc/notification/notification_bloc.dart';
 import 'repositories/savings_repository.dart';
+import 'repositories/notification_repository.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
 import 'services/fcm_service.dart';
 import 'utils/session_manager.dart';
 import 'utils/popup_notification.dart';
+import 'utils/dio_client.dart';
 
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
 import 'screens/splash_screen.dart';
@@ -114,6 +117,9 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
     super.initState();
     // Đăng ký lắng nghe sự kiện App Lifecycle (ẩn/hiện)
     WidgetsBinding.instance.addObserver(this);
+
+    // Set navigator key cho DioClient
+    DioClient.setNavigatorKey(rootNavigatorKey);
 
     // Khởi tạo router với initialLocation dựa vào forceLogin
     _appRouter = GoRouter(
@@ -287,6 +293,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
         BlocProvider(
           create: (context) =>
               SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
+        ),
+        BlocProvider(
+          create: (context) =>
+              NotificationBloc(repository: NotificationRepository()),
         ),
       ],
       child: MaterialApp.router(

@@ -4,18 +4,24 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../models/bill_scan_result.dart';
 import '../services/auth_service.dart';
+import '../utils/dio_client.dart';
 
 class BillScanRepository {
   final ImagePicker _imagePicker = ImagePicker();
   final AuthService _authService = AuthService();
+  late final Dio _dio;
 
   // URL server backend - thay đổi theo môi trường của bạn
   static const String _baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
-  BillScanRepository();
+  BillScanRepository() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = _baseUrl;
+  }
 
   /// Kiểm tra và yêu cầu quyền camera
   Future<bool> requestCameraPermission() async {
@@ -170,34 +176,29 @@ class BillScanRepository {
       };
 
       // Gửi POST request
-      final response = await http.post(
-        Uri.parse('$_baseUrl/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(requestBody),
+      final response = await _dio.post(
+        '/transactions',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
         throw Exception(
-          'Lỗi từ server: ${errorData['error'] ?? 'Unknown error'}',
+          'Lỗi từ server: ${response.data['error'] ?? 'Unknown error'}',
         );
       }
 
       // Thành công
-    } on SocketException {
-      throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
-      );
-    } catch (e) {
-      if (e.toString().contains('Exception')) {
-        rethrow;
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
       }
-      throw Exception('Lỗi khi lưu giao dịch: $e');
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi lưu giao dịch: $e');
+    } catch (e) {
+      rethrow;
     }
   }
 }
