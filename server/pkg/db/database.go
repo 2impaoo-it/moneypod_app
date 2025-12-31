@@ -38,9 +38,11 @@ func ConnectDatabase() {
 		&models.GroupMember{},
 		&models.Expense{},
 		&models.Debt{},
-		&models.DebtPaymentRequest{}, // Bảng debt_payment_requests
-		&models.SavingsGoal{},        // Bảng savings_goals
-		&models.SavingsTransaction{}, // Bảng savings_transactions
+		&models.DebtPaymentRequest{},  // Bảng debt_payment_requests
+		&models.SavingsGoal{},         // Bảng savings_goals
+		&models.SavingsTransaction{},  // Bảng savings_transactions
+		&models.Notification{},        // Bảng notifications
+		&models.NotificationSetting{}, // Bảng notification_settings
 	)
 	if err != nil {
 		log.Fatal("❌ Không thể khởi tạo bảng: ", err)

@@ -16,16 +16,18 @@ import (
 type AuthService struct {
 	userRepo     *repositories.UserRepository
 	emailService EmailService
+	notifRepo    *repositories.NotificationRepository
 }
 
 func (s *AuthService) GetUserProfile(userID uuid.UUID) (*models.User, error) {
 	return s.userRepo.FindByID(userID)
 }
 
-func NewAuthService(userRepo *repositories.UserRepository, emailService EmailService) *AuthService {
+func NewAuthService(userRepo *repositories.UserRepository, emailService EmailService, notifRepo *repositories.NotificationRepository) *AuthService {
 	return &AuthService{
 		userRepo:     userRepo,
 		emailService: emailService,
+		notifRepo:    notifRepo,
 	}
 }
 
@@ -50,7 +52,16 @@ func (s *AuthService) Register(email, password, fullName string) error {
 	}
 
 	// 4. Gọi Repo để lưu
-	return s.userRepo.CreateUser(newUser)
+	if err := s.userRepo.CreateUser(newUser); err != nil {
+		return err
+	}
+
+	// 5. Tạo notification settings mặc định cho user mới
+	if s.notifRepo != nil {
+		s.notifRepo.CreateDefaultSettings(newUser.ID)
+	}
+
+	return nil
 }
 
 // Login kiểm tra pass và trả về Token

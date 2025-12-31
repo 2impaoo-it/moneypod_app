@@ -422,8 +422,47 @@ func (s *GroupService) AddMemberViaPhone(requesterID uuid.UUID, groupID uuid.UUI
 		return err
 	}
 
-	// (Optional) Gửi thông báo cho người mới biết mình vừa được thêm vào nhóm...
-	// Bạn có thể dùng s.notifService để gửi FCM ở đây nếu muốn.
+	// 5. Gửi thông báo cho người mới và tất cả members
+	go func() {
+		var group models.Group
+		var requester models.User
+		s.db.First(&group, "id = ?", groupID)
+		s.db.First(&requester, "id = ?", requesterID)
+
+		// Thông báo cho người mới
+		if newUser.FCMToken != "" && s.notifService != nil {
+			title := "🎉 Chào mừng đến nhóm!"
+			body := fmt.Sprintf("Bạn đã được %s thêm vào nhóm '%s'", requester.FullName, group.Name)
+			data := map[string]interface{}{
+				"type":     "group_member_added",
+				"group_id": groupID.String(),
+			}
+			s.notifService.CreateAndSendNotification(newUser.ID, "group_member_added", title, body, data, newUser.FCMToken)
+		}
+
+		// Thông báo cho tất cả members khác
+		var members []models.GroupMember
+		s.db.Preload("User").Where("group_id = ? AND user_id != ? AND user_id != ?", groupID, newUser.ID, requesterID).Find(&members)
+
+		var tokens []string
+		var userIDs []uuid.UUID
+		for _, m := range members {
+			if m.User.FCMToken != "" {
+				tokens = append(tokens, m.User.FCMToken)
+				userIDs = append(userIDs, m.User.ID)
+			}
+		}
+
+		if len(tokens) > 0 && s.notifService != nil {
+			title := "👥 Thành viên mới"
+			body := fmt.Sprintf("%s đã thêm %s vào nhóm '%s'", requester.FullName, newUser.FullName, group.Name)
+			data := map[string]interface{}{
+				"type":     "group_member_added",
+				"group_id": groupID.String(),
+			}
+			s.notifService.CreateAndSendMulticast(userIDs, "group_member_added", title, body, data, tokens)
+		}
+	}()
 
 	return nil
 }
@@ -483,6 +522,24 @@ func (s *GroupService) DeleteGroup(requesterID uuid.UUID, groupID uuid.UUID) err
 		tx.Rollback()
 		return err
 	}
+
+	// E. Gửi thông báo cho tất cả members về việc nhóm bị xóa
+	go func() {
+		var members []models.GroupMember
+		s.db.Preload("User").Where("group_id = ?", groupID).Find(&members)
+
+		for _, m := range members {
+			if m.User.FCMToken != "" && s.notifService != nil {
+				title := "⚠️ Nhóm đã bị giải tán"
+				body := fmt.Sprintf("Nhóm '%s' đã bị trưởng nhóm giải tán", group.Name)
+				data := map[string]interface{}{
+					"type":     "group_deleted",
+					"group_id": groupID.String(),
+				}
+				s.notifService.CreateAndSendNotification(m.UserID, "group_deleted", title, body, data, m.User.FCMToken)
+			}
+		}
+	}()
 
 	return tx.Commit().Error
 }
@@ -560,7 +617,29 @@ func (s *GroupService) KickMember(requesterID uuid.UUID, groupID uuid.UUID, memb
 	}
 
 	// 6. Xóa thành viên
-	return s.db.Delete(&memberToKick).Error
+	if err := s.db.Delete(&memberToKick).Error; err != nil {
+		return err
+	}
+
+	// 7. Gửi thông báo cho người bị kick
+	go func() {
+		var kickedUser models.User
+		var group models.Group
+		s.db.First(&kickedUser, "id = ?", memberUserID)
+		s.db.First(&group, "id = ?", groupID)
+
+		if kickedUser.FCMToken != "" && s.notifService != nil {
+			title := "⚠️ Bạn đã bị xóa khỏi nhóm"
+			body := fmt.Sprintf("Bạn đã bị xóa khỏi nhóm '%s'", group.Name)
+			data := map[string]interface{}{
+				"type":     "group_member_removed",
+				"group_id": groupID.String(),
+			}
+			s.notifService.CreateAndSendNotification(memberUserID, "group_member_removed", title, body, data, kickedUser.FCMToken)
+		}
+	}()
+
+	return nil
 }
 
 // LeaveGroup: Thành viên tự rời nhóm (chỉ khi không có nợ)
@@ -597,7 +676,41 @@ func (s *GroupService) LeaveGroup(userID uuid.UUID, groupID uuid.UUID) error {
 	}
 
 	// 5. Rời nhóm
-	return s.db.Delete(&member).Error
+	if err := s.db.Delete(&member).Error; err != nil {
+		return err
+	}
+
+	// 6. Gửi thông báo cho tất cả members còn lại
+	go func() {
+		var leavingUser models.User
+		var group models.Group
+		s.db.First(&leavingUser, "id = ?", userID)
+		s.db.First(&group, "id = ?", groupID)
+
+		var members []models.GroupMember
+		s.db.Preload("User").Where("group_id = ?", groupID).Find(&members)
+
+		var tokens []string
+		var userIDs []uuid.UUID
+		for _, m := range members {
+			if m.User.FCMToken != "" {
+				tokens = append(tokens, m.User.FCMToken)
+				userIDs = append(userIDs, m.User.ID)
+			}
+		}
+
+		if len(tokens) > 0 && s.notifService != nil {
+			title := "👋 Thành viên rời nhóm"
+			body := fmt.Sprintf("%s đã rời khỏi nhóm '%s'", leavingUser.FullName, group.Name)
+			data := map[string]interface{}{
+				"type":     "group_member_removed",
+				"group_id": groupID.String(),
+			}
+			s.notifService.CreateAndSendMulticast(userIDs, "group_member_removed", title, body, data, tokens)
+		}
+	}()
+
+	return nil
 }
 
 // GetExpenseDetail: Xem chi tiết một hóa đơn
@@ -652,6 +765,37 @@ func (s *GroupService) DeleteExpense(requesterID uuid.UUID, expenseID uuid.UUID)
 		tx.Rollback()
 		return err
 	}
+
+	// 6. Gửi thông báo cho tất cả members trong nhóm
+	go func() {
+		var payer models.User
+		var group models.Group
+		s.db.First(&payer, "id = ?", expense.PayerID)
+		s.db.First(&group, "id = ?", expense.GroupID)
+
+		var members []models.GroupMember
+		s.db.Preload("User").Where("group_id = ? AND user_id != ?", expense.GroupID, requesterID).Find(&members)
+
+		var tokens []string
+		var userIDs []uuid.UUID
+		for _, m := range members {
+			if m.User.FCMToken != "" {
+				tokens = append(tokens, m.User.FCMToken)
+				userIDs = append(userIDs, m.User.ID)
+			}
+		}
+
+		if len(tokens) > 0 && s.notifService != nil {
+			title := "🗑️ Chi tiêu đã bị xóa"
+			body := fmt.Sprintf("Chi tiêu '%s' (%.0f đ) trong nhóm '%s' đã bị xóa", expense.Description, expense.Amount, group.Name)
+			data := map[string]interface{}{
+				"type":       "expense_deleted",
+				"group_id":   expense.GroupID.String(),
+				"expense_id": expenseID.String(),
+			}
+			s.notifService.CreateAndSendMulticast(userIDs, "expense_deleted", title, body, data, tokens)
+		}
+	}()
 
 	return tx.Commit().Error
 }
@@ -754,6 +898,35 @@ func (s *GroupService) UpdateExpense(requesterID uuid.UUID, expenseID uuid.UUID,
 			}
 		}
 	}
+
+	// 6. Gửi thông báo cho tất cả members trong nhóm
+	go func() {
+		var group models.Group
+		s.db.First(&group, "id = ?", expense.GroupID)
+
+		var members []models.GroupMember
+		s.db.Preload("User").Where("group_id = ? AND user_id != ?", expense.GroupID, requesterID).Find(&members)
+
+		var tokens []string
+		var userIDs []uuid.UUID
+		for _, m := range members {
+			if m.User.FCMToken != "" {
+				tokens = append(tokens, m.User.FCMToken)
+				userIDs = append(userIDs, m.User.ID)
+			}
+		}
+
+		if len(tokens) > 0 && s.notifService != nil {
+			title := "✏️ Chi tiêu đã được cập nhật"
+			body := fmt.Sprintf("Chi tiêu '%s' trong nhóm '%s' đã được chỉnh sửa", expense.Description, group.Name)
+			data := map[string]interface{}{
+				"type":       "expense_updated",
+				"group_id":   expense.GroupID.String(),
+				"expense_id": expenseID.String(),
+			}
+			s.notifService.CreateAndSendMulticast(userIDs, "expense_updated", title, body, data, tokens)
+		}
+	}()
 
 	return tx.Commit().Error
 }

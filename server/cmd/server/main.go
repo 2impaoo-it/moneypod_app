@@ -24,10 +24,11 @@ func main() {
 	walletRepo := repositories.NewWalletRepository(db.DB)
 	transRepo := repositories.NewTransactionRepository(db.DB)
 	savingsRepo := repositories.NewSavingsRepository(db.DB)
+	notifRepo := repositories.NewNotificationRepository(db.DB)
 
 	// 3. 🔥 KHỞI TẠO NOTIFICATION SERVICE
 	// Lưu ý: Bạn cần có file serviceAccountKey.json ở cùng thư mục
-	notifService, err := services.NewNotificationService("./serviceAccountKey.json")
+	notifService, err := services.NewNotificationService("./serviceAccountKey.json", notifRepo)
 	if err != nil {
 		log.Println("⚠️ Cảnh báo: Không thể kết nối Firebase (Chưa có key hoặc sai đường dẫn). Tính năng thông báo sẽ không chạy.")
 		notifService = nil // Vẫn cho server chạy nhưng không gửi được thông báo
@@ -63,7 +64,7 @@ func main() {
 		log.Printf("✅ Đã cấu hình SMTP Email Service: %s:%s\n", emailConfig.Host, emailConfig.Port)
 	}
 
-	authService := services.NewAuthService(userRepo, emailService)
+	authService := services.NewAuthService(userRepo, emailService, notifRepo)
 	walletService := services.NewWalletService(walletRepo)
 	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
 	transService := services.NewTransactionService(db.DB, transRepo, walletRepo)
@@ -73,6 +74,7 @@ func main() {
 	// --- KHỞI TẠO HANDLERS ---
 	// 🔥 THÊM DÒNG NÀY: Khởi tạo UploadHandler
 	uploadHandler := handlers.NewUploadHandler(storageService)
+	notifHandler := handlers.NewNotificationHandler(notifRepo)
 
 	receiptHandler := handlers.NewReceiptHandler(receiptService)
 	authHandler := handlers.NewAuthHandler(authService)
@@ -175,6 +177,16 @@ func main() {
 
 		// Route Upload ảnh
 		protected.POST("/upload", uploadHandler.UploadImage)
+
+		// ROUTES THÔNG BÁO
+		protected.GET("/notifications", notifHandler.GetList)                     // Lấy danh sách thông báo
+		protected.GET("/notifications/unread-count", notifHandler.GetUnreadCount) // Số thông báo chưa đọc
+		protected.PUT("/notifications/:id/read", notifHandler.MarkAsRead)         // Đánh dấu đã đọc
+		protected.PUT("/notifications/read-all", notifHandler.MarkAllAsRead)      // Đánh dấu tất cả đã đọc
+		protected.DELETE("/notifications/:id", notifHandler.Delete)               // Xóa thông báo
+		protected.DELETE("/notifications/all", notifHandler.DeleteAll)            // Xóa tất cả
+		protected.GET("/notifications/settings", notifHandler.GetSettings)        // Lấy cài đặt
+		protected.PUT("/notifications/settings", notifHandler.UpdateSettings)     // Cập nhật cài đặt
 
 		// ROUTES TIẾT KIỆM
 		protected.POST("/savings", savingsHandler.Create)                              // Tạo heo đất
