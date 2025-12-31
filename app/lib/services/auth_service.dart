@@ -176,4 +176,40 @@ class AuthService {
       return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
     }
   }
+
+  // Cập nhật FCM Token
+  Future<Map<String, dynamic>> updateFCMToken(String fcmToken) async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Bạn cần đăng nhập lại'};
+      }
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/profile/fcm-token'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'fcm_token': fcmToken}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Cập nhật FCM token thành công',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? 'Cập nhật FCM token thất bại',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    }
+  }
 }

@@ -88,9 +88,9 @@ func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, categor
 
 	// Filter by month and year
 	if month > 0 && year > 0 {
-		query = query.Where("MONTH(date) = ? AND YEAR(date) = ?", month, year)
+		query = query.Where("EXTRACT(MONTH FROM date) = ? AND EXTRACT(YEAR FROM date) = ?", month, year)
 	} else if year > 0 {
-		query = query.Where("YEAR(date) = ?", year)
+		query = query.Where("EXTRACT(YEAR FROM date) = ?", year)
 	}
 
 	// Count total

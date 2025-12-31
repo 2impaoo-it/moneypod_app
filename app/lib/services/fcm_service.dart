@@ -1,6 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart';
 
 /// Service để xử lý Firebase Cloud Messaging
 class FCMService {
@@ -58,8 +59,27 @@ class FCMService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_fcmTokenKey, token);
       debugPrint('💾 Đã lưu FCM token');
+
+      // 🔥 GỬI TOKEN LÊN SERVER
+      await _updateFCMTokenToServer(token);
     } catch (e) {
       debugPrint('❌ Lỗi lưu FCM token: $e');
+    }
+  }
+
+  /// Gửi FCM token lên server
+  Future<void> _updateFCMTokenToServer(String token) async {
+    try {
+      final authService = AuthService();
+      final result = await authService.updateFCMToken(token);
+
+      if (result['success'] == true) {
+        debugPrint('✅ Đã cập nhật FCM token lên server');
+      } else {
+        debugPrint('⚠️ Không cập nhật được FCM token: ${result['message']}');
+      }
+    } catch (e) {
+      debugPrint('❌ Lỗi gửi FCM token lên server: $e');
     }
   }
 
@@ -93,8 +113,12 @@ class FCMService {
       debugPrint('   Body: ${message.notification?.body}');
       debugPrint('   Data: ${message.data}');
 
-      // TODO: Show local notification hoặc update UI
-      // Có thể dùng flutter_local_notifications để hiện thông báo
+      // 🔥 Hiển thị notification ngay cả khi app đang mở
+      // Để hiển thị native notification, cần dùng flutter_local_notifications
+      // Tạm thời log ra, user sẽ thấy trong notification list
+      debugPrint(
+        '✅ Notification đã được lưu vào DB, kiểm tra trong Notification List',
+      );
     });
 
     // Background messages (khi user tap vào notification)

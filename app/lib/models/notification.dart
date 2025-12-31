@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'dart:convert';
 
 class AppNotification extends Equatable {
   final String id;
@@ -34,15 +35,29 @@ class AppNotification extends Equatable {
   ];
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
+    // Parse data field - có thể là String (JSON string) hoặc Map
+    Map<String, dynamic>? parsedData;
+    if (json['data'] != null) {
+      if (json['data'] is String) {
+        // Nếu là String thì parse JSON
+        try {
+          parsedData = jsonDecode(json['data']) as Map<String, dynamic>;
+        } catch (e) {
+          parsedData = null;
+        }
+      } else if (json['data'] is Map) {
+        // Nếu đã là Map thì dùng luôn
+        parsedData = Map<String, dynamic>.from(json['data']);
+      }
+    }
+
     return AppNotification(
       id: json['id'] ?? '',
       userId: json['user_id'] ?? '',
       type: json['type'] ?? '',
       title: json['title'] ?? '',
       body: json['body'] ?? '',
-      data: json['data'] != null
-          ? Map<String, dynamic>.from(json['data'])
-          : null,
+      data: parsedData,
       isRead: json['is_read'] ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
@@ -88,32 +103,44 @@ class AppNotification extends Equatable {
   // Helper để hiển thị icon theo type
   String get icon {
     switch (type) {
-      case 'group_invite':
-        return '👥';
-      case 'group_join':
-        return '✅';
+      // Group notifications
       case 'group_expense':
         return '💸';
-      case 'group_settle':
-        return '💰';
-      case 'group_expense_update':
-        return '✏️';
-      case 'group_expense_delete':
+      case 'group_member_added':
+        return '➕';
+      case 'group_member_removed':
+        return '➖';
+      case 'group_deleted':
         return '🗑️';
+      case 'expense_updated':
+        return '✏️';
+      case 'expense_deleted':
+        return '🗑️';
+      // Transaction notifications
+      case 'transaction_created':
+        return '💰';
+      case 'low_balance':
+        return '⚠️';
+      case 'budget_exceeded':
+        return '📊';
+      case 'daily_summary':
+        return '📋';
+      // Savings notifications
       case 'savings_goal_reached':
         return '🎯';
-      case 'savings_milestone':
-        return '📈';
-      case 'low_balance_alert':
-        return '⚠️';
-      case 'new_device_login':
-        return '🔐';
-      case 'maintenance':
-        return '🔧';
-      case 'debt_reminder':
-        return '⏰';
       case 'savings_reminder':
         return '🐷';
+      case 'savings_progress':
+        return '📈';
+      // System notifications
+      case 'system_announcement':
+        return '📢';
+      case 'security_alert':
+        return '🔐';
+      case 'app_update':
+        return '🔄';
+      case 'maintenance':
+        return '🔧';
       default:
         return '🔔';
     }
@@ -122,124 +149,180 @@ class AppNotification extends Equatable {
 
 class NotificationSettings extends Equatable {
   final String userId;
-  final bool groupInvite;
-  final bool groupJoin;
+
+  // Group notifications
   final bool groupExpense;
-  final bool groupSettle;
-  final bool groupExpenseUpdate;
-  final bool groupExpenseDelete;
+  final bool groupMemberAdded;
+  final bool groupMemberRemoved;
+  final bool groupDeleted;
+  final bool expenseUpdated;
+  final bool expenseDeleted;
+
+  // Transaction notifications
+  final bool transactionCreated;
+  final bool lowBalance;
+  final bool budgetExceeded;
+  final bool dailySummary;
+
+  // Savings notifications
   final bool savingsGoalReached;
-  final bool savingsMilestone;
-  final bool lowBalanceAlert;
-  final bool newDeviceLogin;
-  final bool maintenance;
-  final bool debtReminder;
   final bool savingsReminder;
+  final bool savingsProgress;
+
+  // System notifications
+  final bool systemAnnouncement;
+  final bool securityAlert;
+  final bool appUpdate;
+  final bool maintenance;
 
   const NotificationSettings({
     required this.userId,
-    this.groupInvite = true,
-    this.groupJoin = true,
+    // Group notifications
     this.groupExpense = true,
-    this.groupSettle = true,
-    this.groupExpenseUpdate = true,
-    this.groupExpenseDelete = true,
+    this.groupMemberAdded = true,
+    this.groupMemberRemoved = true,
+    this.groupDeleted = true,
+    this.expenseUpdated = true,
+    this.expenseDeleted = true,
+    // Transaction notifications
+    this.transactionCreated = true,
+    this.lowBalance = true,
+    this.budgetExceeded = true,
+    this.dailySummary = false,
+    // Savings notifications
     this.savingsGoalReached = true,
-    this.savingsMilestone = true,
-    this.lowBalanceAlert = true,
-    this.newDeviceLogin = true,
-    this.maintenance = true,
-    this.debtReminder = true,
     this.savingsReminder = true,
+    this.savingsProgress = true,
+    // System notifications
+    this.systemAnnouncement = true,
+    this.securityAlert = true,
+    this.appUpdate = true,
+    this.maintenance = true,
   });
 
   @override
   List<Object?> get props => [
     userId,
-    groupInvite,
-    groupJoin,
     groupExpense,
-    groupSettle,
-    groupExpenseUpdate,
-    groupExpenseDelete,
+    groupMemberAdded,
+    groupMemberRemoved,
+    groupDeleted,
+    expenseUpdated,
+    expenseDeleted,
+    transactionCreated,
+    lowBalance,
+    budgetExceeded,
+    dailySummary,
     savingsGoalReached,
-    savingsMilestone,
-    lowBalanceAlert,
-    newDeviceLogin,
-    maintenance,
-    debtReminder,
     savingsReminder,
+    savingsProgress,
+    systemAnnouncement,
+    securityAlert,
+    appUpdate,
+    maintenance,
   ];
 
   factory NotificationSettings.fromJson(Map<String, dynamic> json) {
     return NotificationSettings(
       userId: json['user_id'] ?? '',
-      groupInvite: json['group_invite'] ?? true,
-      groupJoin: json['group_join'] ?? true,
+      // Group notifications
       groupExpense: json['group_expense'] ?? true,
-      groupSettle: json['group_settle'] ?? true,
-      groupExpenseUpdate: json['group_expense_update'] ?? true,
-      groupExpenseDelete: json['group_expense_delete'] ?? true,
+      groupMemberAdded: json['group_member_added'] ?? true,
+      groupMemberRemoved: json['group_member_removed'] ?? true,
+      groupDeleted: json['group_deleted'] ?? true,
+      expenseUpdated: json['expense_updated'] ?? true,
+      expenseDeleted: json['expense_deleted'] ?? true,
+      // Transaction notifications
+      transactionCreated: json['transaction_created'] ?? true,
+      lowBalance: json['low_balance'] ?? true,
+      budgetExceeded: json['budget_exceeded'] ?? true,
+      dailySummary: json['daily_summary'] ?? false,
+      // Savings notifications
       savingsGoalReached: json['savings_goal_reached'] ?? true,
-      savingsMilestone: json['savings_milestone'] ?? true,
-      lowBalanceAlert: json['low_balance_alert'] ?? true,
-      newDeviceLogin: json['new_device_login'] ?? true,
-      maintenance: json['maintenance'] ?? true,
-      debtReminder: json['debt_reminder'] ?? true,
       savingsReminder: json['savings_reminder'] ?? true,
+      savingsProgress: json['savings_progress'] ?? true,
+      // System notifications
+      systemAnnouncement: json['system_announcement'] ?? true,
+      securityAlert: json['security_alert'] ?? true,
+      appUpdate: json['app_update'] ?? true,
+      maintenance: json['maintenance'] ?? true,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'user_id': userId,
-      'group_invite': groupInvite,
-      'group_join': groupJoin,
+      // Group notifications
       'group_expense': groupExpense,
-      'group_settle': groupSettle,
-      'group_expense_update': groupExpenseUpdate,
-      'group_expense_delete': groupExpenseDelete,
+      'group_member_added': groupMemberAdded,
+      'group_member_removed': groupMemberRemoved,
+      'group_deleted': groupDeleted,
+      'expense_updated': expenseUpdated,
+      'expense_deleted': expenseDeleted,
+      // Transaction notifications
+      'transaction_created': transactionCreated,
+      'low_balance': lowBalance,
+      'budget_exceeded': budgetExceeded,
+      'daily_summary': dailySummary,
+      // Savings notifications
       'savings_goal_reached': savingsGoalReached,
-      'savings_milestone': savingsMilestone,
-      'low_balance_alert': lowBalanceAlert,
-      'new_device_login': newDeviceLogin,
-      'maintenance': maintenance,
-      'debt_reminder': debtReminder,
       'savings_reminder': savingsReminder,
+      'savings_progress': savingsProgress,
+      // System notifications
+      'system_announcement': systemAnnouncement,
+      'security_alert': securityAlert,
+      'app_update': appUpdate,
+      'maintenance': maintenance,
     };
   }
 
   NotificationSettings copyWith({
     String? userId,
-    bool? groupInvite,
-    bool? groupJoin,
+    // Group notifications
     bool? groupExpense,
-    bool? groupSettle,
-    bool? groupExpenseUpdate,
-    bool? groupExpenseDelete,
+    bool? groupMemberAdded,
+    bool? groupMemberRemoved,
+    bool? groupDeleted,
+    bool? expenseUpdated,
+    bool? expenseDeleted,
+    // Transaction notifications
+    bool? transactionCreated,
+    bool? lowBalance,
+    bool? budgetExceeded,
+    bool? dailySummary,
+    // Savings notifications
     bool? savingsGoalReached,
-    bool? savingsMilestone,
-    bool? lowBalanceAlert,
-    bool? newDeviceLogin,
-    bool? maintenance,
-    bool? debtReminder,
     bool? savingsReminder,
+    bool? savingsProgress,
+    // System notifications
+    bool? systemAnnouncement,
+    bool? securityAlert,
+    bool? appUpdate,
+    bool? maintenance,
   }) {
     return NotificationSettings(
       userId: userId ?? this.userId,
-      groupInvite: groupInvite ?? this.groupInvite,
-      groupJoin: groupJoin ?? this.groupJoin,
+      // Group notifications
       groupExpense: groupExpense ?? this.groupExpense,
-      groupSettle: groupSettle ?? this.groupSettle,
-      groupExpenseUpdate: groupExpenseUpdate ?? this.groupExpenseUpdate,
-      groupExpenseDelete: groupExpenseDelete ?? this.groupExpenseDelete,
+      groupMemberAdded: groupMemberAdded ?? this.groupMemberAdded,
+      groupMemberRemoved: groupMemberRemoved ?? this.groupMemberRemoved,
+      groupDeleted: groupDeleted ?? this.groupDeleted,
+      expenseUpdated: expenseUpdated ?? this.expenseUpdated,
+      expenseDeleted: expenseDeleted ?? this.expenseDeleted,
+      // Transaction notifications
+      transactionCreated: transactionCreated ?? this.transactionCreated,
+      lowBalance: lowBalance ?? this.lowBalance,
+      budgetExceeded: budgetExceeded ?? this.budgetExceeded,
+      dailySummary: dailySummary ?? this.dailySummary,
+      // Savings notifications
       savingsGoalReached: savingsGoalReached ?? this.savingsGoalReached,
-      savingsMilestone: savingsMilestone ?? this.savingsMilestone,
-      lowBalanceAlert: lowBalanceAlert ?? this.lowBalanceAlert,
-      newDeviceLogin: newDeviceLogin ?? this.newDeviceLogin,
-      maintenance: maintenance ?? this.maintenance,
-      debtReminder: debtReminder ?? this.debtReminder,
       savingsReminder: savingsReminder ?? this.savingsReminder,
+      savingsProgress: savingsProgress ?? this.savingsProgress,
+      // System notifications
+      systemAnnouncement: systemAnnouncement ?? this.systemAnnouncement,
+      securityAlert: securityAlert ?? this.securityAlert,
+      appUpdate: appUpdate ?? this.appUpdate,
+      maintenance: maintenance ?? this.maintenance,
     );
   }
 }

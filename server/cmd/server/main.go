@@ -107,9 +107,27 @@ func main() {
 			}
 			middleware.SetMaintenanceMode(req.Enable)
 			status := "Đã TẮT"
+			title := "🔧 Hệ thống đã hoạt động trở lại"
+			body := "MoneyPod đã sẵn sàng phục vụ bạn!"
+
 			if req.Enable {
 				status = "Đã BẬT"
+				title = "⚠️ Thông báo bảo trì hệ thống"
+				body = "MoneyPod đang bảo trì. Vui lòng thử lại sau ít phút."
 			}
+
+			// 🔥 GỬI THÔNG BÁO CHO TẤT CẢ USER
+			if notifService != nil {
+				go func() {
+					log.Printf("📢 Gửi thông báo bảo trì: %s", title)
+					if err := notifService.SendMaintenanceNotification(db.DB, title, body); err != nil {
+						log.Printf("❌ Lỗi gửi thông báo bảo trì: %v", err)
+					} else {
+						log.Printf("✅ Đã gửi thông báo bảo trì cho tất cả users")
+					}
+				}()
+			}
+
 			c.JSON(200, gin.H{"message": "Chế độ bảo trì: " + status})
 		})
 	}
@@ -132,15 +150,14 @@ func main() {
 	protected := r.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		protected.POST("/fcm-token", authHandler.UpdateFCMToken) // API cập nhật token
-
 		// Dashboard & Profile
 		protected.GET("/dashboard", dashboardHandler.GetOverview)
 		protected.GET("/profile", authHandler.GetProfile)
 		protected.PUT("/profile", authHandler.UpdateProfile)
 		protected.PUT("/profile/avatar", authHandler.UpdateAvatar)
-		protected.POST("/profile/phone", authHandler.LinkPhone)       // API cập nhật SĐT
-		protected.PUT("/change-password", authHandler.ChangePassword) // Đổi mật khẩu
+		protected.PUT("/profile/fcm-token", authHandler.UpdateFCMToken) // API cập nhật FCM token
+		protected.POST("/profile/phone", authHandler.LinkPhone)         // API cập nhật SĐT
+		protected.PUT("/change-password", authHandler.ChangePassword)   // Đổi mật khẩu
 		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)

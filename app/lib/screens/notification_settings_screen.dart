@@ -119,30 +119,6 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
               // GROUP NOTIFICATIONS
               const _SectionHeader(icon: Icons.group, title: 'Thông báo nhóm'),
               _SettingTile(
-                title: 'Lời mời tham gia nhóm',
-                subtitle: 'Nhận thông báo khi được mời vào nhóm',
-                value: _currentSettings!.groupInvite,
-                onChanged: (value) {
-                  setState(() {
-                    _currentSettings = _currentSettings!.copyWith(
-                      groupInvite: value,
-                    );
-                  });
-                },
-              ),
-              _SettingTile(
-                title: 'Thành viên mới tham gia',
-                subtitle: 'Thông báo khi có người tham gia nhóm',
-                value: _currentSettings!.groupJoin,
-                onChanged: (value) {
-                  setState(() {
-                    _currentSettings = _currentSettings!.copyWith(
-                      groupJoin: value,
-                    );
-                  });
-                },
-              ),
-              _SettingTile(
                 title: 'Chi tiêu nhóm mới',
                 subtitle: 'Thông báo khi có giao dịch mới trong nhóm',
                 value: _currentSettings!.groupExpense,
@@ -155,13 +131,37 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
                 },
               ),
               _SettingTile(
-                title: 'Thanh toán công nợ',
-                subtitle: 'Thông báo khi có người thanh toán nợ',
-                value: _currentSettings!.groupSettle,
+                title: 'Thành viên được thêm',
+                subtitle: 'Thông báo khi có thành viên mới',
+                value: _currentSettings!.groupMemberAdded,
                 onChanged: (value) {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
-                      groupSettle: value,
+                      groupMemberAdded: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Thành viên bị xóa',
+                subtitle: 'Thông báo khi có thành viên rời nhóm',
+                value: _currentSettings!.groupMemberRemoved,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      groupMemberRemoved: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Nhóm bị xóa',
+                subtitle: 'Thông báo khi nhóm bị xóa',
+                value: _currentSettings!.groupDeleted,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      groupDeleted: value,
                     );
                   });
                 },
@@ -169,11 +169,11 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
               _SettingTile(
                 title: 'Cập nhật chi tiêu',
                 subtitle: 'Thông báo khi chi tiêu được chỉnh sửa',
-                value: _currentSettings!.groupExpenseUpdate,
+                value: _currentSettings!.expenseUpdated,
                 onChanged: (value) {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
-                      groupExpenseUpdate: value,
+                      expenseUpdated: value,
                     );
                   });
                 },
@@ -181,11 +181,65 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
               _SettingTile(
                 title: 'Xóa chi tiêu',
                 subtitle: 'Thông báo khi chi tiêu bị xóa',
-                value: _currentSettings!.groupExpenseDelete,
+                value: _currentSettings!.expenseDeleted,
                 onChanged: (value) {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
-                      groupExpenseDelete: value,
+                      expenseDeleted: value,
+                    );
+                  });
+                },
+              ),
+
+              // TRANSACTION NOTIFICATIONS
+              const _SectionHeader(
+                icon: Icons.account_balance_wallet,
+                title: 'Thông báo giao dịch',
+              ),
+              _SettingTile(
+                title: 'Giao dịch mới',
+                subtitle: 'Thông báo khi có giao dịch mới',
+                value: _currentSettings!.transactionCreated,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      transactionCreated: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Cảnh báo số dư thấp',
+                subtitle: 'Thông báo khi số dư dưới 100,000đ',
+                value: _currentSettings!.lowBalance,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      lowBalance: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Vượt ngân sách',
+                subtitle: 'Thông báo khi chi tiêu vượt ngân sách',
+                value: _currentSettings!.budgetExceeded,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      budgetExceeded: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Tóm tắt hàng ngày',
+                subtitle: 'Nhận báo cáo tổng hợp hàng ngày',
+                value: _currentSettings!.dailySummary,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      dailySummary: value,
                     );
                   });
                 },
@@ -209,20 +263,8 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
                 },
               ),
               _SettingTile(
-                title: 'Cột mốc tiết kiệm',
-                subtitle: 'Thông báo khi đạt 25%, 50%, 75%',
-                value: _currentSettings!.savingsMilestone,
-                onChanged: (value) {
-                  setState(() {
-                    _currentSettings = _currentSettings!.copyWith(
-                      savingsMilestone: value,
-                    );
-                  });
-                },
-              ),
-              _SettingTile(
                 title: 'Nhắc nhở tiết kiệm',
-                subtitle: 'Nhắc nạp tiền mỗi 7 ngày',
+                subtitle: 'Nhắc nạp tiền định kỳ',
                 value: _currentSettings!.savingsReminder,
                 onChanged: (value) {
                   setState(() {
@@ -232,20 +274,14 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
                   });
                 },
               ),
-
-              // WALLET NOTIFICATIONS
-              const _SectionHeader(
-                icon: Icons.account_balance_wallet,
-                title: 'Thông báo ví',
-              ),
               _SettingTile(
-                title: 'Cảnh báo số dư thấp',
-                subtitle: 'Thông báo khi số dư dưới 100,000đ',
-                value: _currentSettings!.lowBalanceAlert,
+                title: 'Tiến độ tiết kiệm',
+                subtitle: 'Thông báo khi đạt 50%, 75%, 90%',
+                value: _currentSettings!.savingsProgress,
                 onChanged: (value) {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
-                      lowBalanceAlert: value,
+                      savingsProgress: value,
                     );
                   });
                 },
@@ -253,17 +289,41 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
 
               // SYSTEM NOTIFICATIONS
               const _SectionHeader(
-                icon: Icons.security,
+                icon: Icons.settings,
                 title: 'Thông báo hệ thống',
               ),
               _SettingTile(
-                title: 'Đăng nhập thiết bị mới',
-                subtitle: 'Cảnh báo khi có đăng nhập từ thiết bị lạ',
-                value: _currentSettings!.newDeviceLogin,
+                title: 'Thông báo hệ thống',
+                subtitle: 'Thông báo quan trọng từ hệ thống',
+                value: _currentSettings!.systemAnnouncement,
                 onChanged: (value) {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
-                      newDeviceLogin: value,
+                      systemAnnouncement: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Cảnh báo bảo mật',
+                subtitle: 'Thông báo về hoạt động đáng ngờ',
+                value: _currentSettings!.securityAlert,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      securityAlert: value,
+                    );
+                  });
+                },
+              ),
+              _SettingTile(
+                title: 'Cập nhật ứng dụng',
+                subtitle: 'Thông báo khi có phiên bản mới',
+                value: _currentSettings!.appUpdate,
+                onChanged: (value) {
+                  setState(() {
+                    _currentSettings = _currentSettings!.copyWith(
+                      appUpdate: value,
                     );
                   });
                 },
@@ -276,18 +336,6 @@ class _NotificationSettingsViewState extends State<_NotificationSettingsView> {
                   setState(() {
                     _currentSettings = _currentSettings!.copyWith(
                       maintenance: value,
-                    );
-                  });
-                },
-              ),
-              _SettingTile(
-                title: 'Nhắc nhở công nợ',
-                subtitle: 'Nhắc thanh toán nợ mỗi ngày',
-                value: _currentSettings!.debtReminder,
-                onChanged: (value) {
-                  setState(() {
-                    _currentSettings = _currentSettings!.copyWith(
-                      debtReminder: value,
                     );
                   });
                 },

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
@@ -79,10 +80,20 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 
 	// 7. 🔥 Kiểm tra số dư thấp và gửi thông báo (ngưỡng: 100,000 đ)
 	const lowBalanceThreshold = 100000.0
+	log.Printf("🔍 DEBUG Low Balance: Type=%s, Balance=%.0f, Threshold=%.0f", req.Type, wallet.Balance, lowBalanceThreshold)
+
 	if req.Type == constants.TransactionTypeExpense && wallet.Balance < lowBalanceThreshold {
+		log.Printf("⚠️ LOW BALANCE DETECTED! Wallet '%s' balance: %.0f đ", wallet.Name, wallet.Balance)
+
 		go func() {
 			var user models.User
-			s.db.First(&user, "id = ?", userID)
+			if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+				log.Printf("❌ Lỗi load user: %v", err)
+				return
+			}
+
+			log.Printf("👤 User FCM Token: '%s' (length: %d)", user.FCMToken, len(user.FCMToken))
+			log.Printf("🔔 NotifService nil? %v", s.notifService == nil)
 
 			if user.FCMToken != "" && s.notifService != nil {
 				title := "⚠️ Cảnh báo: Số dư ví thấp"
@@ -92,9 +103,18 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 					"wallet_id": wallet.ID.String(),
 					"balance":   wallet.Balance,
 				}
-				s.notifService.CreateAndSendNotification(userID, "low_balance", title, body, data, user.FCMToken)
+				log.Printf("📤 Đang gửi notification low_balance cho user %s", userID)
+				if err := s.notifService.CreateAndSendNotification(userID, "low_balance", title, body, data, user.FCMToken); err != nil {
+					log.Printf("❌ Lỗi gửi notification: %v", err)
+				} else {
+					log.Printf("✅ Đã gửi notification low_balance thành công!")
+				}
+			} else {
+				log.Printf("⚠️ Không gửi notification: FCMToken='%s', NotifService=%v", user.FCMToken, s.notifService != nil)
 			}
 		}()
+	} else {
+		log.Printf("ℹ️ Không trigger low balance: Type=%s, Balance=%.0f >= %.0f", req.Type, wallet.Balance, lowBalanceThreshold)
 	}
 
 	return nil

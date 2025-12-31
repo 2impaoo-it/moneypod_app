@@ -101,15 +101,20 @@ func (s *NotificationService) SendNotification(token, title, body string) {
 
 // CreateAndSendNotification: Tạo thông báo trong DB và gửi FCM nếu user bật setting
 func (s *NotificationService) CreateAndSendNotification(userID uuid.UUID, notifType, title, body string, data map[string]interface{}, fcmToken string) error {
+	log.Printf("📥 CreateAndSendNotification: UserID=%s, Type=%s, HasToken=%v", userID, notifType, fcmToken != "")
+
 	// 1. Kiểm tra settings của user
 	settings, err := s.notifRepo.GetSettings(userID)
 	if err != nil {
 		log.Printf("⚠️ Không lấy được settings của user %s: %v\n", userID, err)
 		// Vẫn tạo notification nhưng không gửi FCM
+	} else {
+		log.Printf("✅ Đã load settings cho user %s", userID)
 	}
 
 	// 2. Kiểm tra xem user có bật loại thông báo này không
 	shouldSend := s.checkNotificationSetting(settings, notifType)
+	log.Printf("🔔 Should send notification '%s'? %v", notifType, shouldSend)
 
 	// 3. Lưu notification vào database
 	dataJSON, _ := json.Marshal(data)
@@ -126,10 +131,14 @@ func (s *NotificationService) CreateAndSendNotification(userID uuid.UUID, notifT
 		log.Printf("❌ Lỗi lưu notification vào DB: %v\n", err)
 		return err
 	}
+	log.Printf("✅ Đã lưu notification vào DB: ID=%s", notification.ID)
 
 	// 4. Gửi FCM nếu user bật setting và có token
 	if shouldSend && fcmToken != "" {
+		log.Printf("📤 Đang gửi FCM: Token=%s..., Title=%s", fcmToken[:20], title)
 		s.SendNotification(fcmToken, title, body)
+	} else {
+		log.Printf("⚠️ Không gửi FCM: shouldSend=%v, hasToken=%v", shouldSend, fcmToken != "")
 	}
 
 	return nil

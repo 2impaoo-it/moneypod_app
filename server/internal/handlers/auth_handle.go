@@ -119,38 +119,6 @@ func (h *AuthHandler) LinkPhone(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Đã liên kết số điện thoại thành công"})
 }
 
-// Struct nhận dữ liệu từ App gửi lên
-type UpdateTokenReq struct {
-	FCMToken string `json:"fcm_token" binding:"required"`
-}
-
-// POST /api/v1/fcm-token
-func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
-	// 1. Lấy UserID từ Token (do Middleware giải mã)
-	idVal, exists := c.Get("userID")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-	userID, _ := uuid.Parse(idVal.(string))
-
-	// 2. Parse dữ liệu JSON gửi lên
-	var req UpdateTokenReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
-		return
-	}
-
-	// 3. Gọi Service để lưu vào DB
-	err := h.authService.UpdateFCMToken(userID, req.FCMToken)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "Lỗi hệ thống: " + err.Error()})
-		return
-	}
-
-	c.JSON(200, gin.H{"message": "Cập nhật token thông báo thành công"})
-}
-
 // Struct nhận dữ liệu
 type UpdateProfileReq struct {
 	FullName string `json:"full_name" binding:"required"`
@@ -258,5 +226,44 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	// Luôn trả về thành công để không lộ thông tin email có tồn tại hay không
 	c.JSON(200, gin.H{
 		"message": "Nếu email tồn tại, một email khôi phục mật khẩu đã được gửi đến hộp thư của bạn",
+	})
+}
+
+// UpdateFCMTokenRequest request body cho cập nhật FCM token
+type UpdateFCMTokenRequest struct {
+	FCMToken string `json:"fcm_token" binding:"required"`
+}
+
+// UpdateFCMToken cập nhật FCM token cho user
+func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
+	// 1. Lấy UserID từ context
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
+
+	// 2. Parse request body
+	var req UpdateFCMTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
+
+	// 3. Gọi Service cập nhật
+	err = h.authService.UpdateFCMToken(userID, req.FCMToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Lỗi cập nhật FCM token: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cập nhật FCM token thành công",
 	})
 }
