@@ -39,14 +39,6 @@ class Wallet {
     );
   }
 
-  /// Helper: Parse int từ dynamic (xử lý cả String và num)
-  static int _parseInt(dynamic value) {
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? 0;
-    if (value is double) return value.toInt();
-    return 0;
-  }
-
   /// Helper: Parse double từ dynamic (xử lý cả String và num)
   static double _parseDouble(dynamic value) {
     if (value is double) return value;

@@ -3,14 +3,29 @@ import 'package:MoneyPod/models/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/notification/notification_bloc.dart';
+import '../bloc/notification/notification_event.dart';
+import '../bloc/notification/notification_state.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/auth/auth_state.dart';
+import 'notification_badge.dart';
 
-class HeaderWidget extends StatelessWidget {
+class HeaderWidget extends StatefulWidget {
   const HeaderWidget({super.key, required this.profile});
   final Profile profile;
+
+  @override
+  State<HeaderWidget> createState() => _HeaderWidgetState();
+}
+
+class _HeaderWidgetState extends State<HeaderWidget> {
+  bool _hasLoadedUnreadCount = false;
+
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = profile.avatarUrl;
-    final initials = (profile.fullName ?? '')
+    final avatarUrl = widget.profile.avatarUrl;
+    final initials = (widget.profile.fullName ?? '')
         .trim()
         .split(' ')
         .where((s) => s.isNotEmpty)
@@ -54,7 +69,7 @@ class HeaderWidget extends StatelessWidget {
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
               Text(
-                profile.fullName ?? 'Người dùng',
+                widget.profile.fullName ?? 'Người dùng',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -63,11 +78,43 @@ class HeaderWidget extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {
-              context.push('/notifications');
+          BlocBuilder<NotificationBloc, NotificationState>(
+            builder: (context, state) {
+              int unreadCount = 0;
+              if (state is NotificationLoaded) {
+                unreadCount = state.unreadCount;
+              }
+
+              // Load unread count only once when widget builds for the first time
+              if (!_hasLoadedUnreadCount && state is! NotificationLoaded) {
+                final authState = context.read<AuthBloc>().state;
+                if (authState is AuthAuthenticated &&
+                    authState.user.token != null) {
+                  // Schedule the event to be added after build completes
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_hasLoadedUnreadCount) {
+                      context.read<NotificationBloc>().add(
+                        NotificationLoadUnreadCount(authState.user.token!),
+                      );
+                      _hasLoadedUnreadCount = true;
+                    }
+                  });
+                }
+              }
+
+              return IconButton(
+                onPressed: () {
+                  context.push('/notifications');
+                },
+                icon: NotificationBadge(
+                  count: unreadCount,
+                  child: const Icon(
+                    LucideIcons.bell,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              );
             },
-            icon: const Icon(LucideIcons.bell, color: AppColors.textPrimary),
           ),
         ],
       ),

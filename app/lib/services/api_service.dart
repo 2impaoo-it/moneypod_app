@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import '../utils/dio_client.dart';
 
 /// Service để kiểm tra kết nối server
 class ApiService {
   static const String baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  static final Dio _dio = DioClient.getDio(null);
 
   /// Kiểm tra server có hoạt động không
   ///
@@ -16,32 +17,24 @@ class ApiService {
     try {
       print('🔵 [ApiService] Kiểm tra server health...');
 
-      final response = await http
-          .get(
-            Uri.parse('$baseUrl/ping'),
-            headers: {
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              throw TimeoutException('Server không phản hồi trong 5 giây');
-            },
-          );
+      final response = await _dio.get(
+        '$baseUrl/ping',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+          sendTimeout: const Duration(seconds: 5),
+        ),
+      );
 
       print('📡 [ApiService] Status code: ${response.statusCode}');
-      print('📡 [ApiService] Response body: ${response.body}');
+      print('📡 [ApiService] Response body: ${response.data}');
 
       // Check 503 - Server đang bảo trì
       if (response.statusCode == 503) {
         print('🔧 [ApiService] Server đang bảo trì (503)');
         String maintenanceMessage = 'Server đang bảo trì, vui lòng thử lại sau';
-        try {
-          final data = json.decode(response.body);
-          maintenanceMessage = data['message'] ?? maintenanceMessage;
-        } catch (_) {}
+        if (response.data is Map) {
+          maintenanceMessage = response.data['message'] ?? maintenanceMessage;
+        }
 
         return {
           'isHealthy': false,
@@ -51,8 +44,8 @@ class ApiService {
       }
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final message = data['message']?.toString().toLowerCase() ?? '';
+        final message =
+            response.data['message']?.toString().toLowerCase() ?? '';
 
         // Kiểm tra message có chứa "moneypod" không
         if (message.contains('moneypod')) {
@@ -67,19 +60,21 @@ class ApiService {
         'errorType': 'unknown',
         'message': 'Server trả về phản hồi không hợp lệ',
       };
-    } on SocketException catch (e) {
-      print('❌ [ApiService] Lỗi kết nối: $e');
+    } on DioException catch (e) {
+      if (e.error is SocketException ||
+          e.type == DioExceptionType.connectionTimeout) {
+        print('❌ [ApiService] Lỗi kết nối: $e');
+        return {
+          'isHealthy': false,
+          'errorType': 'no_internet',
+          'message': 'Không thể kết nối đến server',
+        };
+      }
+      print('❌ [ApiService] Dio error: $e');
       return {
         'isHealthy': false,
-        'errorType': 'no_internet',
-        'message': 'Không thể kết nối đến server',
-      };
-    } on TimeoutException catch (e) {
-      print('❌ [ApiService] Timeout: $e');
-      return {
-        'isHealthy': false,
-        'errorType': 'no_internet',
-        'message': 'Server không phản hồi',
+        'errorType': 'unknown',
+        'message': e.response?.data['error'] ?? 'Có lỗi xảy ra',
       };
     } catch (e) {
       print('❌ [ApiService] Lỗi không xác định: $e');

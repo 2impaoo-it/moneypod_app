@@ -1,16 +1,18 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../utils/dio_client.dart';
 
 class AuthService {
-  // Khi kết nối qua USB: dùng 10.0.2.2 (cho Android emulator) hoặc localhost (cho USB với adb reverse)
-  // Khi kết nối qua WiFi: dùng IP máy tính (ví dụ: 192.168.1.100)
-  // Khi kết nối qua USB thì phải forward port với lệnh:
-  // adb reverse tcp:8080 tcp:8080
   static const String baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1'; // ⬅️ Dùng localhost khi kết nối USB
+      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
   final storage = const FlutterSecureStorage();
+  late final Dio _dio;
+
+  AuthService() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = baseUrl;
+  }
 
   // Đăng ký tài khoản mới
   Future<Map<String, dynamic>> register({
@@ -19,31 +21,24 @@ class AuthService {
     required String fullName,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'full_name': fullName,
-        }),
+      final response = await _dio.post(
+        '/register',
+        data: {'email': email, 'password': password, 'full_name': fullName},
       );
 
-      final data = jsonDecode(response.body);
-
       if (response.statusCode == 201) {
-        return {'success': true, 'message': data['message']};
+        return {'success': true, 'message': response.data['message']};
       } else {
         return {
           'success': false,
-          'message': data['error'] ?? 'Đăng ký thất bại',
+          'message': response.data['error'] ?? 'Đăng ký thất bại',
         };
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': e.response?.data['error'] ?? 'Lỗi kết nối: ${e.message}',
+      };
     }
   }
 
@@ -61,31 +56,29 @@ class AuthService {
         body['fcm_token'] = fcmToken;
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/login'),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode(body),
-      );
-
-      final data = jsonDecode(response.body);
+      final response = await _dio.post('/login', data: body);
 
       if (response.statusCode == 200) {
         // Lưu token vào secure storage
-        final token = data['token'];
+        final token = response.data['token'];
         await storage.write(key: 'auth_token', value: token);
 
-        return {'success': true, 'message': data['message'], 'token': token};
+        return {
+          'success': true,
+          'message': response.data['message'],
+          'token': token,
+        };
       } else {
         return {
           'success': false,
-          'message': data['error'] ?? 'Đăng nhập thất bại',
+          'message': response.data['error'] ?? 'Đăng nhập thất bại',
         };
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': e.response?.data['error'] ?? 'Lỗi kết nối: ${e.message}',
+      };
     }
   }
 
@@ -116,64 +109,56 @@ class AuthService {
         return {'success': false, 'message': 'Bạn cần đăng nhập lại'};
       }
 
-      final response = await http.put(
-        Uri.parse('$baseUrl/change-password'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({
-          'old_password': currentPassword,
-          'new_password': newPassword,
-        }),
+      final response = await _dio.put(
+        '/change-password',
+        data: {'old_password': currentPassword, 'new_password': newPassword},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-
-      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'message': data['message'] ?? 'Đổi mật khẩu thành công',
+          'message': response.data['message'] ?? 'Đổi mật khẩu thành công',
         };
       } else {
         return {
           'success': false,
-          'message': data['error'] ?? 'Đổi mật khẩu thất bại',
+          'message': response.data['error'] ?? 'Đổi mật khẩu thất bại',
         };
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': e.response?.data['error'] ?? 'Lỗi kết nối: ${e.message}',
+      };
     }
   }
 
   // Quên mật khẩu (gửi email reset)
   Future<Map<String, dynamic>> forgotPassword({required String email}) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/forgot-password'),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'email': email}),
+      final response = await _dio.post(
+        '/forgot-password',
+        data: {'email': email},
       );
-
-      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'message': data['message'] ?? 'Đã gửi email khôi phục mật khẩu',
+          'message':
+              response.data['message'] ?? 'Đã gửi email khôi phục mật khẩu',
         };
       } else {
         return {
           'success': false,
-          'message': data['error'] ?? 'Không thể gửi email khôi phục',
+          'message': response.data['error'] ?? 'Không thể gửi email khôi phục',
         };
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': e.response?.data['error'] ?? 'Lỗi kết nối: ${e.message}',
+      };
     }
   }
 
@@ -185,31 +170,29 @@ class AuthService {
         return {'success': false, 'message': 'Bạn cần đăng nhập lại'};
       }
 
-      final response = await http.put(
-        Uri.parse('$baseUrl/profile/fcm-token'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'fcm_token': fcmToken}),
+      final response = await _dio.put(
+        '/profile/fcm-token',
+        data: {'fcm_token': fcmToken},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-
-      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'message': data['message'] ?? 'Cập nhật FCM token thành công',
+          'message':
+              response.data['message'] ?? 'Cập nhật FCM token thành công',
         };
       } else {
         return {
           'success': false,
-          'message': data['error'] ?? 'Cập nhật FCM token thất bại',
+          'message': response.data['error'] ?? 'Cập nhật FCM token thất bại',
         };
       }
-    } catch (e) {
-      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': e.response?.data['error'] ?? 'Lỗi kết nối: ${e.message}',
+      };
     }
   }
 }

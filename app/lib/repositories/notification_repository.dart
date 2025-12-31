@@ -1,27 +1,29 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../models/notification.dart';
+import '../utils/dio_client.dart';
 
 class NotificationRepository {
   static const String _baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
+  late final Dio _dio;
+
+  NotificationRepository() {
+    _dio = DioClient.getDio(null);
+    _dio.options.baseUrl = _baseUrl;
+  }
 
   // ==================== NOTIFICATIONS ====================
 
   /// Lấy danh sách thông báo
   Future<List<AppNotification>> getNotifications(String token) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/notifications'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/notifications',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final notifications = data['data'] as List? ?? [];
+        final notifications = response.data['data'] as List? ?? [];
         return notifications
             .map((json) => AppNotification.fromJson(json))
             .toList();
@@ -29,7 +31,7 @@ class NotificationRepository {
         print('Failed to load notifications: ${response.statusCode}');
         return [];
       }
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error fetching notifications: $e');
       rethrow;
     }
@@ -38,23 +40,28 @@ class NotificationRepository {
   /// Lấy số lượng thông báo chưa đọc
   Future<int> getUnreadCount(String token) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/notifications/unread-count'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/notifications/unread-count',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['data']['count'] ?? 0;
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data != null && data is Map) {
+          return data['count'] ?? 0;
+        }
+        return 0;
       } else {
         print('Failed to load unread count: ${response.statusCode}');
         return 0;
       }
+    } on DioException catch (e) {
+      print('DioException fetching unread count: ${e.message}');
+      // Không throw lại exception, chỉ return 0
+      return 0;
     } catch (e) {
-      print('Error fetching unread count: $e');
+      print('Unexpected error fetching unread count: $e');
+      // Không throw lại exception, chỉ return 0
       return 0;
     }
   }
@@ -62,16 +69,13 @@ class NotificationRepository {
   /// Đánh dấu thông báo là đã đọc
   Future<bool> markAsRead(String token, String notificationId) async {
     try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/notifications/$notificationId/read'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.put(
+        '/notifications/$notificationId/read',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       return response.statusCode == 200;
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error marking notification as read: $e');
       return false;
     }
@@ -80,16 +84,13 @@ class NotificationRepository {
   /// Đánh dấu tất cả thông báo là đã đọc
   Future<bool> markAllAsRead(String token) async {
     try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/notifications/read-all'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.put(
+        '/notifications/read-all',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       return response.statusCode == 200;
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error marking all notifications as read: $e');
       return false;
     }
@@ -98,16 +99,13 @@ class NotificationRepository {
   /// Xóa một thông báo
   Future<bool> deleteNotification(String token, String notificationId) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/notifications/$notificationId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.delete(
+        '/notifications/$notificationId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       return response.statusCode == 200;
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error deleting notification: $e');
       return false;
     }
@@ -116,16 +114,13 @@ class NotificationRepository {
   /// Xóa tất cả thông báo
   Future<bool> deleteAllNotifications(String token) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/notifications'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.delete(
+        '/notifications',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       return response.statusCode == 200;
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error deleting all notifications: $e');
       return false;
     }
@@ -136,22 +131,18 @@ class NotificationRepository {
   /// Lấy cài đặt thông báo
   Future<NotificationSettings?> getSettings(String token) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/notifications/settings'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/notifications/settings',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return NotificationSettings.fromJson(data['data']);
+        return NotificationSettings.fromJson(response.data['data']);
       } else {
         print('Failed to load notification settings: ${response.statusCode}');
         return null;
       }
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error fetching notification settings: $e');
       rethrow;
     }
@@ -163,24 +154,19 @@ class NotificationRepository {
     NotificationSettings settings,
   ) async {
     try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/notifications/settings'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode(settings.toJson()),
+      final response = await _dio.put(
+        '/notifications/settings',
+        data: settings.toJson(),
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return NotificationSettings.fromJson(data['data']);
+        return NotificationSettings.fromJson(response.data['data']);
       } else {
         print('Failed to update notification settings: ${response.statusCode}');
         return null;
       }
-    } catch (e) {
+    } on DioException catch (e) {
       print('Error updating notification settings: $e');
       rethrow;
     }
