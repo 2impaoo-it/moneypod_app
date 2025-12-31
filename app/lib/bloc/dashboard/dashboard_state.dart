@@ -11,9 +11,16 @@ class DashboardLoading extends DashboardState {}
 /// Trạng thái đã load thành công
 class DashboardLoaded extends DashboardState {
   final DashboardData data;
-  final Map<String, double> categoryStats; // { 'Category': totalAmount }
+  final Map<String, double>
+  categoryStats; // Expense stats: { 'Category': totalAmount }
+  final Map<String, double>
+  incomeStats; // Income stats: { 'Category': totalAmount }
 
-  DashboardLoaded(this.data, {this.categoryStats = const {}});
+  DashboardLoaded(
+    this.data, {
+    this.categoryStats = const {},
+    this.incomeStats = const {},
+  });
 }
 
 /// Trạng thái lỗi

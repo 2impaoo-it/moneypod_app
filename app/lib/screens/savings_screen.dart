@@ -622,7 +622,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
           borderRadius: BorderRadius.circular(16),
           onTap: () => _navigateToGoalDetail(goal),
           onLongPress: () {
-            _showOptionsDialog(context, goal.name);
+            _showOptionsMenu(context, goal);
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -668,7 +668,13 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                         ],
                       ),
                     ),
-                    const Icon(Icons.more_vert, color: AppColors.slate400),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.slate400,
+                      ),
+                      onPressed: () => _showOptionsMenu(context, goal),
+                    ),
                   ],
                 ),
 
@@ -946,6 +952,203 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
     );
   }
 
+  void _showWithdrawModal(SavingsGoal goal) async {
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    final walletRepository = WalletRepository();
+
+    // Load wallets
+    List<Wallet> wallets = [];
+    try {
+      wallets = await walletRepository.getWallets();
+    } catch (e) {
+      if (mounted) {
+        PopupNotification.showError(context, 'Không thể tải danh sách ví: $e');
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String? selectedWalletId = wallets.isNotEmpty ? wallets.first.id : null;
+
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.slate300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Rút tiền từ "${goal.name}"',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.slate900,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Wallet dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedWalletId,
+                        decoration: InputDecoration(
+                          labelText: 'Chọn ví nhận tiền',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.slate50,
+                        ),
+                        items: wallets.map((wallet) {
+                          return DropdownMenuItem<String>(
+                            value: wallet.id,
+                            child: Text(
+                              '${wallet.name} (${NumberFormat('#,###', 'vi_VN').format(wallet.balance)}₫)',
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setModalState(() {
+                            selectedWalletId = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: amountController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
+                        autofocus: true,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          suffixText: '₫',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.slate50,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: noteController,
+                        decoration: InputDecoration(
+                          hintText: 'Lý do rút tiền (tùy chọn)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.slate50,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final amountText = amountController.text.trim();
+                            if (amountText.isEmpty) {
+                              PopupNotification.showError(
+                                context,
+                                'Vui lòng nhập số tiền',
+                              );
+                              return;
+                            }
+
+                            final amount = CurrencyInputFormatter.parse(
+                              amountText,
+                            );
+                            if (amount <= 0) {
+                              PopupNotification.showError(
+                                context,
+                                'Số tiền phải lớn hơn 0',
+                              );
+                              return;
+                            }
+
+                            if (selectedWalletId == null) {
+                              PopupNotification.showError(
+                                context,
+                                'Vui lòng chọn ví',
+                              );
+                              return;
+                            }
+
+                            if (amount > goal.currentAmount) {
+                              PopupNotification.showError(
+                                context,
+                                'Số tiền rút vượt quá số dư hiện tại',
+                              );
+                              return;
+                            }
+
+                            Navigator.pop(ctx);
+
+                            // Dispatch withdraw event
+                            this.context.read<SavingsBloc>().add(
+                              WithdrawFromGoal(
+                                goalId: goal.id,
+                                walletId: selectedWalletId!,
+                                amount: amount,
+                                note: noteController.text,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.warning,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Xác nhận',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Helper Maps
   IconData _getIconData(String? name) {
     switch (name) {
@@ -979,36 +1182,159 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
     }
   }
 
-  // Dialog Options (Long press)
-  void _showOptionsDialog(BuildContext context, String title) {
+  // Dialog Options (3-dot menu)
+  void _showOptionsMenu(BuildContext context, SavingsGoal goal) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit, color: AppColors.slate700),
-                title: Text('Chỉnh sửa "$title"'),
-                onTap: () => Navigator.pop(context),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textMuted.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: Text(
-                  'Xóa mục tiêu',
-                  style: TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                onTap: () => Navigator.pop(context),
+                child: const Icon(
+                  LucideIcons.edit,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
+              title: const Text('Chỉnh sửa mục tiêu'),
+              onTap: () async {
+                // Capture the parent context and bloc before popping
+                final parentContext = this.context;
+                final bloc = parentContext.read<SavingsBloc>();
+
+                Navigator.pop(context); // Pop the modal
+
+                // Use the parent context to push, ensuring we stay in the right scope
+                final result = await parentContext.push(
+                  '/savings/create',
+                  extra: goal,
+                );
+
+                if (result == true) {
+                  bloc.add(LoadSavingsGoals());
+                  parentContext.read<DashboardBloc>().add(
+                    DashboardLoadRequested(),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  LucideIcons.trash2,
+                  color: AppColors.danger,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Xóa mục tiêu',
+                style: TextStyle(color: AppColors.danger),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirmDialog(goal);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmDialog(SavingsGoal goal) {
+    if (goal.currentAmount > 0) {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(LucideIcons.alertTriangle, color: AppColors.warning),
+              SizedBox(width: 10),
+              Text('Không thể xóa'),
             ],
           ),
-        );
-      },
-    );
+          content: Text(
+            'Mục tiêu này đang có số dư ${formatCurrency(goal.currentAmount)}.\n\nVui lòng rút hết tiền về ví giao dịch trước khi xóa mục tiêu.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Đã hiểu'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Option to withdraw all and delete? For now just block.
+                Navigator.pop(dialogContext);
+                _showWithdrawModal(goal);
+              },
+              child: const Text('Rút tiền ngay'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('Xóa mục tiêu?'),
+          content: Text(
+            'Bạn có chắc chắn muốn xóa mục tiêu "${goal.name}"?\n\nHành động này không thể hoàn tác.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                context.read<SavingsBloc>().add(DeleteSavingsGoal(goal.id));
+                Navigator.pop(dialogContext);
+                // Listener will show success/error notification
+              },
+              child: const Text('Xóa'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
 

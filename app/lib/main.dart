@@ -363,7 +363,7 @@ class _MainWrapperState extends State<MainWrapper> {
     // Nếu thêm giao dịch thành công, reload cả transactions và dashboard
     if (result == true && mounted) {
       context.read<TransactionBloc>().add(TransactionLoadRequested());
-      context.read<DashboardBloc>().add(DashboardLoadRequested());
+      context.read<DashboardBloc>().add(DashboardRefreshRequested());
     }
   }
 
@@ -419,7 +419,9 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
-    final showFAB = _shouldShowFAB(context);
+    // Hide FAB when keyboard is visible
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final showFAB = _shouldShowFAB(context) && !keyboardVisible;
 
     return Scaffold(
       body: widget.child,

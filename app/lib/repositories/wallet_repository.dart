@@ -137,4 +137,57 @@ class WalletRepository {
       throw Exception('Lỗi khi lấy danh sách ví: $e');
     }
   }
+
+  /// Cập nhật thông tin ví
+  Future<void> updateWallet({
+    required String id,
+    required String name,
+    required double balance,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final url = '$_baseUrl/wallets/$id';
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'name': name, 'balance': balance}),
+      );
+
+      if (response.statusCode != 200) {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Không thể cập nhật ví');
+      }
+    } catch (e) {
+      throw Exception('Lỗi khi cập nhật ví: $e');
+    }
+  }
+
+  /// Xóa ví
+  Future<void> deleteWallet(String id) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final url = '$_baseUrl/wallets/$id';
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Không thể xóa ví');
+      }
+    } catch (e) {
+      throw Exception('Lỗi khi xóa ví: $e');
+    }
+  }
 }

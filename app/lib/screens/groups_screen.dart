@@ -140,11 +140,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
     _fetchGroups();
   }
 
-  void _navigateToGroupDetail(Map<String, dynamic> group) {
-    context.push(
+  void _navigateToGroupDetail(Map<String, dynamic> group) async {
+    await context.push(
       '/groups/${group['id']}',
       extra: {'groupName': group['name'], 'inviteCode': group['inviteCode']},
     );
+    // Auto-reload when returning from detail screen
+    _fetchGroups();
   }
 
   void _showJoinGroupDialog() {
@@ -154,6 +156,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true, // Elevate above FAB in shell
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {

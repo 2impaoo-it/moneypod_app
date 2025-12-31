@@ -457,6 +457,31 @@ class GroupRepository {
     }
   }
 
+  /// Xóa thành viên khỏi nhóm (Chỉ trưởng nhóm)
+  /// DELETE /groups/:id/members/:user_id
+  Future<void> removeMember(String groupId, String memberId) async {
+    try {
+      final token = await _authService.getToken();
+      final url = '$_baseUrl/groups/$groupId/members/$memberId';
+
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Lỗi xóa thành viên');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Lấy chi tiết nhóm (bao gồm thành viên)
   /// GET /groups/:group_id
   Future<Map<String, dynamic>> getGroupDetails(String groupId) async {

@@ -159,8 +159,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 16),
                         // Nút xem danh sách ví
                         InkWell(
-                          onTap: () {
-                            context.push('/wallet-list');
+                          onTap: () async {
+                            await context.push('/wallet-list');
+                            // Auto-reload when returning
+                            if (context.mounted) {
+                              context.read<DashboardBloc>().add(
+                                DashboardRefreshRequested(),
+                              );
+                            }
                           },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
@@ -212,8 +218,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         context,
                         LucideIcons.scanLine,
                         "Quét Bill",
-                        onTap: () {
-                          context.push('/bill-scan');
+                        onTap: () async {
+                          await context.push('/bill-scan');
+                          // Auto-reload after scanning bills
+                          if (context.mounted) {
+                            context.read<DashboardBloc>().add(
+                              DashboardRefreshRequested(),
+                            );
+                          }
                         },
                       ),
                       _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
@@ -362,6 +374,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                   const SizedBox(height: 24),
+
+                  // --- INCOME CHART ---
+                  if (state.incomeStats.isNotEmpty) ...[
+                    const Text(
+                      "Phân bổ thu nhập tháng này",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: PieChart(
+                              PieChartData(
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 40,
+                                sections: _generatePieSections(
+                                  state.incomeStats,
+                                  isIncome: true,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: _generateLegends(
+                                  state.incomeStats,
+                                  isIncome: true,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // --- RECENT TRANSACTIONS ---
@@ -484,13 +541,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- HELPER METHODS FOR CHART ---
 
-  List<PieChartSectionData> _generatePieSections(Map<String, double> stats) {
+  List<PieChartSectionData> _generatePieSections(
+    Map<String, double> stats, {
+    bool isIncome = false,
+  }) {
     double total = stats.values.fold(0, (sum, item) => sum + item);
     if (total == 0) return [];
 
     return stats.entries.map((entry) {
       final percentage = (entry.value / total) * 100;
-      final color = _getColorForCategory(entry.key);
+      final color = isIncome
+          ? _getIncomeColor(entry.key)
+          : _getColorForCategory(entry.key);
       return PieChartSectionData(
         color: color,
         value: percentage,
@@ -500,14 +562,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }).toList();
   }
 
-  List<Widget> _generateLegends(Map<String, double> stats) {
+  List<Widget> _generateLegends(
+    Map<String, double> stats, {
+    bool isIncome = false,
+  }) {
     double total = stats.values.fold(0, (sum, item) => sum + item);
     if (total == 0) return [];
 
     return stats.entries.map((entry) {
       final percentage = (entry.value / total) * 100;
       return _ChartLegend(
-        color: _getColorForCategory(entry.key),
+        color: isIncome
+            ? _getIncomeColor(entry.key)
+            : _getColorForCategory(entry.key),
         label: entry.key,
         percent: "${percentage.toStringAsFixed(1)}%",
       );
@@ -532,6 +599,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Colors.cyan;
       default:
         return Colors.grey;
+    }
+  }
+
+  Color _getIncomeColor(String category) {
+    switch (category) {
+      case 'Lương':
+        return Colors.green;
+      case 'Thưởng':
+        return Colors.teal;
+      case 'Đầu tư':
+        return Colors.lightGreen;
+      case 'Quà tặng':
+        return Colors.amber;
+      case 'Hoàn tiền':
+        return Colors.lime;
+      default:
+        return Colors.green.shade300;
     }
   }
 

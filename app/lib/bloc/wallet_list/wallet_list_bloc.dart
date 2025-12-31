@@ -11,6 +11,8 @@ class WalletListBloc extends Bloc<WalletListEvent, WalletListState> {
     : super(const WalletListLoading()) {
     on<LoadWalletList>(_onLoadWalletList);
     on<RefreshWalletList>(_onRefreshWalletList);
+    on<DeleteWalletRequested>(_onDeleteWallet);
+    on<UpdateWalletRequested>(_onUpdateWallet);
   }
 
   /// Xử lý event: Load danh sách ví
@@ -39,6 +41,36 @@ class WalletListBloc extends Bloc<WalletListEvent, WalletListState> {
       final wallets = await walletRepository.getWallets();
 
       emit(WalletListLoaded(wallets: wallets));
+    } catch (e) {
+      emit(WalletListError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onDeleteWallet(
+    DeleteWalletRequested event,
+    Emitter<WalletListState> emit,
+  ) async {
+    try {
+      emit(const WalletListLoading());
+      await walletRepository.deleteWallet(event.id);
+      add(const RefreshWalletList());
+    } catch (e) {
+      emit(WalletListError(message: e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateWallet(
+    UpdateWalletRequested event,
+    Emitter<WalletListState> emit,
+  ) async {
+    try {
+      emit(const WalletListLoading());
+      await walletRepository.updateWallet(
+        id: event.id,
+        name: event.name,
+        balance: event.balance,
+      );
+      add(const RefreshWalletList());
     } catch (e) {
       emit(WalletListError(message: e.toString()));
     }

@@ -25,8 +25,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     emit(DashboardLoading());
     try {
       final data = await _repository.getDashboardData();
-      final stats = await _fetchMonthlyStats();
-      emit(DashboardLoaded(data, categoryStats: stats));
+      final expenseStats = await _fetchMonthlyStats('expense');
+      final incomeStats = await _fetchMonthlyStats('income');
+      emit(
+        DashboardLoaded(
+          data,
+          categoryStats: expenseStats,
+          incomeStats: incomeStats,
+        ),
+      );
     } catch (e) {
       emit(DashboardError(e.toString()));
     }
@@ -38,20 +45,27 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     try {
       final data = await _repository.getDashboardData();
-      final stats = await _fetchMonthlyStats();
-      emit(DashboardLoaded(data, categoryStats: stats));
+      final expenseStats = await _fetchMonthlyStats('expense');
+      final incomeStats = await _fetchMonthlyStats('income');
+      emit(
+        DashboardLoaded(
+          data,
+          categoryStats: expenseStats,
+          incomeStats: incomeStats,
+        ),
+      );
     } catch (e) {
       emit(DashboardError(e.toString()));
     }
   }
 
-  Future<Map<String, double>> _fetchMonthlyStats() async {
+  Future<Map<String, double>> _fetchMonthlyStats(String type) async {
     try {
       final now = DateTime.now();
       final rawTransactions = await _repository.getTransactionsWithFilter(
         month: now.month,
         year: now.year,
-        type: 'expense',
+        type: type,
       );
 
       final Map<String, double> stats = {};
@@ -70,7 +84,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       }
       return stats;
     } catch (e) {
-      print('Error calculating stats: $e');
+      print('Error calculating $type stats: $e');
       return {};
     }
   }

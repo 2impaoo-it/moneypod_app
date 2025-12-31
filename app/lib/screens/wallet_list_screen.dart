@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import '../utils/currency_input_formatter.dart';
+import '../utils/popup_notification.dart';
 import '../main.dart';
 import '../bloc/wallet_list/wallet_list_bloc.dart';
 import '../bloc/wallet_list/wallet_list_event.dart';
@@ -249,10 +251,54 @@ class _WalletCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Icon(
-                      LucideIcons.chevronRight,
-                      color: Colors.white,
-                      size: 20,
+                    PopupMenuButton<String>(
+                      icon: const Icon(
+                        LucideIcons.moreVertical,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showEditDialog(context);
+                        } else if (value == 'delete') {
+                          _showDeleteDialog(context);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) {
+                        return [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.edit,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                                SizedBox(width: 8),
+                                Text('Chỉnh sửa'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.trash2,
+                                  size: 18,
+                                  color: AppColors.danger,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Xóa ví',
+                                  style: TextStyle(color: AppColors.danger),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ];
+                      },
                     ),
                   ],
                 ),
@@ -296,6 +342,93 @@ class _WalletCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context) {
+    final nameController = TextEditingController(text: wallet.name);
+    final balanceController = TextEditingController(
+      text: wallet.balance.toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Chỉnh sửa ví'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Tên ví'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: balanceController,
+              decoration: const InputDecoration(
+                labelText: 'Số dư',
+                suffixText: 'đ',
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final balance = parseCurrency(balanceController.text) ?? 0.0;
+
+              if (name.isEmpty) return;
+
+              context.read<WalletListBloc>().add(
+                UpdateWalletRequested(
+                  id: wallet.id,
+                  name: name,
+                  balance: balance,
+                ),
+              );
+              Navigator.pop(ctx);
+              PopupNotification.showSuccess(context, 'Đã cập nhật ví');
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa ví?'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa ví "${wallet.name}"? Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () {
+              context.read<WalletListBloc>().add(
+                DeleteWalletRequested(wallet.id),
+              );
+              Navigator.pop(ctx);
+              PopupNotification.showSuccess(context, 'Đã xóa ví');
+            },
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
