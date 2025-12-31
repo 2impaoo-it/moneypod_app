@@ -46,11 +46,11 @@ func (s *NotificationScheduler) SendDebtReminders() {
 
 	// Lấy tất cả các khoản nợ chưa trả
 	var debts []struct {
-		DebtID     uuid.UUID
-		FromUserID uuid.UUID
-		ToUserID   uuid.UUID
-		Amount     float64
-		GroupName  string
+		DebtID      uuid.UUID
+		FromUserID  uuid.UUID
+		ToUserID    uuid.UUID
+		Amount      float64
+		GroupName   string
 		ExpenseDesc string
 		FromUserFCM string
 	}
@@ -86,12 +86,12 @@ func (s *NotificationScheduler) SendDebtReminders() {
 	count := 0
 	for _, debt := range debts {
 		title := "💰 Nhắc nhở: Bạn còn nợ chưa thanh toán"
-		body := fmt.Sprintf("Bạn còn nợ %.0f đ trong nhóm '%s' ('%s'). Hãy thanh toán sớm nhé!", 
+		body := fmt.Sprintf("Bạn còn nợ %.0f đ trong nhóm '%s' ('%s'). Hãy thanh toán sớm nhé!",
 			debt.Amount, debt.GroupName, debt.ExpenseDesc)
-		
+
 		data := map[string]interface{}{
-			"type":     "debt_reminder",
-			"debt_id":  debt.DebtID.String(),
+			"type":       "debt_reminder",
+			"debt_id":    debt.DebtID.String(),
 			"group_name": debt.GroupName,
 		}
 
@@ -156,7 +156,7 @@ func (s *NotificationScheduler) SendSavingsReminders() {
 		}
 
 		title := "🐷 Nhắc nhở tiết kiệm"
-		body := fmt.Sprintf("Mục tiêu '%s' đã đạt %.1f%%. Hãy tiếp tục nạp tiền nhé!", 
+		body := fmt.Sprintf("Mục tiêu '%s' đã đạt %.1f%%. Hãy tiếp tục nạp tiền nhé!",
 			goal.Name, percentage)
 
 		data := map[string]interface{}{

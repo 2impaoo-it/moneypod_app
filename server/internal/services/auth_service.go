@@ -113,7 +113,7 @@ func (s *AuthService) UpdateFCMToken(userID uuid.UUID, newToken string) error {
 	}
 
 	oldToken := user.FCMToken
-	
+
 	// Cập nhật token mới
 	if err := s.userRepo.UpdateFCMToken(userID, newToken); err != nil {
 		return err
