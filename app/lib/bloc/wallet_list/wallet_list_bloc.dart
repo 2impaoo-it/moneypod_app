@@ -3,46 +3,52 @@ import '../../repositories/wallet_repository.dart';
 import 'wallet_list_event.dart';
 import 'wallet_list_state.dart';
 
-/// BLoC quản lý danh sách ví
 class WalletListBloc extends Bloc<WalletListEvent, WalletListState> {
   final WalletRepository walletRepository;
 
   WalletListBloc({required this.walletRepository})
-    : super(const WalletListLoading()) {
+    : super(const WalletListState()) {
     on<LoadWalletList>(_onLoadWalletList);
     on<RefreshWalletList>(_onRefreshWalletList);
     on<DeleteWalletRequested>(_onDeleteWallet);
     on<UpdateWalletRequested>(_onUpdateWallet);
   }
 
-  /// Xử lý event: Load danh sách ví
   Future<void> _onLoadWalletList(
     LoadWalletList event,
     Emitter<WalletListState> emit,
   ) async {
+    emit(state.copyWith(status: WalletStatus.loading));
     try {
-      emit(const WalletListLoading());
-
       final wallets = await walletRepository.getWallets();
-
-      emit(WalletListLoaded(wallets: wallets));
+      emit(state.copyWith(status: WalletStatus.success, wallets: wallets));
     } catch (e) {
-      emit(WalletListError(message: e.toString()));
+      emit(
+        state.copyWith(
+          status: WalletStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
-  /// Xử lý event: Refresh danh sách ví
   Future<void> _onRefreshWalletList(
     RefreshWalletList event,
     Emitter<WalletListState> emit,
   ) async {
+    // Keep current data, potentially show a different indicator if needed
+    // For now we just reload and update
     try {
-      // Không hiển thị loading khi refresh
       final wallets = await walletRepository.getWallets();
-
-      emit(WalletListLoaded(wallets: wallets));
+      emit(state.copyWith(status: WalletStatus.success, wallets: wallets));
     } catch (e) {
-      emit(WalletListError(message: e.toString()));
+      // On refresh error, we might want to keep the old data but show an error
+      emit(
+        state.copyWith(
+          status: WalletStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -50,12 +56,19 @@ class WalletListBloc extends Bloc<WalletListEvent, WalletListState> {
     DeleteWalletRequested event,
     Emitter<WalletListState> emit,
   ) async {
+    emit(state.copyWith(status: WalletStatus.loading));
     try {
-      emit(const WalletListLoading());
       await walletRepository.deleteWallet(event.id);
-      add(const RefreshWalletList());
+      // Reload list after delete
+      final wallets = await walletRepository.getWallets();
+      emit(state.copyWith(status: WalletStatus.success, wallets: wallets));
     } catch (e) {
-      emit(WalletListError(message: e.toString()));
+      emit(
+        state.copyWith(
+          status: WalletStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -63,16 +76,23 @@ class WalletListBloc extends Bloc<WalletListEvent, WalletListState> {
     UpdateWalletRequested event,
     Emitter<WalletListState> emit,
   ) async {
+    emit(state.copyWith(status: WalletStatus.loading));
     try {
-      emit(const WalletListLoading());
       await walletRepository.updateWallet(
         id: event.id,
         name: event.name,
-        balance: event.balance,
+        currency: event.currency,
       );
-      add(const RefreshWalletList());
+      // Reload list after update
+      final wallets = await walletRepository.getWallets();
+      emit(state.copyWith(status: WalletStatus.success, wallets: wallets));
     } catch (e) {
-      emit(WalletListError(message: e.toString()));
+      emit(
+        state.copyWith(
+          status: WalletStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 }

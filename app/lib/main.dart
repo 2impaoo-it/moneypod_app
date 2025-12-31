@@ -17,6 +17,7 @@ import 'bloc/dashboard/dashboard_event.dart';
 import 'bloc/savings/savings_bloc.dart';
 import 'bloc/savings/savings_event.dart';
 import 'bloc/notification/notification_bloc.dart';
+import 'bloc/settings/settings_cubit.dart';
 import 'repositories/savings_repository.dart';
 import 'repositories/notification_repository.dart';
 
@@ -298,6 +299,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           create: (context) =>
               NotificationBloc(repository: NotificationRepository()),
         ),
+        BlocProvider(create: (context) => SettingsCubit()),
       ],
       child: MaterialApp.router(
         title: 'MoneyPod',

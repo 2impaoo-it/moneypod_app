@@ -124,7 +124,7 @@ func (s *TransactionService) GetMyTransactions(userID uuid.UUID) ([]models.Trans
 	// Sử dụng phân trang mặc định để tránh lấy quá nhiều dữ liệu
 	// Lấy 100 giao dịch gần nhất, sắp xếp mới nhất lên đầu
 	const defaultPageSize = 100
-	transactions, _, err := s.repo.GetByUserIDWithFilters(userID, "", "", 0, 0, 0, defaultPageSize)
+	transactions, _, err := s.repo.GetByUserIDWithFilters(userID, "", "", "", 0, 0, 0, defaultPageSize)
 	return transactions, err
 }
 
@@ -246,7 +246,7 @@ func (s *TransactionService) DeleteTransaction(transactionID, userID uuid.UUID) 
 }
 
 // GetTransactionsWithFilters lấy giao dịch với filter và pagination
-func (s *TransactionService) GetTransactionsWithFilters(userID uuid.UUID, category, transactionType string, month, year, page, pageSize int) ([]models.Transaction, int64, error) {
+func (s *TransactionService) GetTransactionsWithFilters(userID uuid.UUID, walletID, category, transactionType string, month, year, page, pageSize int) ([]models.Transaction, int64, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.GetByUserIDWithFilters(userID, category, transactionType, month, year, offset, pageSize)
+	return s.repo.GetByUserIDWithFilters(userID, walletID, category, transactionType, month, year, offset, pageSize)
 }

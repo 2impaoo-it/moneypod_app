@@ -9,7 +9,13 @@ abstract class TransactionEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class TransactionLoadRequested extends TransactionEvent {}
+class TransactionLoadRequested extends TransactionEvent {
+  final String? walletId;
+  const TransactionLoadRequested({this.walletId});
+
+  @override
+  List<Object?> get props => [walletId];
+}
 
 class TransactionAddRequested extends TransactionEvent {
   final Transaction transaction;

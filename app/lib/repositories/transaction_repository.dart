@@ -83,17 +83,25 @@ class TransactionRepository {
   }
 
   /// Lấy danh sách giao dịch của user
-  Future<List<model.Transaction>> getTransactions() async {
+  Future<List<model.Transaction>> getTransactions({String? walletId}) async {
     try {
-      print('🔵 [TransactionRepo] Lấy danh sách giao dịch...');
+      print(
+        '🔵 [TransactionRepo] Lấy danh sách giao dịch... walletId=$walletId',
+      );
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
+      final queryParams = <String, dynamic>{};
+      if (walletId != null && walletId.isNotEmpty) {
+        queryParams['wallet_id'] = walletId;
+      }
+
       final response = await _dio.get(
         '/transactions',
+        queryParameters: queryParams,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 

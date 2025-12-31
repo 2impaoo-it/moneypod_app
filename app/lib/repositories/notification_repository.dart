@@ -104,7 +104,9 @@ class NotificationRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      return response.statusCode == 200;
+      return response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 201;
     } on DioException catch (e) {
       print('Error deleting notification: $e');
       return false;
@@ -115,11 +117,13 @@ class NotificationRepository {
   Future<bool> deleteAllNotifications(String token) async {
     try {
       final response = await _dio.delete(
-        '/notifications',
+        '/notifications/all',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      return response.statusCode == 200;
+      return response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 201;
     } on DioException catch (e) {
       print('Error deleting all notifications: $e');
       return false;

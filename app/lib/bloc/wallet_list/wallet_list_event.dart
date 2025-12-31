@@ -31,14 +31,14 @@ class DeleteWalletRequested extends WalletListEvent {
 class UpdateWalletRequested extends WalletListEvent {
   final String id;
   final String name;
-  final double balance;
+  final String? currency;
 
   const UpdateWalletRequested({
     required this.id,
     required this.name,
-    required this.balance,
+    this.currency,
   });
 
   @override
-  List<Object?> get props => [id, name, balance];
+  List<Object?> get props => [id, name, currency];
 }

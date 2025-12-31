@@ -140,26 +140,28 @@ class WalletRepository {
   Future<void> updateWallet({
     required String id,
     required String name,
-    required double balance,
+    String? currency,
   }) async {
     try {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
-      final url = '$_baseUrl/wallets/$id';
-      final response = await http.put(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({'name': name, 'balance': balance}),
+      final data = <String, dynamic>{'name': name};
+      if (currency != null) {
+        data['currency'] = currency;
+      }
+
+      final response = await _dio.put(
+        '/wallets/$id',
+        data: data,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Không thể cập nhật ví');
+        throw Exception(response.data['error'] ?? 'Không thể cập nhật ví');
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi cập nhật ví: $e');
     } catch (e) {
       throw Exception('Lỗi khi cập nhật ví: $e');
     }
@@ -171,19 +173,16 @@ class WalletRepository {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
-      final url = '$_baseUrl/wallets/$id';
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final response = await _dio.delete(
+        '/wallets/$id',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Không thể xóa ví');
+        throw Exception(response.data['error'] ?? 'Không thể xóa ví');
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi xóa ví: $e');
     } catch (e) {
       throw Exception('Lỗi khi xóa ví: $e');
     }

@@ -20,7 +20,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   ) async {
     emit(TransactionLoading());
     try {
-      final transactions = await _repository.getTransactions();
+      final transactions = await _repository.getTransactions(
+        walletId: event.walletId,
+      );
       emit(TransactionLoaded(transactions));
     } catch (e) {
       emit(TransactionError(e.toString()));

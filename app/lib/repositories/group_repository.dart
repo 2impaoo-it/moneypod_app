@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:http/http.dart' as http;
+
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
 
@@ -270,28 +269,31 @@ class GroupRepository {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
-      final url = '$_baseUrl/scan-receipt';
-      final request = http.MultipartRequest('POST', Uri.parse(url));
-
-      request.headers['Authorization'] = 'Bearer $token';
-      request.headers['ngrok-skip-browser-warning'] = 'true';
-
-      // Attach multiple files with key "images"
+      final formData = FormData();
       for (var file in files) {
-        request.files.add(
-          await http.MultipartFile.fromPath('images', file.path),
+        formData.files.add(
+          MapEntry('images', await MultipartFile.fromFile(file.path)),
         );
       }
 
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final response = await _dio.post(
+        '/scan-receipt',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(responseBody);
-        return data['data'] ?? {};
+        return response.data['data'] ?? {};
       } else {
         throw Exception('Phân tích ảnh thất bại: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi quét hóa đơn: $e');
     } catch (e) {
       throw Exception('Lỗi quét hóa đơn: $e');
     }
@@ -304,22 +306,28 @@ class GroupRepository {
       final token = await _authService.getToken();
       if (token == null) throw Exception('Chưa đăng nhập');
 
-      final url = '$_baseUrl/upload';
-      final request = http.MultipartRequest('POST', Uri.parse(url));
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path),
+      });
 
-      request.headers['Authorization'] = 'Bearer $token';
-      request.headers['ngrok-skip-browser-warning'] = 'true';
-      request.files.add(await http.MultipartFile.fromPath('file', file.path));
-
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+      final response = await _dio.post(
+        '/upload',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(responseBody);
-        return data['url'] ?? '';
+        return response.data['url'] ?? '';
       } else {
         throw Exception('Upload ảnh thất bại: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi upload ảnh: $e');
     } catch (e) {
       throw Exception('Lỗi upload ảnh: $e');
     }
@@ -330,18 +338,18 @@ class GroupRepository {
   Future<List<Map<String, dynamic>>> getMyDebts(String groupId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/my-debts';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/groups/$groupId/my-debts',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       }
       return [];
     } catch (e) {
@@ -355,15 +363,13 @@ class GroupRepository {
   Future<List<Map<String, dynamic>>> getDebtsToMe(String groupId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/debts-to-me';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
+      final response = await _dio.get(
+        '/groups/$groupId/debts-to-me',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       }
       return [];
     } catch (e) {
@@ -377,16 +383,13 @@ class GroupRepository {
   Future<void> markDebtPaid(String debtId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/debts/$debtId/paid';
-
-      final response = await http.put(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
+      final response = await _dio.put(
+        '/groups/debts/$debtId/paid',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode != 200) {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Lỗi cập nhật trạng thái nợ');
+        throw Exception(response.data['error'] ?? 'Lỗi cập nhật trạng thái nợ');
       }
     } catch (e) {
       rethrow;
@@ -398,21 +401,19 @@ class GroupRepository {
   Future<void> addMember(String groupId, String email) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/members';
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode({'email': email}),
+      final response = await _dio.post(
+        '/groups/$groupId/members',
+        data: {'email': email},
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Lỗi thêm thành viên');
+        throw Exception(response.data['error'] ?? 'Lỗi thêm thành viên');
       }
     } catch (e) {
       rethrow;
@@ -424,25 +425,20 @@ class GroupRepository {
   Future<void> addMemberByPhone(String groupId, String phone) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/members';
 
-      // Format phone logic if needed (backend might expect +84)
-      // Assuming phone passed here is already formatted or raw is fine if backend handles it.
-      // Current backend `FindByPhone` looks for exact match.
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode({'phone': phone}),
+      final response = await _dio.post(
+        '/groups/$groupId/members',
+        data: {'phone': phone},
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Lỗi thêm thành viên');
+        throw Exception(response.data['error'] ?? 'Lỗi thêm thành viên');
       }
     } catch (e) {
       rethrow;
@@ -454,20 +450,19 @@ class GroupRepository {
   Future<void> removeMember(String groupId, String memberId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/members/$memberId';
 
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.delete(
+        '/groups/$groupId/members/$memberId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Lỗi xóa thành viên');
+        throw Exception(response.data['error'] ?? 'Lỗi xóa thành viên');
       }
     } catch (e) {
       rethrow;
@@ -479,20 +474,18 @@ class GroupRepository {
   Future<Map<String, dynamic>> getGroupDetails(String groupId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId';
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/groups/$groupId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['data'] ?? {};
+        return response.data['data'] ?? {};
       } else {
         // Fallback: Nếu API detail không có, lấy từ list
         final groups = await getGroups();
@@ -512,19 +505,18 @@ class GroupRepository {
   Future<void> deleteGroup(String groupId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId';
-
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.delete(
+        '/groups/$groupId',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode != 200) {
-        final errorData = json.decode(response.body);
-        throw Exception(errorData['error'] ?? 'Lỗi khi xóa nhóm');
+        throw Exception(response.data['error'] ?? 'Lỗi khi xóa nhóm');
       }
     } catch (e) {
       rethrow;
@@ -536,19 +528,18 @@ class GroupRepository {
   Future<List<Map<String, dynamic>>> getGroupExpenses(String groupId) async {
     try {
       final token = await _authService.getToken();
-      final url = '$_baseUrl/groups/$groupId/expenses';
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
+      final response = await _dio.get(
+        '/groups/$groupId/expenses',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
         throw Exception('Failed to load transactions');
       }

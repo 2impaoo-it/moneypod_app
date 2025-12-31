@@ -1016,7 +1016,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                       const SizedBox(height: 20),
                       // Wallet dropdown
                       DropdownButtonFormField<String>(
-                        value: selectedWalletId,
+                        initialValue: selectedWalletId,
                         decoration: InputDecoration(
                           labelText: 'Chọn ví nhận tiền',
                           border: OutlineInputBorder(

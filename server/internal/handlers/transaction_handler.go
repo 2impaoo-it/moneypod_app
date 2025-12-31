@@ -73,13 +73,14 @@ func (h *TransactionHandler) GetList(c *gin.Context) {
 	// Kiểm tra có filter không
 	category := c.Query("category")
 	transactionType := c.Query("type")
+	walletID := c.Query("wallet_id") // <-- Thêm
 	month := c.Query("month")
 	year := c.Query("year")
 	page := c.DefaultQuery("page", "1")
 	pageSize := c.DefaultQuery("page_size", "20")
 
 	// Nếu có filter thì dùng GetTransactionsWithFilters
-	if category != "" || transactionType != "" || month != "" || year != "" {
+	if category != "" || transactionType != "" || month != "" || year != "" || walletID != "" { // <-- Check walletID
 		var monthInt, yearInt int
 		if month != "" {
 			fmt.Sscanf(month, "%d", &monthInt)
@@ -91,7 +92,8 @@ func (h *TransactionHandler) GetList(c *gin.Context) {
 		pageInt, _ := strconv.Atoi(page)
 		pageSizeInt, _ := strconv.Atoi(pageSize)
 
-		transactions, total, err := h.service.GetTransactionsWithFilters(userID, category, transactionType, monthInt, yearInt, pageInt, pageSizeInt)
+		// Thêm walletID vào hàm service
+		transactions, total, err := h.service.GetTransactionsWithFilters(userID, walletID, category, transactionType, monthInt, yearInt, pageInt, pageSizeInt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
