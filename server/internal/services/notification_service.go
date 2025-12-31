@@ -12,6 +12,7 @@ import (
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
 	"github.com/google/uuid"
 	"google.golang.org/api/option"
+	"gorm.io/gorm"
 )
 
 type NotificationService struct {
@@ -217,7 +218,7 @@ func (s *NotificationService) SendSystemNotification(userID uuid.UUID, notifType
 }
 
 // SendMaintenanceNotification: Gửi thông báo bảo trì cho tất cả users
-func (s *NotificationService) SendMaintenanceNotification(title, body string) error {
+func (s *NotificationService) SendMaintenanceNotification(db *gorm.DB, title, body string) error {
 	// Lấy tất cả users có FCM token
 	var users []struct {
 		ID       uuid.UUID
@@ -225,7 +226,7 @@ func (s *NotificationService) SendMaintenanceNotification(title, body string) er
 	}
 
 	// Query để lấy user có token
-	if err := s.notifRepo.db.Table("users").
+	if err := db.Table("users").
 		Select("id, fcm_token").
 		Where("fcm_token != ''").
 		Find(&users).Error; err != nil {

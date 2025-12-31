@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,6 +20,7 @@ import 'repositories/savings_repository.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
+import 'services/fcm_service.dart';
 import 'utils/session_manager.dart';
 import 'utils/popup_notification.dart';
 
@@ -36,6 +38,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/profile/change_password_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/profile_widget.dart';
 import 'screens/add_expense_screen.dart';
@@ -64,10 +67,22 @@ class AppColors {
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> shellNavigatorKey = GlobalKey<NavigatorState>();
 
+// Background message handler (phải define ở top-level)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('🔔 Background notification: ${message.notification?.title}');
+}
+
 // --- MAIN APP SETUP ---
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Initialize FCM
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  final fcmService = FCMService();
+  await fcmService.initialize();
 
   // Cấu hình thanh trạng thái trong suốt
   SystemChrome.setSystemUIOverlayStyle(
@@ -137,6 +152,11 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           parentNavigatorKey: rootNavigatorKey,
           path: '/wallet-list',
           builder: (context, state) => const WalletListScreen(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/notifications',
+          builder: (context, state) => const NotificationsScreen(),
         ),
         // Main app routes (có bottom nav)
         ShellRoute(

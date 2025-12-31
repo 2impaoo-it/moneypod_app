@@ -9,6 +9,7 @@ import '../../bloc/auth/auth_state.dart';
 import '../../bloc/dashboard/dashboard_bloc.dart';
 import '../../bloc/dashboard/dashboard_event.dart';
 import '../../services/biometric_service.dart';
+import '../../services/fcm_service.dart';
 import '../../utils/popup_notification.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -56,10 +57,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Lấy FCM token
+    final fcmService = FCMService();
+    final fcmToken = await fcmService.getCurrentToken();
+
     context.read<AuthBloc>().add(
       AuthLoginRequested(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        fcmToken: fcmToken,
       ),
     );
   }

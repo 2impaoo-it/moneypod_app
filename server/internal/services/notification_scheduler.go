@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -133,45 +132,61 @@ func (s *NotificationScheduler) StartSavingsReminderScheduler() {
 func (s *NotificationScheduler) SendSavingsReminders() {
 	log.Println("🔔 Đang gửi nhắc nhở tiết kiệm...")
 
-	// Lấy các mục tiêu tiết kiệm đang chạy
-	var goals []models.SavingsGoal
+	// Lấy các mục tiêu tiết kiệm đang chạy cùng với thông tin user
+	var results []struct {
+		GoalID        uuid.UUID
+		UserID        uuid.UUID
+		GoalName      string
+		TargetAmount  float64
+		CurrentAmount float64
+		FCMToken      string
+	}
 
-	if err := s.db.Preload("User").
-		Where("status = ?", "IN_PROGRESS").
-		Find(&goals).Error; err != nil {
+	query := `
+		SELECT 
+			sg.id as goal_id,
+			sg.user_id,
+			sg.name as goal_name,
+			sg.target_amount,
+			sg.current_amount,
+			u.fcm_token
+		FROM savings_goals sg
+		JOIN users u ON sg.user_id = u.id
+		WHERE sg.status = 'IN_PROGRESS'
+		AND u.fcm_token != ''
+		AND sg.deleted_at IS NULL
+	`
+
+	if err := s.db.Raw(query).Scan(&results).Error; err != nil {
 		log.Printf("❌ Lỗi lấy danh sách tiết kiệm: %v\n", err)
 		return
 	}
 
 	count := 0
-	for _, goal := range goals {
-		if goal.User.FCMToken == "" {
-			continue
-		}
-
+	for _, result := range results {
 		// Tính phần trăm đã đạt
 		percentage := 0.0
-		if goal.TargetAmount > 0 {
-			percentage = (goal.CurrentAmount / goal.TargetAmount) * 100
+		if result.TargetAmount > 0 {
+			percentage = (result.CurrentAmount / result.TargetAmount) * 100
 		}
 
 		title := "🐷 Nhắc nhở tiết kiệm"
 		body := fmt.Sprintf("Mục tiêu '%s' đã đạt %.1f%%. Hãy tiếp tục nạp tiền nhé!",
-			goal.Name, percentage)
+			result.GoalName, percentage)
 
 		data := map[string]interface{}{
 			"type":    "savings_reminder",
-			"goal_id": goal.ID.String(),
+			"goal_id": result.GoalID.String(),
 		}
 
 		if s.notifService != nil {
 			s.notifService.CreateAndSendNotification(
-				goal.UserID,
+				result.UserID,
 				"savings_reminder",
 				title,
 				body,
 				data,
-				goal.User.FCMToken,
+				result.FCMToken,
 			)
 			count++
 		}

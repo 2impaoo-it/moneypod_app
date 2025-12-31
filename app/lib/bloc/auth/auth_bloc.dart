@@ -24,6 +24,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await authService.login(
       email: event.email,
       password: event.password,
+      fcmToken: event.fcmToken,
     );
 
     if (result['success']) {

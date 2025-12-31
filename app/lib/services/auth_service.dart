@@ -51,15 +51,23 @@ class AuthService {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
+    String? fcmToken,
   }) async {
     try {
+      final body = {'email': email, 'password': password};
+
+      // Thêm FCM token nếu có
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        body['fcm_token'] = fcmToken;
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
         },
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode(body),
       );
 
       final data = jsonDecode(response.body);

@@ -64,7 +64,9 @@ class HeaderWidget extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              context.push('/notifications');
+            },
             icon: const Icon(LucideIcons.bell, color: AppColors.textPrimary),
           ),
         ],
