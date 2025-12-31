@@ -17,17 +17,19 @@ type AuthService struct {
 	userRepo     *repositories.UserRepository
 	emailService EmailService
 	notifRepo    *repositories.NotificationRepository
+	notifService *NotificationService
 }
 
 func (s *AuthService) GetUserProfile(userID uuid.UUID) (*models.User, error) {
 	return s.userRepo.FindByID(userID)
 }
 
-func NewAuthService(userRepo *repositories.UserRepository, emailService EmailService, notifRepo *repositories.NotificationRepository) *AuthService {
+func NewAuthService(userRepo *repositories.UserRepository, emailService EmailService, notifRepo *repositories.NotificationRepository, notifService *NotificationService) *AuthService {
 	return &AuthService{
 		userRepo:     userRepo,
 		emailService: emailService,
 		notifRepo:    notifRepo,
+		notifService: notifService,
 	}
 }
 
@@ -103,9 +105,30 @@ func (s *AuthService) LinkPhoneNumber(userID uuid.UUID, phone string) error {
 }
 
 // Hàm cập nhật FCM Token (Thêm vào struct AuthService)
-func (s *AuthService) UpdateFCMToken(userID uuid.UUID, token string) error {
-	// Gọi xuống Repo để update vào database
-	return s.userRepo.UpdateFCMToken(userID, token)
+func (s *AuthService) UpdateFCMToken(userID uuid.UUID, newToken string) error {
+	// Lấy user hiện tại
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+
+	oldToken := user.FCMToken
+	
+	// Cập nhật token mới
+	if err := s.userRepo.UpdateFCMToken(userID, newToken); err != nil {
+		return err
+	}
+
+	// 🔥 Nếu token thay đổi (thiết bị mới), gửi thông báo bảo mật
+	if oldToken != "" && oldToken != newToken && s.notifService != nil {
+		go func() {
+			title := "🔐 Đăng nhập từ thiết bị mới"
+			body := "Tài khoản của bạn vừa được đăng nhập từ một thiết bị mới. Nếu không phải bạn, hãy đổi mật khẩu ngay!"
+			s.notifService.SendSecurityAlert(userID, title, body, newToken)
+		}()
+	}
+
+	return nil
 }
 
 // Logic cập nhật tên hiển thị

@@ -64,12 +64,19 @@ func main() {
 		log.Printf("✅ Đã cấu hình SMTP Email Service: %s:%s\n", emailConfig.Host, emailConfig.Port)
 	}
 
-	authService := services.NewAuthService(userRepo, emailService, notifRepo)
+	authService := services.NewAuthService(userRepo, emailService, notifRepo, notifService)
 	walletService := services.NewWalletService(walletRepo)
 	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
 	transService := services.NewTransactionService(db.DB, transRepo, walletRepo, notifService)
 	groupService := services.NewGroupService(db.DB, notifService, userRepo)
 	savingsService := services.NewSavingsService(db.DB, savingsRepo, walletRepo, notifService)
+
+	// --- KHỞI ĐỘNG SCHEDULERS ---
+	if notifService != nil {
+		scheduler := services.NewNotificationScheduler(db.DB, notifService)
+		scheduler.StartDebtReminderScheduler()    // Nhắc nhở nợ mỗi 24h
+		scheduler.StartSavingsReminderScheduler() // Nhắc nhở tiết kiệm mỗi tuần
+	}
 
 	// --- KHỞI TẠO HANDLERS ---
 	// 🔥 THÊM DÒNG NÀY: Khởi tạo UploadHandler

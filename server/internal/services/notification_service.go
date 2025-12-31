@@ -205,3 +205,48 @@ func (s *NotificationService) checkNotificationSetting(settings *models.Notifica
 		return true // Mặc định bật
 	}
 }
+
+// === SYSTEM NOTIFICATIONS ===
+
+// SendSystemNotification: Gửi thông báo hệ thống cho một user
+func (s *NotificationService) SendSystemNotification(userID uuid.UUID, notifType, title, body string, fcmToken string) error {
+	data := map[string]interface{}{
+		"type": notifType,
+	}
+	return s.CreateAndSendNotification(userID, notifType, title, body, data, fcmToken)
+}
+
+// SendMaintenanceNotification: Gửi thông báo bảo trì cho tất cả users
+func (s *NotificationService) SendMaintenanceNotification(title, body string) error {
+	// Lấy tất cả users có FCM token
+	var users []struct {
+		ID       uuid.UUID
+		FCMToken string
+	}
+
+	// Query để lấy user có token
+	if err := s.notifRepo.db.Table("users").
+		Select("id, fcm_token").
+		Where("fcm_token != ''").
+		Find(&users).Error; err != nil {
+		return err
+	}
+
+	// Gửi cho từng user
+	for _, user := range users {
+		data := map[string]interface{}{
+			"type": "maintenance",
+		}
+		s.CreateAndSendNotification(user.ID, "maintenance", title, body, data, user.FCMToken)
+	}
+
+	return nil
+}
+
+// SendSecurityAlert: Gửi cảnh báo bảo mật
+func (s *NotificationService) SendSecurityAlert(userID uuid.UUID, title, body string, fcmToken string) error {
+	data := map[string]interface{}{
+		"type": "security_alert",
+	}
+	return s.CreateAndSendNotification(userID, "security_alert", title, body, data, fcmToken)
+}
