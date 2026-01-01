@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
@@ -82,58 +81,45 @@ class BillScanRepository {
       }
 
       // Tạo multipart request
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$_baseUrl/scan-receipt'),
-      );
-
-      // Thêm Authorization header với Bearer token
-      request.headers['Authorization'] = 'Bearer $token';
-      request.headers['ngrok-skip-browser-warning'] = 'true';
-
-      // Thêm file ảnh vào request
-      final stream = http.ByteStream(imageFile.openRead());
-      final length = await imageFile.length();
-      final multipartFile = http.MultipartFile(
-        'image',
-        stream,
-        length,
-        filename: 'bill_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      request.files.add(multipartFile);
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: 'bill_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      });
 
       // Gửi request lên server
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final response = await _dio.post(
+        '/scan-receipt',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
+      );
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
         throw Exception(
-          'Server trả về lỗi: ${response.statusCode} - ${response.body}',
+          'Server trả về lỗi: ${response.statusCode} - ${response.data}',
         );
       }
 
-      // Parse JSON từ response
-      final jsonData = json.decode(response.body) as Map<String, dynamic>;
-
-      // Kiểm tra nếu có error từ server
-      if (jsonData.containsKey('error')) {
-        throw Exception('Lỗi từ server: ${jsonData['error']}');
-      }
-
       // Lấy data từ response
-      final data = jsonData['data'] ?? jsonData;
+      final data = response.data['data'] ?? response.data;
 
       // Chuyển đổi thành BillScanResult
       return BillScanResult.fromJson(data);
-    } on SocketException {
-      throw Exception(
-        'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
-      );
-    } catch (e) {
-      if (e.toString().contains('Exception')) {
-        rethrow;
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
       }
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi quét bill: $e');
+    } catch (e) {
       throw Exception('Lỗi khi quét bill: $e');
     }
   }

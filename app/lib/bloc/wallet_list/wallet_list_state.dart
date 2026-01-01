@@ -1,35 +1,31 @@
 import 'package:equatable/equatable.dart';
 import '../../models/wallet.dart';
 
-/// States cho WalletList
-abstract class WalletListState extends Equatable {
-  const WalletListState();
+enum WalletStatus { initial, loading, success, failure }
 
-  @override
-  List<Object?> get props => [];
-}
-
-/// State: Đang load
-class WalletListLoading extends WalletListState {
-  const WalletListLoading();
-}
-
-/// State: Load thành công
-class WalletListLoaded extends WalletListState {
+class WalletListState extends Equatable {
+  final WalletStatus status;
   final List<Wallet> wallets;
+  final String? errorMessage;
 
-  const WalletListLoaded({required this.wallets});
+  const WalletListState({
+    this.status = WalletStatus.initial,
+    this.wallets = const [],
+    this.errorMessage,
+  });
+
+  WalletListState copyWith({
+    WalletStatus? status,
+    List<Wallet>? wallets,
+    String? errorMessage,
+  }) {
+    return WalletListState(
+      status: status ?? this.status,
+      wallets: wallets ?? this.wallets,
+      errorMessage: errorMessage,
+    );
+  }
 
   @override
-  List<Object?> get props => [wallets];
-}
-
-/// State: Lỗi
-class WalletListError extends WalletListState {
-  final String message;
-
-  const WalletListError({required this.message});
-
-  @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [status, wallets, errorMessage];
 }

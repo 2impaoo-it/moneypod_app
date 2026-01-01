@@ -9,7 +9,9 @@ import '../models/transaction.dart';
 import '../main.dart'; // Import để lấy AppColors
 
 class TransactionsScreen extends StatefulWidget {
-  const TransactionsScreen({super.key});
+  final String? walletId; // Optional walletId (nếu null thì hiện tất cả)
+
+  const TransactionsScreen({super.key, this.walletId});
 
   @override
   State<TransactionsScreen> createState() => _TransactionsScreenState();
@@ -35,7 +37,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     super.initState();
     // Gọi API khi mở screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TransactionBloc>().add(TransactionLoadRequested());
+      context.read<TransactionBloc>().add(
+        TransactionLoadRequested(walletId: widget.walletId),
+      );
     });
   }
 
@@ -50,13 +54,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             // --- 1. HEADER SECTION ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Text(
-                "Giao dịch",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+              child: Row(
+                children: [
+                  if (widget.walletId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(20),
+                        child: const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Icon(LucideIcons.arrowLeft, size: 24),
+                        ),
+                      ),
+                    ),
+                  Text(
+                    widget.walletId != null ? "Lịch sử ví" : "Giao dịch",
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
 

@@ -70,7 +70,7 @@ func (r *TransactionRepository) Delete(tx *gorm.DB, transactionID uuid.UUID) err
 }
 
 // GetByUserIDWithFilters lấy giao dịch với filter và pagination
-func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, category, transactionType string, month int, year int, offset, limit int) ([]models.Transaction, int64, error) {
+func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, walletID, category, transactionType string, month int, year int, offset, limit int) ([]models.Transaction, int64, error) {
 	var transactions []models.Transaction
 	var total int64
 

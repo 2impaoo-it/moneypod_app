@@ -17,6 +17,7 @@ import 'bloc/dashboard/dashboard_event.dart';
 import 'bloc/savings/savings_bloc.dart';
 import 'bloc/savings/savings_event.dart';
 import 'bloc/notification/notification_bloc.dart';
+import 'bloc/settings/settings_cubit.dart';
 import 'repositories/savings_repository.dart';
 import 'repositories/notification_repository.dart';
 
@@ -298,6 +299,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           create: (context) =>
               NotificationBloc(repository: NotificationRepository()),
         ),
+        BlocProvider(create: (context) => SettingsCubit()),
       ],
       child: MaterialApp.router(
         title: 'MoneyPod',
@@ -373,7 +375,7 @@ class _MainWrapperState extends State<MainWrapper> {
     // Nếu thêm giao dịch thành công, reload cả transactions và dashboard
     if (result == true && mounted) {
       context.read<TransactionBloc>().add(TransactionLoadRequested());
-      context.read<DashboardBloc>().add(DashboardLoadRequested());
+      context.read<DashboardBloc>().add(DashboardRefreshRequested());
     }
   }
 
@@ -429,7 +431,9 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
-    final showFAB = _shouldShowFAB(context);
+    // Hide FAB when keyboard is visible
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final showFAB = _shouldShowFAB(context) && !keyboardVisible;
 
     return Scaffold(
       body: widget.child,

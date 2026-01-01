@@ -99,11 +99,16 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         event.token,
         event.notificationId,
       );
+      print('Delete notification result: $success'); // DEBUG
       if (success) {
+        // Refresh list immediately
         add(NotificationLoadRequested(event.token));
         emit(NotificationActionSuccess('Đã xóa thông báo'));
+      } else {
+        emit(NotificationError('Xóa thất bại.'));
       }
     } catch (e) {
+      print('Exception deleting notification: $e'); // DEBUG
       emit(NotificationError('Lỗi xóa thông báo: $e'));
     }
   }
@@ -114,11 +119,15 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   ) async {
     try {
       final success = await repository.deleteAllNotifications(event.token);
+      print('Delete all notifications result: $success'); // DEBUG
       if (success) {
         emit(NotificationLoaded(notifications: [], unreadCount: 0));
         emit(NotificationActionSuccess('Đã xóa tất cả thông báo'));
+      } else {
+        emit(NotificationError('Xóa thất bại. Vui lòng thử lại.'));
       }
     } catch (e) {
+      print('Exception deleting all notifications: $e'); // DEBUG
       emit(NotificationError('Lỗi xóa tất cả: $e'));
     }
   }

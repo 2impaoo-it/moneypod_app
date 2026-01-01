@@ -135,4 +135,56 @@ class WalletRepository {
       rethrow;
     }
   }
+
+  /// Cập nhật thông tin ví
+  Future<void> updateWallet({
+    required String id,
+    required String name,
+    String? currency,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final data = <String, dynamic>{'name': name};
+      if (currency != null) {
+        data['currency'] = currency;
+      }
+
+      final response = await _dio.put(
+        '/wallets/$id',
+        data: data,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Không thể cập nhật ví');
+      }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi cập nhật ví: $e');
+    } catch (e) {
+      throw Exception('Lỗi khi cập nhật ví: $e');
+    }
+  }
+
+  /// Xóa ví
+  Future<void> deleteWallet(String id) async {
+    try {
+      final token = await _authService.getToken();
+      if (token == null) throw Exception('Chưa đăng nhập');
+
+      final response = await _dio.delete(
+        '/wallets/$id',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Không thể xóa ví');
+      }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi xóa ví: $e');
+    } catch (e) {
+      throw Exception('Lỗi khi xóa ví: $e');
+    }
+  }
 }

@@ -297,6 +297,59 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     }
   }
 
+  /// Hiển thị dialog xác nhận xóa thành viên
+  Future<void> _showRemoveMemberDialog(
+    String memberId,
+    String memberName,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Xóa thành viên'),
+        content: Text('Bạn có chắc muốn xóa "$memberName" khỏi nhóm?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _removeMember(memberId);
+    }
+  }
+
+  /// Xóa thành viên khỏi nhóm
+  Future<void> _removeMember(String memberId) async {
+    setState(() => _isLoading = true);
+    try {
+      await _groupRepo.removeMember(widget.groupId, memberId);
+      await _loadAllData(); // Reload to update member list
+      if (mounted) {
+        PopupNotification.showSuccess(context, 'Đã xóa thành viên');
+      }
+    } catch (e) {
+      if (mounted) {
+        PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -788,88 +841,103 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                         ? name.substring(0, 1).toUpperCase()
                         : '?';
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.primary.withOpacity(0.1),
-                            backgroundImage:
-                                (avatarUrl != null && avatarUrl.isNotEmpty)
-                                ? NetworkImage(avatarUrl)
-                                : null,
-                            child: (avatarUrl != null && avatarUrl.isNotEmpty)
-                                ? null
-                                : Text(
-                                    avatarChar,
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
+                    final memberId =
+                        member['user_id']?.toString() ??
+                        userObj?['id']?.toString() ??
+                        '';
+                    final isCurrentUser = memberId == _currentUserId;
+                    final isMemberLeader = member['role'] == 'leader';
+
+                    return GestureDetector(
+                      onLongPress:
+                          (_isLeader && !isMemberLeader && !isCurrentUser)
+                          ? () => _showRemoveMemberDialog(memberId, name)
+                          : null,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: AppColors.primary.withOpacity(
+                                0.1,
+                              ),
+                              backgroundImage:
+                                  (avatarUrl != null && avatarUrl.isNotEmpty)
+                                  ? NetworkImage(avatarUrl)
+                                  : null,
+                              child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                                  ? null
+                                  : Text(
+                                      avatarChar,
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                if (email.toString().isNotEmpty)
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    email,
+                                    name,
                                     style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: AppColors.textPrimary,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: member['role'] == 'leader'
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              role,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: member['role'] == 'leader'
-                                    ? Colors.orange
-                                    : Colors.blue,
-                                fontWeight: FontWeight.w600,
+                                  if (email.toString().isNotEmpty)
+                                    Text(
+                                      email,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: member['role'] == 'leader'
+                                    ? Colors.orange.withOpacity(0.1)
+                                    : Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                role,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: member['role'] == 'leader'
+                                      ? Colors.orange
+                                      : Colors.blue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

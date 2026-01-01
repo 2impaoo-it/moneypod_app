@@ -8,6 +8,7 @@ import '../main.dart';
 import '../bloc/dashboard/dashboard_bloc.dart';
 import '../bloc/dashboard/dashboard_state.dart';
 import '../bloc/dashboard/dashboard_event.dart';
+import '../bloc/settings/settings_cubit.dart';
 import '../models/transaction.dart' as model;
 import '../widgets/header_widget.dart';
 import '../models/profile.dart';
@@ -35,373 +36,472 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decimalDigits: 0,
     );
 
-    return BlocBuilder<DashboardBloc, DashboardState>(
-      builder: (context, state) {
-        if (state is DashboardLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return BlocBuilder<SettingsCubit, bool>(
+      builder: (context, isBalanceVisible) {
+        return BlocBuilder<DashboardBloc, DashboardState>(
+          builder: (context, state) {
+            if (state is DashboardLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        if (state is DashboardError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Lỗi: ${state.message}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    context.read<DashboardBloc>().add(DashboardLoadRequested());
-                  },
-                  child: const Text('Thử lại'),
+            if (state is DashboardError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Lỗi: ${state.message}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        context.read<DashboardBloc>().add(
+                          DashboardLoadRequested(),
+                        );
+                      },
+                      child: const Text('Thử lại'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        }
+              );
+            }
 
-        if (state is! DashboardLoaded) {
-          return const Center(child: Text('Không có dữ liệu'));
-        }
+            if (state is! DashboardLoaded) {
+              return const Center(child: Text('Không có dữ liệu'));
+            }
 
-        final dashboardData = state.data;
-        final userInfo = dashboardData.userInfo;
-        final totalBalance = dashboardData.totalBalance;
-        final wallets = dashboardData.wallets;
-        final recentTransactions = dashboardData.recentTransactions;
+            final dashboardData = state.data;
+            final userInfo = dashboardData.userInfo;
+            final totalBalance = dashboardData.totalBalance;
+            final wallets = dashboardData.wallets;
+            final recentTransactions = dashboardData.recentTransactions;
 
-        // Tính tổng thu nhập và chi tiêu từ transactions
-        double totalIncome = 0;
-        double totalExpense = 0;
-        for (var transaction in recentTransactions) {
-          if (transaction.isExpense) {
-            totalExpense += transaction.amount;
-          } else {
-            totalIncome += transaction.amount;
-          }
-        }
+            // Tính tổng thu nhập và chi tiêu từ transactions
+            double totalIncome = 0;
+            double totalExpense = 0;
+            for (var transaction in recentTransactions) {
+              if (transaction.isExpense) {
+                totalExpense += transaction.amount;
+              } else {
+                totalIncome += transaction.amount;
+              }
+            }
 
-        return SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              context.read<DashboardBloc>().add(DashboardRefreshRequested());
-              // Đợi một chút để UI cập nhật
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- HEADER ---
-                  HeaderWidget(
-                    profile: Profile(
-                      id: userInfo.id,
-                      fullName: userInfo.fullName,
-                      email: userInfo.email,
-                      avatarUrl: userInfo.avatarUrl,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- BALANCE CARD ---
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+            return SafeArea(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  context.read<DashboardBloc>().add(
+                    DashboardRefreshRequested(),
+                  );
+                  await Future.delayed(const Duration(milliseconds: 500));
+                },
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- HEADER ---
+                      HeaderWidget(
+                        profile: Profile(
+                          id: userInfo.id,
+                          fullName: userInfo.fullName,
+                          email: userInfo.email,
+                          avatarUrl: userInfo.avatarUrl,
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Số dư khả dụng",
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          currencyFormat.format(totalBalance),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(height: 24),
+
+                      // --- BALANCE CARD ---
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.primary, AppColors.primaryDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            _buildBalanceRowItem(
-                              LucideIcons.arrowDown,
-                              "Thu nhập",
-                              currencyFormat.format(totalIncome),
-                              AppColors.success,
-                            ),
-                            const SizedBox(width: 24),
-                            _buildBalanceRowItem(
-                              LucideIcons.arrowUp,
-                              "Chi tiêu",
-                              currencyFormat.format(totalExpense),
-                              AppColors.danger,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        // Nút xem danh sách ví
-                        InkWell(
-                          onTap: () {
-                            context.push('/wallet-list');
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Icon(
-                                  LucideIcons.wallet,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Xem tất cả ví (${wallets.length})',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
+                                const Text(
+                                  "Số dư khả dụng",
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  LucideIcons.chevronRight,
-                                  color: Colors.white,
-                                  size: 16,
+                                InkWell(
+                                  onTap: () {
+                                    context
+                                        .read<SettingsCubit>()
+                                        .toggleBalanceVisibility();
+                                  },
+                                  child: Icon(
+                                    isBalanceVisible
+                                        ? LucideIcons.eye
+                                        : LucideIcons.eyeOff,
+                                    color: Colors.white70,
+                                    size: 20,
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- QUICK ACTIONS ---
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildQuickAction(
-                        context,
-                        LucideIcons.scanLine,
-                        "Quét Bill",
-                        onTap: () {
-                          context.push('/bill-scan');
-                        },
-                      ),
-                      _buildQuickAction(context, LucideIcons.mic, "Giọng nói"),
-                      _buildQuickAction(
-                        context,
-                        LucideIcons.arrowRightLeft,
-                        "Chuyển tiền",
-                      ),
-                      _buildQuickAction(
-                        context,
-                        LucideIcons.wallet,
-                        "Thêm ví",
-                        onTap: () async {
-                          // Mở màn hình tạo ví và chờ kết quả
-                          final result = await context.push('/create-wallet');
-
-                          // Nếu tạo thành công (result == true)
-                          if (result == true && context.mounted) {
-                            context.read<DashboardBloc>().add(
-                              DashboardRefreshRequested(),
-                            );
-                            PopupNotification.showSuccess(
-                              context,
-                              'Ví mới đã được tạo!',
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- AI INSIGHT CARD ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: const Border(
-                        left: BorderSide(color: AppColors.warning, width: 4),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.warning.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.sparkles,
-                            color: AppColors.warning,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Insight thông minh",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
+                            const SizedBox(height: 8),
+                            Text(
+                              isBalanceVisible
+                                  ? currencyFormat.format(totalBalance)
+                                  : '******',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                _buildBalanceRowItem(
+                                  LucideIcons.arrowDown,
+                                  "Thu nhập",
+                                  isBalanceVisible
+                                      ? currencyFormat.format(totalIncome)
+                                      : '******',
+                                  AppColors.success,
+                                ),
+                                const SizedBox(width: 24),
+                                _buildBalanceRowItem(
+                                  LucideIcons.arrowUp,
+                                  "Chi tiêu",
+                                  isBalanceVisible
+                                      ? currencyFormat.format(totalExpense)
+                                      : '******',
+                                  AppColors.danger,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Nút xem danh sách ví
+                            InkWell(
+                              onTap: () async {
+                                await context.push('/wallet-list');
+                                // Auto-reload when returning
+                                if (context.mounted) {
+                                  context.read<DashboardBloc>().add(
+                                    DashboardRefreshRequested(),
+                                  );
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.wallet,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Xem tất cả ví (${wallets.length})',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      LucideIcons.chevronRight,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // --- QUICK ACTIONS ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildQuickAction(
+                            context,
+                            LucideIcons.scanLine,
+                            "Quét Bill",
+                            onTap: () async {
+                              await context.push('/bill-scan');
+                              if (context.mounted) {
+                                context.read<DashboardBloc>().add(
+                                  DashboardRefreshRequested(),
+                                );
+                              }
+                            },
+                          ),
+                          _buildQuickAction(
+                            context,
+                            LucideIcons.mic,
+                            "Giọng nói",
+                          ),
+                          _buildQuickAction(
+                            context,
+                            LucideIcons.arrowRightLeft,
+                            "Chuyển tiền",
+                          ),
+                          _buildQuickAction(
+                            context,
+                            LucideIcons.wallet,
+                            "Thêm ví",
+                            onTap: () async {
+                              final result = await context.push(
+                                '/create-wallet',
+                              );
+                              if (result == true && context.mounted) {
+                                context.read<DashboardBloc>().add(
+                                  DashboardRefreshRequested(),
+                                );
+                                PopupNotification.showSuccess(
+                                  context,
+                                  'Ví mới đã được tạo!',
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // --- AI INSIGHT CARD ---
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: const Border(
+                            left: BorderSide(
+                              color: AppColors.warning,
+                              width: 4,
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.warning.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.sparkles,
+                                color: AppColors.warning,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Insight thông minh",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // --- SPENDING CHARTS ---
+                      if (state.categoryStats.isNotEmpty) ...[
+                        const Text(
+                          "Phân bổ chi tiêu tháng này",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 200,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: PieChart(
+                                  PieChartData(
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 40,
+                                    sections: _generatePieSections(
+                                      state.categoryStats,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 1,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: _generateLegends(
+                                      state.categoryStats,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        const Text(
+                          "Phân bổ chi tiêu",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 150,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            "Chưa có dữ liệu chi tiêu tháng này",
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+
+                      // --- INCOME CHARTS ---
+                      if (state.incomeStats.isNotEmpty) ...[
+                        const Text(
+                          "Phân bổ thu nhập tháng này",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 200,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: PieChart(
+                                  PieChartData(
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 40,
+                                    sections: _generatePieSections(
+                                      state.incomeStats,
+                                      isIncome: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 1,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: _generateLegends(
+                                      state.incomeStats,
+                                      isIncome: true,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                  // --- SPENDING CHART ---
-                  if (state.categoryStats.isNotEmpty) ...[
-                    const Text(
-                      "Phân bổ chi tiêu tháng này",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 200,
-                      child: Row(
+                      // --- RECENT TRANSACTIONS ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            flex: 1,
-                            child: PieChart(
-                              PieChartData(
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 40,
-                                sections: _generatePieSections(
-                                  state.categoryStats,
-                                ),
-                              ),
+                          const Text(
+                            "Giao dịch gần đây",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 1,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: _generateLegends(state.categoryStats),
-                              ),
+                          TextButton(
+                            onPressed: () {
+                              context.go('/transactions');
+                            },
+                            child: const Text(
+                              "Xem tất cả",
+                              style: TextStyle(color: AppColors.primary),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ] else ...[
-                    const Text(
-                      "Phân bổ chi tiêu",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 150,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text("Chưa có dữ liệu chi tiêu tháng này"),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  const SizedBox(height: 24),
-
-                  // --- RECENT TRANSACTIONS ---
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Giao dịch gần đây",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          context.go('/transactions');
+                      ListView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        itemCount: recentTransactions.length,
+                        itemBuilder: (context, index) {
+                          final tx = recentTransactions[index];
+                          return _buildTransactionItem(tx, currencyFormat);
                         },
-                        child: const Text(
-                          "Xem tất cả",
-                          style: TextStyle(color: AppColors.primary),
-                        ),
                       ),
+                      const SizedBox(height: 80),
                     ],
                   ),
-                  ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: recentTransactions.length,
-                    itemBuilder: (context, index) {
-                      final tx = recentTransactions[index];
-                      return _buildTransactionItem(tx, currencyFormat);
-                    },
-                  ),
-                  const SizedBox(
-                    height: 80,
-                  ), // Padding bottom for scrolling above FAB
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -484,13 +584,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- HELPER METHODS FOR CHART ---
 
-  List<PieChartSectionData> _generatePieSections(Map<String, double> stats) {
+  List<PieChartSectionData> _generatePieSections(
+    Map<String, double> stats, {
+    bool isIncome = false,
+  }) {
     double total = stats.values.fold(0, (sum, item) => sum + item);
     if (total == 0) return [];
 
     return stats.entries.map((entry) {
       final percentage = (entry.value / total) * 100;
-      final color = _getColorForCategory(entry.key);
+      final color = isIncome
+          ? _getIncomeColor(entry.key)
+          : _getColorForCategory(entry.key);
       return PieChartSectionData(
         color: color,
         value: percentage,
@@ -500,14 +605,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }).toList();
   }
 
-  List<Widget> _generateLegends(Map<String, double> stats) {
+  List<Widget> _generateLegends(
+    Map<String, double> stats, {
+    bool isIncome = false,
+  }) {
     double total = stats.values.fold(0, (sum, item) => sum + item);
     if (total == 0) return [];
 
     return stats.entries.map((entry) {
       final percentage = (entry.value / total) * 100;
       return _ChartLegend(
-        color: _getColorForCategory(entry.key),
+        color: isIncome
+            ? _getIncomeColor(entry.key)
+            : _getColorForCategory(entry.key),
         label: entry.key,
         percent: "${percentage.toStringAsFixed(1)}%",
       );
@@ -535,8 +645,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Color _getIncomeColor(String category) {
+    switch (category) {
+      case 'Lương':
+        return Colors.green;
+      case 'Thưởng':
+        return Colors.teal;
+      case 'Đầu tư':
+        return Colors.lightGreen;
+      case 'Quà tặng':
+        return Colors.amber;
+      case 'Hoàn tiền':
+        return Colors.lime;
+      default:
+        return Colors.green.shade300;
+    }
+  }
+
   Widget _buildTransactionItem(model.Transaction tx, NumberFormat fmt) {
-    // Mapping style based on category
     final style = _getCategoryStyle(tx.category);
 
     return Container(
@@ -627,57 +753,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
         lowerCategory.contains('food') ||
         lowerCategory.contains('ăn uống')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFCCFBF1), // teal-100
-        iconColor: const Color(0xFF0D9488), // teal-600
+        bgColor: const Color(0xFFCCFBF1),
+        iconColor: const Color(0xFF0D9488),
         icon: LucideIcons.utensils,
       );
     } else if (lowerCategory.contains('di chuyển') ||
         lowerCategory.contains('transport')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFDBEAFE), // blue-100
-        iconColor: const Color(0xFF2563EB), // blue-600
+        bgColor: const Color(0xFFDBEAFE),
+        iconColor: const Color(0xFF2563EB),
         icon: LucideIcons.car,
       );
     } else if (lowerCategory.contains('mua sắm') ||
         lowerCategory.contains('shopping')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFFCE7F3), // pink-100
-        iconColor: const Color(0xFFDB2777), // pink-600
+        bgColor: const Color(0xFFFCE7F3),
+        iconColor: const Color(0xFFDB2777),
         icon: LucideIcons.shoppingBag,
       );
     } else if (lowerCategory.contains('giải trí') ||
         lowerCategory.contains('entertainment')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFF3E8FF), // purple-100
-        iconColor: const Color(0xFF9333EA), // purple-600
+        bgColor: const Color(0xFFF3E8FF),
+        iconColor: const Color(0xFF9333EA),
         icon: LucideIcons.gamepad2,
       );
     } else if (lowerCategory.contains('lương') ||
         lowerCategory.contains('salary')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFDCFCE7), // green-100
-        iconColor: const Color(0xFF16A34A), // green-600
+        bgColor: const Color(0xFFDCFCE7),
+        iconColor: const Color(0xFF16A34A),
         icon: LucideIcons.wallet,
       );
     } else if (lowerCategory.contains('hóa đơn') ||
         lowerCategory.contains('bill')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFFFEDD5), // orange-100
-        iconColor: const Color(0xFFEA580C), // orange-600
+        bgColor: const Color(0xFFFFEDD5),
+        iconColor: const Color(0xFFEA580C),
         icon: LucideIcons.fileText,
       );
     } else if (lowerCategory.contains('sức khỏe') ||
         lowerCategory.contains('health')) {
       return _CategoryStyle(
-        bgColor: const Color(0xFFFEE2E2), // red-100
-        iconColor: const Color(0xFFDC2626), // red-600
+        bgColor: const Color(0xFFFEE2E2),
+        iconColor: const Color(0xFFDC2626),
         icon: LucideIcons.heart,
       );
     }
 
     return _CategoryStyle(
-      bgColor: const Color(0xFFF3F4F6), // gray-100
-      iconColor: const Color(0xFF4B5563), // gray-600
+      bgColor: const Color(0xFFF3F4F6),
+      iconColor: const Color(0xFF4B5563),
       icon: LucideIcons.moreHorizontal,
     );
   }
