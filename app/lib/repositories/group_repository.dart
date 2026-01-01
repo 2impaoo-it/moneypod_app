@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 
+import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
 
