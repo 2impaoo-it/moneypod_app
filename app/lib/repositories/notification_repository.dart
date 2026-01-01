@@ -1,15 +1,14 @@
 import 'package:dio/dio.dart';
 import '../models/notification.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 class NotificationRepository {
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
   late final Dio _dio;
 
   NotificationRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   // ==================== NOTIFICATIONS ====================

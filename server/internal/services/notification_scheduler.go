@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -49,9 +50,11 @@ func (s *NotificationScheduler) SendDebtReminders() {
 		FromUserID  uuid.UUID
 		ToUserID    uuid.UUID
 		Amount      float64
+		GroupID     uuid.UUID
 		GroupName   string
 		ExpenseDesc string
 		FromUserFCM string
+		ExpenseID   uuid.UUID
 	}
 
 	query := `
@@ -60,6 +63,8 @@ func (s *NotificationScheduler) SendDebtReminders() {
 			d.from_user_id,
 			d.to_user_id,
 			d.amount,
+			d.expense_id,
+			g.id as group_id,
 			g.name as group_name,
 			e.description as expense_desc,
 			u.fcm_token as from_user_fcm
@@ -81,9 +86,24 @@ func (s *NotificationScheduler) SendDebtReminders() {
 		return
 	}
 
-	// Gửi thông báo cho từng người nợ
+	// Gửi thông báo cho từng người nợ (nhưng check duplicate trước)
 	count := 0
 	for _, debt := range debts {
+		// Kiểm tra xem đã gửi notification cho debt này trong 24h chưa
+		var existingCount int64
+		s.db.Model(&models.Notification{}).
+			Where("user_id = ? AND type = ? AND data LIKE ? AND created_at > ?",
+				debt.FromUserID,
+				"debt_reminder",
+				fmt.Sprintf("%%\"debt_id\":\"%s\"%%", debt.DebtID),
+				time.Now().Add(-24*time.Hour),
+			).Count(&existingCount)
+
+		if existingCount > 0 {
+			log.Printf("⏭️ Đã gửi notification cho debt %s trong 24h, bỏ qua", debt.DebtID)
+			continue
+		}
+
 		title := "💰 Nhắc nhở: Bạn còn nợ chưa thanh toán"
 		body := fmt.Sprintf("Bạn còn nợ %.0f đ trong nhóm '%s' ('%s'). Hãy thanh toán sớm nhé!",
 			debt.Amount, debt.GroupName, debt.ExpenseDesc)
@@ -91,6 +111,8 @@ func (s *NotificationScheduler) SendDebtReminders() {
 		data := map[string]interface{}{
 			"type":       "debt_reminder",
 			"debt_id":    debt.DebtID.String(),
+			"group_id":   debt.GroupID.String(),
+			"expense_id": debt.ExpenseID.String(),
 			"group_name": debt.GroupName,
 		}
 

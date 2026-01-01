@@ -2,24 +2,20 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
 import '../models/bill_scan_result.dart';
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 class BillScanRepository {
   final ImagePicker _imagePicker = ImagePicker();
   final AuthService _authService = AuthService();
   late final Dio _dio;
 
-  // URL server backend - thay đổi theo môi trường của bạn
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-
   BillScanRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   /// Kiểm tra và yêu cầu quyền camera

@@ -958,141 +958,272 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       itemCount: _transactions.length,
       itemBuilder: (context, index) {
         final tx = _transactions[index];
-        final payer = tx['payer'];
-        final payerName = payer?['full_name'] ?? payer?['name'] ?? 'Unknown';
-        final amount = (tx['amount'] as num).toDouble();
-        final description = tx['description'] ?? 'Chi tiêu nhóm';
-        final imageUrl = tx['image_url'];
-        final createdAtStr = tx['created_at'];
+        return _buildTransactionItem(tx);
+      },
+    );
+  }
 
-        DateTime? createdAt;
-        if (createdAtStr != null) {
-          try {
-            createdAt = DateTime.parse(createdAtStr).toLocal();
-          } catch (e) {
-            // ignore
-          }
-        }
+  Widget _buildTransactionItem(Map<String, dynamic> tx) {
+    // Debug: Print transaction structure
+    print('🔍 Transaction data: ${tx.keys}');
+    print('📝 Full transaction: $tx');
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: Avatar + Info + Amount
-              Row(
+    // Try multiple possible field names for user data
+    final payer = tx['payer'] ?? tx['user'] ?? tx['created_by'];
+    final payerName =
+        payer?['full_name'] ??
+        payer?['name'] ??
+        payer?['username'] ??
+        'Unknown';
+    final payerAvatar = payer?['avatar_url'];
+    final amount = (tx['amount'] as num).toDouble();
+    final description = tx['description'] ?? 'Chi tiêu nhóm';
+    final createdAtStr = tx['created_at'];
+
+    print('👤 Payer: $payerName, Avatar: $payerAvatar');
+
+    DateTime? createdAt;
+    if (createdAtStr != null) {
+      try {
+        createdAt = DateTime.parse(createdAtStr).toLocal();
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return InkWell(
+      onTap: () => _showTransactionDetail(tx),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundImage:
+                  (payerAvatar != null && payerAvatar.toString().isNotEmpty)
+                  ? NetworkImage(payerAvatar)
+                  : null,
+              child: (payerAvatar == null || payerAvatar.toString().isEmpty)
+                  ? Text(
+                      payerName.isNotEmpty ? payerName[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            // Info
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
-                    backgroundImage: (payer?['avatar_url'] != null)
-                        ? NetworkImage(payer['avatar_url'])
-                        : null,
-                    child: (payer?['avatar_url'] == null)
-                        ? Text(
-                            payerName.isNotEmpty
-                                ? payerName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        RichText(
-                          text: TextSpan(
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: AppColors.textPrimary,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: payerName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const TextSpan(text: ' đã trả '),
-                              TextSpan(
-                                text: currencyFormat.format(amount),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.danger,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (createdAt != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat('dd/MM/yyyy HH:mm').format(createdAt),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ],
+                  Text(
+                    payerName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (createdAt != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('dd/MM/yyyy HH:mm').format(createdAt),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 12),
-
-              // Description
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+            ),
+            // Amount
+            Text(
+              '-${currencyFormat.format(amount)}',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.danger,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              // Image (if any)
-              if (imageUrl != null && imageUrl.toString().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    imageUrl,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) {
-                      return Container(
-                        height: 150,
-                        color: Colors.grey[200],
-                        child: const Center(
-                          child: Icon(Icons.broken_image, color: Colors.grey),
-                        ),
-                      );
-                    },
+  void _showTransactionDetail(Map<String, dynamic> tx) {
+    final payer = tx['payer'] ?? tx['user'] ?? tx['created_by'];
+    final payerName =
+        payer?['full_name'] ??
+        payer?['name'] ??
+        payer?['username'] ??
+        'Unknown';
+    final payerAvatar = payer?['avatar_url'];
+    final amount = (tx['amount'] as num).toDouble();
+    final description = tx['description'] ?? 'Chi tiêu nhóm';
+    final imageUrl = tx['image_url'];
+    final createdAtStr = tx['created_at'];
+
+    DateTime? createdAt;
+    if (createdAtStr != null) {
+      try {
+        createdAt = DateTime.parse(createdAtStr).toLocal();
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Chi tiết giao dịch',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
                   ),
                 ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               ],
-            ],
+            ),
+            const Divider(height: 32),
+            // Details
+            if (createdAt != null)
+              _buildDetailRow(
+                'Thời gian',
+                DateFormat('dd/MM/yyyy HH:mm').format(createdAt),
+              ),
+            _buildDetailRow(
+              'Số tiền',
+              '-${currencyFormat.format(amount)}',
+              valueColor: AppColors.danger,
+            ),
+            _buildDetailRow('Mô tả', description),
+            // Proof Image Section
+            const SizedBox(height: 16),
+            const Text(
+              'Hình ảnh minh chứng',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (imageUrl != null && imageUrl.toString().isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Không thể tải hình ảnh',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Không có minh chứng',
+                    style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
           ),
-        );
-      },
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

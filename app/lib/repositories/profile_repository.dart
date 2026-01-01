@@ -1,15 +1,14 @@
 import 'package:dio/dio.dart';
 import '../models/profile.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 class ProfileRepository {
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
   late final Dio _dio;
 
   ProfileRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   Future<Profile?> fetchUserProfile(String token) async {

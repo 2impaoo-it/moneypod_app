@@ -285,14 +285,26 @@ class _NotificationItem extends StatelessWidget {
         trailing: !notification.isRead
             ? const Icon(Icons.circle, size: 12, color: Colors.blue)
             : null,
-        onTap: () {
+        onTap: () async {
+          // Mark as read
           if (!notification.isRead) {
             context.read<NotificationBloc>().add(
               NotificationMarkAsRead(token, notification.id),
             );
           }
-          // TODO: Navigate based on notification type and data
-          _handleNotificationTap(context, notification);
+
+          // Pop notification screen first to avoid navigation conflict
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+
+          // Small delay to ensure pop animation completes
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          // Then navigate based on notification type
+          if (context.mounted) {
+            _handleNotificationTap(context, notification);
+          }
         },
       ),
     );

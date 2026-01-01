@@ -3,17 +3,16 @@ import 'package:dio/dio.dart';
 import '../models/transaction.dart' as model;
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 /// Repository cho quản lý giao dịch
 class TransactionRepository {
   final AuthService _authService = AuthService();
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
   late final Dio _dio;
 
   TransactionRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   /// Tạo giao dịch mới
@@ -115,14 +114,26 @@ class TransactionRepository {
 
       final List<dynamic> transactionsJson = response.data['data'] ?? [];
 
-      // Convert JSON to List<Transaction>
+      // Debug: In ra JSON để kiểm tra
+      if (transactionsJson.isNotEmpty) {
+        print('📝 [TransactionRepo] Sample JSON: ${transactionsJson.first}');
+      }
+
+      // Convert JSON to List<Transaction> - sử dụng Transaction.fromJson()
       final List<model.Transaction> transactions = transactionsJson
-          .map((json) => _transactionFromJson(json as Map<String, dynamic>))
+          .map(
+            (json) => model.Transaction.fromJson(json as Map<String, dynamic>),
+          )
           .toList();
 
       print(
         '✅ [TransactionRepo] Lấy ${transactions.length} giao dịch thành công!',
       );
+      if (transactions.isNotEmpty) {
+        print(
+          '👤 [TransactionRepo] User: ${transactions.first.userName}, Avatar: ${transactions.first.userAvatar}',
+        );
+      }
       return transactions;
     } on DioException catch (e) {
       if (e.error is SocketException) {
@@ -140,26 +151,105 @@ class TransactionRepository {
     }
   }
 
-  /// Helper: Convert JSON từ server sang Transaction model
-  model.Transaction _transactionFromJson(Map<String, dynamic> json) {
-    return model.Transaction(
-      id: json['ID']?.toString() ?? '',
-      title: json['note'] ?? '', // Dùng note làm title
-      category: json['category'] ?? 'Khác',
-      amount: _parseDouble(json['amount'] ?? 0),
-      date: json['date'] != null
-          ? DateTime.parse(json['date'])
-          : DateTime.now(),
-      isExpense: json['type'] == 'expense',
-      hashtag: json['category'],
-    );
+  /// Cập nhật giao dịch
+  ///
+  /// Parameters:
+  /// - [transactionId]: ID của giao dịch cần cập nhật
+  /// - [amount]: Số tiền mới (optional)
+  /// - [category]: Thể loại mới (optional)
+  /// - [type]: Loại giao dịch mới "income" hoặc "expense" (optional)
+  /// - [note]: Ghi chú mới (optional)
+  Future<void> updateTransaction({
+    required String transactionId,
+    double? amount,
+    String? category,
+    String? type,
+    String? note,
+  }) async {
+    try {
+      print('🔵 [TransactionRepo] Cập nhật giao dịch: id=$transactionId');
+
+      final token = await _authService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
+      }
+
+      // Build request body - chỉ gửi các field được cập nhật
+      final requestBody = <String, dynamic>{};
+      if (amount != null) requestBody['amount'] = amount;
+      if (category != null) requestBody['category'] = category;
+      if (type != null) requestBody['type'] = type;
+      if (note != null) requestBody['note'] = note;
+
+      print('📦 [TransactionRepo] Request body: $requestBody');
+
+      final response = await _dio.put(
+        '/transactions/$transactionId',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      print('📡 [TransactionRepo] Status: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        throw Exception(
+          response.data['error'] ?? 'Không thể cập nhật giao dịch',
+        );
+      }
+
+      print('✅ [TransactionRepo] Cập nhật giao dịch thành công!');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [TransactionRepo] DioException: $e');
+      throw Exception(
+        e.response?.data['error'] ?? 'Không thể cập nhật giao dịch',
+      );
+    } catch (e) {
+      print('❌ [TransactionRepo] Exception: $e');
+      rethrow;
+    }
   }
 
-  /// Helper: Parse double từ dynamic
-  static double _parseDouble(dynamic value) {
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0.0;
-    return 0.0;
+  /// Xóa giao dịch
+  ///
+  /// Parameters:
+  /// - [transactionId]: ID của giao dịch cần xóa
+  Future<void> deleteTransaction(String transactionId) async {
+    try {
+      print('🔵 [TransactionRepo] Xóa giao dịch: id=$transactionId');
+
+      final token = await _authService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
+      }
+
+      final response = await _dio.delete(
+        '/transactions/$transactionId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      print('📡 [TransactionRepo] Status: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Không thể xóa giao dịch');
+      }
+
+      print('✅ [TransactionRepo] Xóa giao dịch thành công!');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [TransactionRepo] DioException: $e');
+      throw Exception(e.response?.data['error'] ?? 'Không thể xóa giao dịch');
+    } catch (e) {
+      print('❌ [TransactionRepo] Exception: $e');
+      rethrow;
+    }
   }
 }

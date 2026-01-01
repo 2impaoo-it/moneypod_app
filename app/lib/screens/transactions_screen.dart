@@ -259,92 +259,112 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       decimalDigits: 0,
     );
     final amount = tx.amount;
-    // Sử dụng tx.isExpense thay vì amount < 0 vì API trả về số dương và field type
     final isExpense = tx.isExpense;
-
-    // Mapping style based on category
     final style = _getCategoryStyle(tx.category);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        // Có thể thêm shadow nhẹ nếu muốn nổi khối hơn
-      ),
-      child: Row(
-        children: [
-          // a) Category Icon Circle
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: style.bgColor,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Icon(style.icon, color: style.iconColor, size: 20),
-          ),
-
-          const SizedBox(width: 12),
-
-          // b) Content Column
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      tx.hashtag ?? '',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.primaryDark, // teal-600
-                        fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: () => _showTransactionDetail(tx),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // User Avatar hoặc Category Icon
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: style.bgColor,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: tx.userAvatar != null && tx.userAvatar!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Image.network(
+                        tx.userAvatar!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(style.icon, color: style.iconColor, size: 20),
                       ),
+                    )
+                  : Icon(style.icon, color: style.iconColor, size: 20),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Content Column
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tên ví
+                  Text(
+                    tx.walletName ?? 'Ví chưa xác định',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        "•",
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                  ),
+                  const SizedBox(height: 2),
+                  // Tiêu đề giao dịch
+                  Text(
+                    tx.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        tx.hashtag ?? '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    Text(
-                      DateFormat('HH:mm').format(tx.date),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          "•",
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        DateFormat('HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // c) Amount Column
-          Text(
-            "${isExpense ? '-' : '+'}${currencyFormat.format(amount.abs())}",
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: isExpense ? AppColors.danger : AppColors.success,
+            // Amount Column
+            Text(
+              "${isExpense ? '-' : '+'}${currencyFormat.format(amount.abs())}",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isExpense ? AppColors.danger : AppColors.success,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -439,6 +459,168 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       bgColor: const Color(0xFFF3F4F6), // gray-100
       iconColor: const Color(0xFF4B5563), // gray-600
       icon: LucideIcons.moreHorizontal,
+    );
+  }
+
+  // Hiển thị chi tiết transaction
+  void _showTransactionDetail(Transaction tx) {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
+    final isExpense = tx.isExpense;
+    final style = _getCategoryStyle(tx.category);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: style.bgColor,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: tx.userAvatar != null && tx.userAvatar!.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: Image.network(
+                            tx.userAvatar!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              style.icon,
+                              color: style.iconColor,
+                              size: 28,
+                            ),
+                          ),
+                        )
+                      : Icon(style.icon, color: style.iconColor, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.userName ?? 'Unknown',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                ),
+              ],
+            ),
+
+            const Divider(height: 32),
+
+            // Transaction Info
+            _buildDetailRow(
+              'Loại giao dịch',
+              isExpense ? 'Chi tiêu' : 'Thu nhập',
+            ),
+            _buildDetailRow('Danh mục', _getCategoryDisplay(tx.category)),
+            _buildDetailRow(
+              'Số tiền',
+              "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
+              valueColor: isExpense ? AppColors.danger : AppColors.success,
+            ),
+            if (tx.hashtag != null && tx.hashtag!.isNotEmpty)
+              _buildDetailRow('Hashtag', tx.hashtag!),
+            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+
+            // Proof Image
+            if (tx.proofImage != null && tx.proofImage!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Hình ảnh minh chứng',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  tx.proofImage!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 150,
+                    color: AppColors.background,
+                    child: const Center(
+                      child: Icon(
+                        LucideIcons.imageOff,
+                        size: 48,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

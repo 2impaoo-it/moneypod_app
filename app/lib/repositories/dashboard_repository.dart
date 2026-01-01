@@ -3,19 +3,16 @@ import 'package:dio/dio.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 /// Repository để lấy dữ liệu dashboard
 class DashboardRepository {
   final AuthService _authService = AuthService();
   late final Dio _dio;
 
-  // URL server backend
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-
   DashboardRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   /// Lấy tất cả dữ liệu dashboard (user, wallets, transactions)

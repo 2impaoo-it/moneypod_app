@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"log"
+
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -27,8 +29,8 @@ func (r *TransactionRepository) CreateWithTx(tx *gorm.DB, transaction *models.Tr
 // 2. Lấy danh sách giao dịch của User (Có thể thêm phân trang sau này)
 func (r *TransactionRepository) GetByUserID(userID uuid.UUID) ([]models.Transaction, error) {
 	var transactions []models.Transaction
-	// Preload Wallet để lấy luôn tên ví nếu cần
-	err := r.db.Preload("Wallet").Where("user_id = ?", userID).Order("date desc").Find(&transactions).Error
+	// Preload User và Wallet để lấy luôn thông tin người dùng và tên ví
+	err := r.db.Preload("User").Preload("Wallet").Where("user_id = ?", userID).Order("date desc").Find(&transactions).Error
 	return transactions, err
 }
 
@@ -74,6 +76,8 @@ func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, walletI
 	var transactions []models.Transaction
 	var total int64
 
+	log.Printf("🔍 Filter params: userID=%s, type=%s, month=%d, year=%d", userID, transactionType, month, year)
+
 	query := r.db.Model(&models.Transaction{}).Where("user_id = ?", userID)
 
 	// Filter by category
@@ -84,20 +88,24 @@ func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, walletI
 	// Filter by type (income/expense)
 	if transactionType != "" {
 		query = query.Where("type = ?", transactionType)
+		log.Printf("📝 Added type filter: %s", transactionType)
 	}
 
 	// Filter by month and year
 	if month > 0 && year > 0 {
 		query = query.Where("EXTRACT(MONTH FROM date) = ? AND EXTRACT(YEAR FROM date) = ?", month, year)
+		log.Printf("📅 Added date filter: month=%d, year=%d", month, year)
 	} else if year > 0 {
 		query = query.Where("EXTRACT(YEAR FROM date) = ?", year)
 	}
 
 	// Count total
 	query.Count(&total)
+	log.Printf("✅ Found %d transactions", total)
 
 	// Get paginated results
-	err := query.Preload("Wallet").
+	err := query.Preload("User").
+		Preload("Wallet").
 		Order("date desc").
 		Offset(offset).
 		Limit(limit).

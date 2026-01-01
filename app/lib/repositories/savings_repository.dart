@@ -2,19 +2,16 @@ import 'package:dio/dio.dart';
 import '../models/savings_goal.dart';
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 /// Repository cho quản lý Savings Goals
 class SavingsRepository {
   final AuthService _authService = AuthService();
   late final Dio _dio;
 
-  // URL server backend
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-
   SavingsRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   /// Format DateTime cho server (RFC3339 với timezone)

@@ -62,11 +62,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Future<Map<String, double>> _fetchMonthlyStats(String type) async {
     try {
       final now = DateTime.now();
+      print('🔍 Fetching $type stats for ${now.month}/${now.year}');
+
       final rawTransactions = await _repository.getTransactionsWithFilter(
         month: now.month,
         year: now.year,
         type: type,
       );
+
+      print('📊 Raw transactions count: ${rawTransactions.length}');
+      print('📝 Sample data: ${rawTransactions.take(2).toList()}');
 
       final Map<String, double> stats = {};
       for (var item in rawTransactions) {
@@ -82,9 +87,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         // Use absolute value for stats (chart needs positive values)
         stats[category] = (stats[category] ?? 0) + amount.abs();
       }
+
+      print('📈 Final stats: $stats');
       return stats;
     } catch (e) {
-      print('Error calculating $type stats: $e');
+      print('❌ Error calculating $type stats: $e');
       return {};
     }
   }

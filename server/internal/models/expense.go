@@ -13,6 +13,8 @@ type Expense struct {
 
 	// Quan hệ: Một hóa đơn sinh ra nhiều khoản nợ
 	Debts []Debt `json:"debts" gorm:"foreignKey:ExpenseID"`
+	// Thông tin người trả
+	Payer User `json:"payer" gorm:"foreignKey:PayerID"`
 }
 
 // Debt: Lưu ai nợ ai - Kết quả sau khi chia

@@ -1,5 +1,4 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../models/transaction.dart';
 import '../../repositories/transaction_repository.dart';
 import 'transaction_event.dart';
 import 'transaction_state.dart';
@@ -23,8 +22,19 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final transactions = await _repository.getTransactions(
         walletId: event.walletId,
       );
+
+      // Debug log
+      print('🔍 [TransactionBloc] Loaded ${transactions.length} transactions');
+      if (transactions.isNotEmpty) {
+        print('🔍 [TransactionBloc] First transaction:');
+        print('   - User: ${transactions.first.userName}');
+        print('   - Avatar: ${transactions.first.userAvatar}');
+        print('   - Proof: ${transactions.first.proofImage}');
+      }
+
       emit(TransactionLoaded(transactions));
     } catch (e) {
+      print('❌ [TransactionBloc] Error: $e');
       emit(TransactionError(e.toString()));
     }
   }
@@ -33,11 +43,24 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     TransactionAddRequested event,
     Emitter<TransactionState> emit,
   ) async {
-    if (state is TransactionLoaded) {
-      final current = (state as TransactionLoaded).transactions;
-      final updated = List<Transaction>.from(current)..add(event.transaction);
+    try {
+      emit(TransactionLoading());
+
+      // Gọi API để tạo transaction trên server
+      await _repository.createTransaction(
+        walletId: event.transaction.walletId ?? '',
+        amount: event.transaction.amount,
+        category: event.transaction.category,
+        type: event.transaction.isExpense ? 'expense' : 'income',
+        note: event.transaction.title,
+      );
+
+      // Reload danh sách từ server để đảm bảo đồng bộ
+      final transactions = await _repository.getTransactions();
+      emit(TransactionLoaded(transactions));
       emit(TransactionOperationSuccess('Đã thêm giao dịch'));
-      emit(TransactionLoaded(updated));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
@@ -45,17 +68,24 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     TransactionUpdateRequested event,
     Emitter<TransactionState> emit,
   ) async {
-    if (state is TransactionLoaded) {
-      final current = (state as TransactionLoaded).transactions;
-      final index = current.indexWhere((t) => t.id == event.transaction.id);
-      if (index != -1) {
-        final updated = List<Transaction>.from(current);
-        updated[index] = event.transaction;
-        emit(TransactionOperationSuccess('Đã cập nhật giao dịch'));
-        emit(TransactionLoaded(updated));
-      } else {
-        emit(const TransactionError('Không tìm thấy giao dịch'));
-      }
+    try {
+      emit(TransactionLoading());
+
+      // Gọi API để update transaction trên server
+      await _repository.updateTransaction(
+        transactionId: event.transaction.id,
+        amount: event.transaction.amount,
+        category: event.transaction.category,
+        type: event.transaction.isExpense ? 'expense' : 'income',
+        note: event.transaction.title,
+      );
+
+      // Reload danh sách từ server
+      final transactions = await _repository.getTransactions();
+      emit(TransactionLoaded(transactions));
+      emit(TransactionOperationSuccess('Đã cập nhật giao dịch'));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
@@ -63,12 +93,18 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     TransactionDeleteRequested event,
     Emitter<TransactionState> emit,
   ) async {
-    if (state is TransactionLoaded) {
-      final current = (state as TransactionLoaded).transactions;
-      final updated = List<Transaction>.from(current)
-        ..removeWhere((t) => t.id == event.transactionId);
+    try {
+      emit(TransactionLoading());
+
+      // Gọi API để xóa transaction trên server
+      await _repository.deleteTransaction(event.transactionId);
+
+      // Reload danh sách từ server
+      final transactions = await _repository.getTransactions();
+      emit(TransactionLoaded(transactions));
       emit(TransactionOperationSuccess('Đã xóa giao dịch'));
-      emit(TransactionLoaded(updated));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 }

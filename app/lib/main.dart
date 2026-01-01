@@ -51,6 +51,7 @@ import 'screens/bill_scan_screen.dart';
 
 import 'screens/wallet_list_screen.dart';
 import 'models/savings_goal.dart'; // Added import
+import 'config/app_config.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -82,6 +83,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Print config để debug
+  AppConfig.printConfig();
 
   // Initialize FCM
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);

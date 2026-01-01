@@ -48,7 +48,6 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
 
   final WalletRepository _walletRepository = WalletRepository();
   List<Wallet> _wallets = [];
-  bool _walletsLoading = false;
 
   final SavingsRepository _savingsRepository = SavingsRepository();
   List<SavingsTransaction> _transactions = [];
@@ -80,15 +79,12 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
   }
 
   Future<void> _loadWallets() async {
-    setState(() => _walletsLoading = true);
     try {
       final wallets = await _walletRepository.getWallets();
       setState(() {
         _wallets = wallets;
-        _walletsLoading = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _walletsLoading = false);
       print('❌ Lỗi load wallets: $e');
     }
   }
@@ -919,33 +915,6 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
             body: const Center(child: CircularProgressIndicator()),
           );
         }
-
-        // Calculate values
-        final progress = goal.targetAmount > 0
-            ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0)
-            : 0.0;
-        final remaining = goal.targetAmount - goal.currentAmount;
-        final daysLeft = goal.deadline?.difference(DateTime.now()).inDays ?? 0;
-
-        String timeText = '0 ngày';
-        if (goal.deadline != null) {
-          final now = DateTime.now();
-          final difference = goal.deadline!.difference(now);
-          if (difference.isNegative) {
-            timeText = 'Đã quá hạn';
-          } else if (difference.inDays > 0) {
-            timeText = '${difference.inDays} ngày';
-          } else {
-            final hours = difference.inHours;
-            final minutes = difference.inMinutes % 60;
-            final seconds = difference.inSeconds % 60;
-            timeText = '$hours giờ $minutes phút $seconds giây';
-          }
-        }
-
-        final themeColor = _getThemeColor(goal.color);
-        final themeGradient = _getThemeGradient(goal.color);
-        final themeIcon = _getThemeIcon(goal.icon);
 
         return PopScope(
           canPop: false,

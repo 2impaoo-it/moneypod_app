@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../models/notification.dart';
 
 class NotificationHandler {
@@ -24,6 +25,7 @@ class NotificationHandler {
       case 'expense_deleted':
         _handleTransaction(context, data);
         break;
+      case 'debt_reminder':
       case 'group_expense':
       case 'group_member_added':
       case 'group_member_removed':
@@ -58,28 +60,16 @@ class NotificationHandler {
     BuildContext context,
     Map<String, dynamic> data,
   ) {
-    final walletId = data['wallet_id'];
-    if (walletId != null) {
-      // Navigate to wallet detail or wallet list
-      Navigator.pushNamed(context, '/wallets');
-    } else {
-      // If no wallet_id, just go to wallet list
-      Navigator.pushNamed(context, '/wallets');
-    }
+    // Navigate to wallet list
+    context.push('/wallet-list');
   }
 
   static void _handleTransaction(
     BuildContext context,
     Map<String, dynamic> data,
   ) {
-    final transactionId = data['transaction_id'];
-    if (transactionId != null) {
-      // Navigate to transaction detail if screen exists
-      // For now, just go to transaction list
-      Navigator.pushNamed(context, '/transactions');
-    } else {
-      Navigator.pushNamed(context, '/transactions');
-    }
+    // Navigate to transaction list
+    context.go('/transactions');
   }
 
   static void _handleGroupExpense(
@@ -89,10 +79,10 @@ class NotificationHandler {
     final groupId = data['group_id'];
     if (groupId != null) {
       // Navigate to group detail
-      Navigator.pushNamed(context, '/group-detail', arguments: groupId);
+      context.push('/groups/$groupId');
     } else {
       // If no group_id, go to groups list
-      Navigator.pushNamed(context, '/groups');
+      context.go('/groups');
     }
   }
 
@@ -100,29 +90,24 @@ class NotificationHandler {
     final savingsId = data['savings_id'];
     if (savingsId != null) {
       // Navigate to savings detail
-      Navigator.pushNamed(context, '/savings-detail', arguments: savingsId);
+      context.push('/savings-detail', extra: savingsId);
     } else {
-      // If no savings_id, go to savings list
-      Navigator.pushNamed(context, '/savings');
+      // If no savings_id, go to dashboard (savings tab)
+      context.go('/');
     }
   }
 
   static void _handleBudget(BuildContext context, Map<String, dynamic> data) {
-    final budgetId = data['budget_id'];
-    if (budgetId != null) {
-      // Navigate to budget detail if screen exists
-      Navigator.pushNamed(context, '/budgets');
-    } else {
-      Navigator.pushNamed(context, '/budgets');
-    }
+    // Navigate to dashboard or budget screen
+    context.go('/');
   }
 
   static void _handleDailySummary(
     BuildContext context,
     Map<String, dynamic> data,
   ) {
-    // Navigate to transaction list or dashboard
-    Navigator.pushNamed(context, '/transactions');
+    // Navigate to transaction list
+    context.go('/transactions');
   }
 
   static void _handleSystemNotification(
@@ -190,25 +175,26 @@ class NotificationHandler {
     final type = data['type'];
     if (type == null) return;
 
-    // Navigate based on type
+    // Navigate based on type using GoRouter
     switch (type) {
       case 'low_balance':
-        Navigator.pushNamed(context, '/wallets');
+        context.push('/wallet-list');
         break;
       case 'transaction_created':
       case 'expense_updated':
       case 'expense_deleted':
-        Navigator.pushNamed(context, '/transactions');
+        context.go('/transactions');
         break;
+      case 'debt_reminder':
       case 'group_expense':
       case 'group_member_added':
       case 'group_member_removed':
       case 'group_deleted':
         final groupId = data['group_id'];
         if (groupId != null) {
-          Navigator.pushNamed(context, '/group-detail', arguments: groupId);
+          context.push('/groups/$groupId');
         } else {
-          Navigator.pushNamed(context, '/groups');
+          context.go('/groups');
         }
         break;
       case 'savings_goal_reached':
@@ -216,9 +202,9 @@ class NotificationHandler {
       case 'savings_reminder':
         final savingsId = data['savings_id'];
         if (savingsId != null) {
-          Navigator.pushNamed(context, '/savings-detail', arguments: savingsId);
+          context.push('/savings-detail', extra: savingsId);
         } else {
-          Navigator.pushNamed(context, '/savings');
+          context.go('/');
         }
         break;
       default:

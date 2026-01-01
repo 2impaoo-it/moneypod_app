@@ -368,8 +368,8 @@ func (s *GroupService) GetDebtsToMe(groupID uuid.UUID, userID uuid.UUID) ([]mode
 func (s *GroupService) GetGroupExpenses(groupID uuid.UUID) ([]models.Expense, error) {
 	var expenses []models.Expense
 
-	// Lấy tất cả chi tiêu trong nhóm, bao gồm thông tin nợ
-	err := s.db.Preload("Debts").
+	// Lấy tất cả chi tiêu trong nhóm, bao gồm thông tin nợ và người trả
+	err := s.db.Preload("Debts").Preload("Payer").
 		Where("group_id = ?", groupID).
 		Order("created_at desc").
 		Find(&expenses).Error

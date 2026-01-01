@@ -25,7 +25,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isObscure = true;
-  bool _canCheckBiometrics = false;
   List<Map<String, dynamic>> _savedAccounts = [];
   bool _showLoginForm = true;
 
@@ -37,12 +36,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkBiometrics() async {
-    final isAvailable = await BiometricService().isBiometricAvailable();
-    if (mounted) {
-      setState(() {
-        _canCheckBiometrics = isAvailable;
-      });
-    }
+    await BiometricService().isBiometricAvailable();
+    // Biometric check completed
   }
 
   Future<void> _loadSavedAccounts() async {

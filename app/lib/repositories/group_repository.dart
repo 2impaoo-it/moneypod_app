@@ -1,22 +1,18 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 
-import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
+import '../config/app_config.dart';
 
 /// Repository cho quản lý Quỹ nhóm (Groups)
 class GroupRepository {
   final AuthService _authService = AuthService();
   late final Dio _dio;
 
-  // URL server backend
-  static const String _baseUrl =
-      'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-
   GroupRepository() {
     _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = _baseUrl;
+    _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
   /// Tạo quỹ nhóm mới

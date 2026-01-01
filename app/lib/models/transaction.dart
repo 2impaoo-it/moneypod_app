@@ -8,6 +8,11 @@ class Transaction extends Equatable {
   final DateTime date;
   final bool isExpense;
   final String? hashtag;
+  final String? walletId;
+  final String? walletName; // Tên ví
+  final String? userName; // Tên người dùng
+  final String? userAvatar; // Avatar URL
+  final String? proofImage; // Hình ảnh minh chứng
 
   const Transaction({
     required this.id,
@@ -17,6 +22,11 @@ class Transaction extends Equatable {
     required this.date,
     required this.isExpense,
     this.hashtag,
+    this.walletId,
+    this.walletName,
+    this.userName,
+    this.userAvatar,
+    this.proofImage,
   });
 
   @override
@@ -28,6 +38,11 @@ class Transaction extends Equatable {
     date,
     isExpense,
     hashtag,
+    walletId,
+    walletName,
+    userName,
+    userAvatar,
+    proofImage,
   ];
 
   Transaction copyWith({
@@ -38,6 +53,11 @@ class Transaction extends Equatable {
     DateTime? date,
     bool? isExpense,
     String? hashtag,
+    String? walletId,
+    String? walletName,
+    String? userName,
+    String? userAvatar,
+    String? proofImage,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -47,6 +67,11 @@ class Transaction extends Equatable {
       date: date ?? this.date,
       isExpense: isExpense ?? this.isExpense,
       hashtag: hashtag ?? this.hashtag,
+      walletId: walletId ?? this.walletId,
+      walletName: walletName ?? this.walletName,
+      userName: userName ?? this.userName,
+      userAvatar: userAvatar ?? this.userAvatar,
+      proofImage: proofImage ?? this.proofImage,
     );
   }
 
@@ -59,11 +84,20 @@ class Transaction extends Equatable {
       'date': date.toIso8601String(),
       'is_expense': isExpense,
       'hashtag': hashtag,
+      'wallet_id': walletId,
+      'wallet_name': walletName,
+      'user_name': userName,
+      'user_avatar': userAvatar,
+      'proof_image': proofImage,
     };
   }
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     // Support both backend and local keys
+    // Parse user info from nested 'user' object
+    final userObj = json['user'] as Map<String, dynamic>?;
+    final walletObj = json['wallet'] as Map<String, dynamic>?;
+
     return Transaction(
       id: json['id']?.toString() ?? json['ID']?.toString() ?? '',
       title: json['title'] ?? json['note'] ?? '',
@@ -76,6 +110,11 @@ class Transaction extends Equatable {
           : DateTime.now(),
       isExpense: json['is_expense'] ?? json['type'] == 'expense',
       hashtag: json['hashtag'] ?? json['category'],
+      walletId: json['wallet_id']?.toString(),
+      walletName: walletObj?['name'] as String?,
+      userName: userObj?['full_name'] as String?,
+      userAvatar: userObj?['avatar_url'] as String?,
+      proofImage: json['proof_image'] as String?,
     );
   }
 }
