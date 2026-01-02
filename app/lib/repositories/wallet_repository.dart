@@ -184,4 +184,55 @@ class WalletRepository {
       throw Exception('Lỗi khi xóa ví: $e');
     }
   }
+
+  /// Chuyển tiền giữa các ví
+  Future<void> transferBetweenWallets({
+    required String fromWalletId,
+    required String toWalletId,
+    required double amount,
+    String? note,
+  }) async {
+    try {
+      print('🔵 [WalletRepo] Bắt đầu chuyển tiền...');
+
+      final token = await _authService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
+      }
+
+      final requestBody = {
+        'from_wallet_id': fromWalletId,
+        'to_wallet_id': toWalletId,
+        'amount': amount,
+        if (note != null && note.isNotEmpty) 'note': note,
+      };
+
+      print('📦 [WalletRepo] Request body: $requestBody');
+
+      final response = await _dio.post(
+        '/wallets/transfer',
+        data: requestBody,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      print('📡 [WalletRepo] Status code: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Không thể chuyển tiền');
+      }
+
+      print('✅ [WalletRepo] Chuyển tiền thành công!');
+    } on DioException catch (e) {
+      if (e.error is SocketException) {
+        throw Exception(
+          'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+        );
+      }
+      print('❌ [WalletRepo] DioException: $e');
+      throw Exception(e.response?.data['error'] ?? 'Lỗi khi chuyển tiền');
+    } catch (e) {
+      print('❌ [WalletRepo] Exception: $e');
+      rethrow;
+    }
+  }
 }

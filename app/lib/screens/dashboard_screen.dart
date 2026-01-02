@@ -11,6 +11,7 @@ import '../bloc/dashboard/dashboard_event.dart';
 import '../bloc/settings/settings_cubit.dart';
 import '../models/transaction.dart' as model;
 import '../widgets/header_widget.dart';
+import '../widgets/insight_widget.dart';
 import '../models/profile.dart';
 import '../utils/popup_notification.dart';
 
@@ -270,6 +271,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             context,
                             LucideIcons.arrowRightLeft,
                             "Chuyển tiền",
+                            onTap: () async {
+                              final result = await context.push(
+                                '/transfer-money',
+                              );
+                              if (result == true && context.mounted) {
+                                context.read<DashboardBloc>().add(
+                                  DashboardRefreshRequested(),
+                                );
+                              }
+                            },
                           ),
                           _buildQuickAction(
                             context,
@@ -295,63 +306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 24),
 
                       // --- AI INSIGHT CARD ---
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: const Border(
-                            left: BorderSide(
-                              color: AppColors.warning,
-                              width: 4,
-                            ),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.warning.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                LucideIcons.sparkles,
-                                color: AppColors.warning,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Insight thông minh",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    "Bạn đã chi tiêu 2tr cho cafe tháng này. Giảm bớt để đạt mục tiêu nhé!",
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const InsightWidget(),
                       const SizedBox(height: 24),
 
                       // --- SPENDING CHARTS ---

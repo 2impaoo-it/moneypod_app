@@ -12,10 +12,15 @@ class PopupNotification {
     await _showDialog(context, message, isError: true);
   }
 
+  static Future<void> showWarning(BuildContext context, String message) async {
+    await _showDialog(context, message, isError: true, isWarning: true);
+  }
+
   static Future<void> _showDialog(
     BuildContext context,
     String message, {
     required bool isError,
+    bool isWarning = false,
   }) async {
     await showDialog(
       context: context,
@@ -46,22 +51,28 @@ class PopupNotification {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isError
-                        ? AppColors.danger.withOpacity(0.1)
-                        : AppColors.success.withOpacity(0.1),
+                    color: isWarning
+                        ? AppColors.warning.withOpacity(0.1)
+                        : (isError
+                              ? AppColors.danger.withOpacity(0.1)
+                              : AppColors.success.withOpacity(0.1)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    isError
-                        ? LucideIcons.alertCircle
-                        : LucideIcons.checkCircle2,
+                    isWarning
+                        ? LucideIcons.alertTriangle
+                        : (isError
+                              ? LucideIcons.alertCircle
+                              : LucideIcons.checkCircle2),
                     size: 48,
-                    color: isError ? AppColors.danger : AppColors.success,
+                    color: isWarning
+                        ? AppColors.warning
+                        : (isError ? AppColors.danger : AppColors.success),
                   ),
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  isError ? "Lỗi" : "Thành công",
+                  isWarning ? "Cảnh báo" : (isError ? "Lỗi" : "Thành công"),
                   style: GoogleFonts.inter(
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
@@ -85,9 +96,9 @@ class PopupNotification {
                       Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isError
-                          ? AppColors.danger
-                          : AppColors.primary,
+                      backgroundColor: isWarning
+                          ? AppColors.warning
+                          : (isError ? AppColors.danger : AppColors.primary),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(

@@ -78,7 +78,11 @@ class DioClient {
           // Handle server error (500+)
           if (error.response?.statusCode != null &&
               error.response!.statusCode! >= 500) {
-            if (navContext != null && navContext.mounted) {
+            // Không hiển thị dialog lỗi cho insights API
+            final uri = error.requestOptions.uri.toString();
+            final isInsightApi = uri.contains('/insights/');
+
+            if (!isInsightApi && navContext != null && navContext.mounted) {
               _showServerErrorDialog(navContext);
             }
           }

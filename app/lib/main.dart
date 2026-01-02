@@ -48,6 +48,7 @@ import 'widgets/profile_widget.dart';
 import 'screens/add_expense_screen.dart';
 import 'screens/create_wallet_screen.dart';
 import 'screens/bill_scan_screen.dart';
+import 'screens/transfer_money_screen.dart';
 
 import 'screens/wallet_list_screen.dart';
 import 'models/savings_goal.dart'; // Added import
@@ -163,6 +164,11 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           parentNavigatorKey: rootNavigatorKey,
           path: '/wallet-list',
           builder: (context, state) => const WalletListScreen(),
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/transfer-money',
+          builder: (context, state) => const TransferMoneyScreen(),
         ),
         GoRoute(
           parentNavigatorKey: rootNavigatorKey,

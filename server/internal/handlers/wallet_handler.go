@@ -127,3 +127,50 @@ func (h *WalletHandler) DeleteWallet(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Xóa ví thành công!"})
 }
+
+type TransferRequest struct {
+	FromWalletID string  `json:"from_wallet_id" binding:"required"`
+	ToWalletID   string  `json:"to_wallet_id" binding:"required"`
+	Amount       float64 `json:"amount" binding:"required,gt=0"`
+	Note         string  `json:"note"`
+}
+
+// TransferBetweenWallets - Handler chuyển tiền giữa các ví
+func (h *WalletHandler) TransferBetweenWallets(c *gin.Context) {
+	// 1. Lấy UserID từ token
+	idVal, _ := c.Get("userID")
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token ID không hợp lệ"})
+		return
+	}
+
+	// 2. Parse request body
+	var req TransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 3. Parse UUID
+	fromWalletID, err := uuid.Parse(req.FromWalletID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID ví nguồn không hợp lệ"})
+		return
+	}
+
+	toWalletID, err := uuid.Parse(req.ToWalletID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID ví đích không hợp lệ"})
+		return
+	}
+
+	// 4. Gọi service để chuyển tiền
+	err = h.walletService.TransferBetweenWallets(userID, fromWalletID, toWalletID, req.Amount, req.Note)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Chuyển tiền thành công!"})
+}

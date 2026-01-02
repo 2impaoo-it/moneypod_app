@@ -49,6 +49,21 @@ func main() {
 		log.Fatal("❌ Lỗi khởi tạo Gemini AI:", err)
 	}
 
+	// ✅ Insight Service (sử dụng Gemini)
+	var insightService *services.InsightService
+	if config.AppConfig.GeminiAPIKey != "" {
+		insightService, err = services.NewInsightService(db.DB, config.AppConfig.GeminiAPIKey)
+		if err != nil {
+			log.Println("⚠️ Cảnh báo: Không thể khởi tạo Insight Service:", err)
+			log.Println("   Tính năng Insight sẽ không khả dụng.")
+			insightService = nil
+		} else {
+			log.Println("✅ Đã khởi tạo Insight Service!")
+		}
+	} else {
+		log.Println("⚠️ Cảnh báo: Không có GEMINI_API_KEY - Tính năng Insight sẽ không khả dụng.")
+	}
+
 	// ✅ Email Service với SMTP
 	emailConfig := services.SMTPConfig{
 		Host:     config.AppConfig.SMTPHost,
@@ -84,6 +99,7 @@ func main() {
 	notifHandler := handlers.NewNotificationHandler(notifRepo)
 
 	receiptHandler := handlers.NewReceiptHandler(receiptService)
+	insightHandler := handlers.NewInsightHandler(insightService)
 	authHandler := handlers.NewAuthHandler(authService)
 	walletHandler := handlers.NewWalletHandler(walletService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
@@ -161,8 +177,9 @@ func main() {
 		// Ví
 		protected.POST("/wallets", walletHandler.CreateWallet)
 		protected.GET("/wallets", walletHandler.GetList)
-		protected.PUT("/wallets/:id", walletHandler.UpdateWallet)    // Cập nhật ví
-		protected.DELETE("/wallets/:id", walletHandler.DeleteWallet) // Xóa ví
+		protected.PUT("/wallets/:id", walletHandler.UpdateWallet)                 // Cập nhật ví
+		protected.DELETE("/wallets/:id", walletHandler.DeleteWallet)              // Xóa ví
+		protected.POST("/wallets/transfer", walletHandler.TransferBetweenWallets) // Chuyển tiền giữa các ví
 
 		// Giao dịch
 		protected.POST("/transactions", transHandler.Create)
@@ -198,6 +215,9 @@ func main() {
 
 		// AI & Upload
 		protected.POST("/scan-receipt", receiptHandler.Scan)
+
+		// Insight thông minh
+		protected.GET("/insights/monthly", insightHandler.GetMonthlyInsight)
 
 		// Route Upload ảnh
 		protected.POST("/upload", uploadHandler.UploadImage)
