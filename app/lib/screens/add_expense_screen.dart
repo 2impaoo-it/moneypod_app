@@ -256,13 +256,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         imageUrl = await _groupRepo.uploadImage(_selectedImages.first);
       }
 
-      List<Map<String, dynamic>>? splitDetails;
-      if (!_isSplitEqually) {
-        splitDetails = [];
+      List<Map<String, dynamic>>? splitDetails = [];
+      if (_isSplitEqually) {
+        if (_groupMembers.isNotEmpty) {
+          final share = amount / _groupMembers.length;
+          for (var member in _groupMembers) {
+            final user = member['user'] ?? {};
+            final userId =
+                user['id'] ?? member['user_id'] ?? member['id'] ?? '';
+            if (userId.toString().isNotEmpty) {
+              splitDetails.add({'user_id': userId, 'amount': share});
+            }
+          }
+        }
+      } else {
+        // Chia cụ thể (Existing logic)
         double totalSplit = 0;
         for (var member in _groupMembers) {
           final user = member['user'] ?? {};
-          final userId = user['id'] ?? member['id'] ?? '';
+          final userId = user['id'] ?? member['user_id'] ?? member['id'] ?? '';
           final controller = _splitControllers[userId.toString()];
           if (userId.toString().isNotEmpty && controller != null) {
             final val = parseCurrency(controller.text) ?? 0;
@@ -290,7 +302,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         groupId: _selectedGroupId!,
         amount: amount,
         description: description,
-        payerId: _selectedPayerId ?? _currentUserId,
+        payerId:
+            _selectedPayerId ?? _currentUserId, // Updated to use selected payer
         imageUrl: imageUrl,
         splitDetails: splitDetails,
       );
@@ -356,6 +369,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       FilteringTextInputFormatter.digitsOnly,
                       CurrencyInputFormatter(),
                     ],
+                    onChanged: (value) =>
+                        setState(() {}), // Refresh for summary
                     style: const TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
@@ -427,7 +442,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     onChanged: (val) {
                       setState(() {
                         _selectedGroupId = val;
-                        // Reset Payer to current user
+                        // Reset Payer to current user (default)
+                        // Will be updated when members load if current user is in list
                         if (_currentUserId != null) {
                           _selectedPayerId = _currentUserId;
                         }
@@ -443,7 +459,52 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 ),
               ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
+
+            // Payer Selector (Only show if group selected)
+            if (_selectedGroupId != null && _groupMembers.isNotEmpty) ...[
+              const Text(
+                "Người trả tiền",
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedPayerId,
+                    isExpanded: true,
+                    hint: const Text("Chọn người trả"),
+                    items: _groupMembers.map((member) {
+                      final user = member['user'] ?? {};
+                      final userId =
+                          user['id'] ?? member['user_id'] ?? member['id'] ?? '';
+                      final name =
+                          user['full_name'] ??
+                          user['name'] ??
+                          member['email'] ??
+                          'Thành viên';
+                      final isMe = userId == _currentUserId;
+                      return DropdownMenuItem<String>(
+                        value: userId.toString(),
+                        child: Text(isMe ? 'Tôi ($name)' : name),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedPayerId = val;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // Info Text
             if (_selectedGroupId != null) ...[
               const Text(
@@ -514,84 +575,65 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   );
                 }),
                 const Divider(),
-              ] else
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.blue.shade700,
+              ] else ...[
+                Builder(
+                  builder: (context) {
+                    final amount =
+                        parseCurrency(_amountController.text.trim()) ?? 0;
+                    final memberCount = _groupMembers.length;
+                    final share = memberCount > 0
+                        ? (amount / memberCount)
+                        : 0.0;
+
+                    String payerName = 'Ai đó';
+                    if (_selectedPayerId != null) {
+                      final payer = _groupMembers.firstWhere(
+                        (m) =>
+                            (m['user']?['id'] ?? m['user_id'] ?? m['id'])
+                                .toString() ==
+                            _selectedPayerId,
+                        orElse: () => null,
+                      );
+                      if (payer != null) {
+                        final u = payer['user'] ?? {};
+                        payerName = u['full_name'] ?? u['name'] ?? 'Thành viên';
+                        if (_selectedPayerId == _currentUserId) {
+                          payerName = 'Bạn';
+                        }
+                      }
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Chia đều cho tất cả thành viên trong nhóm.",
-                          style: TextStyle(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
                             color: Colors.blue.shade700,
-                            fontSize: 13,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "$payerName đã trả, mỗi người đóng ${formatCurrency(share)}.",
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 24),
-            ],
-
-            // Payer Selector (Multi-Payer)
-            const Text(
-              "Người trả",
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  // Updated: check if value exists in list or defaults
-                  value:
-                      _groupMembers.any((m) {
-                        final u = m['user'] ?? {};
-                        final uid = u['id'] ?? m['id'] ?? '';
-                        return uid.toString() == _selectedPayerId;
-                      })
-                      ? _selectedPayerId
-                      : null,
-                  isExpanded: true,
-                  hint: const Text("Chọn người trả"),
-                  icon: const Icon(Icons.person),
-                  items: _groupMembers.map((m) {
-                    final user = m['user'] ?? {};
-                    final userId = user['id'] ?? m['id'] ?? ''; // Fallback
-                    final userName =
-                        user['full_name'] ??
-                        user['name'] ??
-                        m['email'] ??
-                        'Thành viên';
-
-                    return DropdownMenuItem<String>(
-                      value: userId.toString(),
-                      child: Text(userName),
                     );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() => _selectedPayerId = val);
                   },
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
+              ],
+              const SizedBox(height: 24),
+            ],
 
             // Multi-Image Picker & Analyze
             Row(

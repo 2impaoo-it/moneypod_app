@@ -82,10 +82,15 @@ class TransactionRepository {
   }
 
   /// Lấy danh sách giao dịch của user
-  Future<List<model.Transaction>> getTransactions({String? walletId}) async {
+  Future<List<model.Transaction>> getTransactions({
+    String? walletId,
+    int? month,
+    int? year,
+    int? limit,
+  }) async {
     try {
       print(
-        '🔵 [TransactionRepo] Lấy danh sách giao dịch... walletId=$walletId',
+        '🔵 [TransactionRepo] Lấy danh sách giao dịch... walletId=$walletId, month=$month, year=$year, limit=$limit',
       );
 
       final token = await _authService.getToken();
@@ -97,6 +102,9 @@ class TransactionRepository {
       if (walletId != null && walletId.isNotEmpty) {
         queryParams['wallet_id'] = walletId;
       }
+      if (month != null) queryParams['month'] = month;
+      if (year != null) queryParams['year'] = year;
+      if (limit != null) queryParams['page_size'] = limit;
 
       final response = await _dio.get(
         '/transactions',

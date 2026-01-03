@@ -61,14 +61,22 @@ func (s *NotificationService) SendMulticastNotification(tokens []string, title, 
 		Tokens: tokens,
 	}
 
-	// Gửi đi
-	br, err := s.client.SendMulticast(context.Background(), message)
+	// Gửi đi bằng SendEachForMulticast (Thay thế cho SendMulticast cũ dùng batch endpoint đã bị tắt)
+	br, err := s.client.SendEachForMulticast(context.Background(), message)
 	if err != nil {
-		log.Println("❌ Lỗi gửi thông báo FCM:", err)
+		log.Println("❌ Lỗi gửi thông báo FCM (Multicast):", err)
 		return
 	}
 
-	log.Printf("✅ FCM: Gửi thành công %d, Thất bại %d\n", br.SuccessCount, br.FailureCount)
+	log.Printf("✅ FCM Multicast: Gửi %d, Thành công %d, Thất bại %d\n", len(tokens), br.SuccessCount, br.FailureCount)
+
+	if br.FailureCount > 0 {
+		for _, resp := range br.Responses {
+			if !resp.Success {
+				log.Println("⚠️ Lỗi gửi chi tiết:", resp.Error)
+			}
+		}
+	}
 }
 
 // Hàm gửi thông báo cho 1 người

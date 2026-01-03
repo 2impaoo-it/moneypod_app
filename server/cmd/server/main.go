@@ -85,6 +85,7 @@ func main() {
 	transService := services.NewTransactionService(db.DB, transRepo, walletRepo, notifService)
 	groupService := services.NewGroupService(db.DB, notifService, userRepo)
 	savingsService := services.NewSavingsService(db.DB, savingsRepo, walletRepo, notifService)
+	budgetService := services.NewBudgetService(db.DB)
 
 	// --- KHỞI ĐỘNG SCHEDULERS ---
 	if notifService != nil {
@@ -106,6 +107,7 @@ func main() {
 	transHandler := handlers.NewTransactionHandler(transService)
 	groupHandler := handlers.NewGroupHandler(groupService)
 	savingsHandler := handlers.NewSavingsHandler(savingsService)
+	budgetHandler := handlers.NewBudgetHandler(budgetService)
 	// --- SETUP ROUTER ---
 	r := gin.Default()
 
@@ -186,6 +188,13 @@ func main() {
 		protected.GET("/transactions", transHandler.GetList)
 		protected.PUT("/transactions/:id", transHandler.UpdateTransaction)    // Sửa giao dịch
 		protected.DELETE("/transactions/:id", transHandler.DeleteTransaction) // Xóa giao dịch
+
+		// Ngân sách
+		protected.POST("/budgets", budgetHandler.Create)
+		protected.GET("/budgets", budgetHandler.GetList)
+		protected.GET("/budgets/:id", budgetHandler.GetByID)
+		protected.PUT("/budgets/:id", budgetHandler.Update)
+		protected.DELETE("/budgets/:id", budgetHandler.Delete)
 
 		// Nhóm & Chi tiêu
 		protected.POST("/groups", groupHandler.Create)

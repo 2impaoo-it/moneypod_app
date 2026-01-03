@@ -8,9 +8,6 @@ import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'add_expense_screen.dart';
-import 'debt_payment_screen.dart';
-import 'confirm_receive_payment_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
@@ -388,26 +385,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         ],
       ),
       // bottomNavigationBar: _buildBottomActionBar(), // Removed per new requirements or kept minimal? Removed for now.
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  AddExpenseScreen(preSelectedGroupId: widget.groupId),
-            ),
-          );
-          if (result == true) {
-            _loadAllData();
-          }
-        },
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          "Thêm chi tiêu",
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
     );
   }
 
@@ -724,19 +701,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       onTap: () async {
         if (isMyDebt) {
           // Tôi nợ người khác - Navigate to debt payment screen
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DebtPaymentScreen(
-                debtId: debtId,
-                creditorName: name,
-                creditorAvatar: avatarUrl,
-                amount: amount.round(),
-                description: note,
-                groupName: groupName,
-                existingProofImageUrl: expenseImageUrl,
-              ),
-            ),
+          print("🚀 Navigating to /full-screen/debt/pay");
+          final result = await context.push(
+            '/full-screen/debt/pay',
+            extra: {
+              'debtId': debtId,
+              'creditorName': name,
+              'creditorAvatar': avatarUrl,
+              'amount': amount.round(),
+              'description': note,
+              'groupName': groupName,
+              'existingProofImageUrl': expenseImageUrl,
+            },
           );
 
           // Refresh if payment was made
@@ -748,21 +724,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           final paymentDate = debt['payment_confirmed_at'] as String?;
           final paymentNote = debt['payment_note'] as String?;
 
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ConfirmReceivePaymentScreen(
-                debtId: debtId,
-                debtorName: name,
-                debtorAvatar: avatarUrl,
-                amount: amount.round(),
-                description: note,
-                groupName: groupName,
-                paymentDate: paymentDate,
-                paymentNote: paymentNote,
-                proofImageUrl: expenseImageUrl,
-              ),
-            ),
+          final result = await context.push(
+            '/full-screen/debt/confirm',
+            extra: {
+              'debtId': debtId,
+              'debtorName': name,
+              'debtorAvatar': avatarUrl,
+              'amount': amount.round(),
+              'description': note,
+              'groupName': groupName,
+              'paymentDate': paymentDate,
+              'paymentNote': paymentNote,
+              'proofImageUrl': expenseImageUrl,
+            },
           );
 
           // Refresh if confirmed
@@ -1035,24 +1009,20 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> tx) {
-    // Debug: Print transaction structure
-    print('🔍 Transaction data: ${tx.keys}');
-    print('📝 Full transaction: $tx');
-
-    // Try multiple possible field names for user data
+    // Basic Info
     final payer = tx['payer'] ?? tx['user'] ?? tx['created_by'];
+    final payerId = payer?['id']?.toString() ?? tx['payer_id']?.toString();
     final payerName =
         payer?['full_name'] ??
         payer?['name'] ??
         payer?['username'] ??
         'Unknown';
     final payerAvatar = payer?['avatar_url'];
-    final amount = (tx['amount'] as num).toDouble();
+    final totalAmount = (tx['amount'] as num).toDouble();
     final description = tx['description'] ?? 'Chi tiêu nhóm';
     final createdAtStr = tx['created_at'];
 
-    print('👤 Payer: $payerName, Avatar: $payerAvatar');
-
+    // Time
     DateTime? createdAt;
     if (createdAtStr != null) {
       try {
@@ -1060,6 +1030,46 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       } catch (e) {
         // ignore
       }
+    }
+
+    // Role Logic
+    final isPayer = payerId == _currentUserId;
+    double myShare = 0.0;
+    bool isInvolved = false;
+
+    if (!isPayer) {
+      // Check if I am in the debts list
+      final debts = tx['debts'] as List<dynamic>? ?? [];
+      final myDebt = debts.firstWhere(
+        (d) => d['from_user_id'] == _currentUserId,
+        orElse: () => null,
+      );
+      if (myDebt != null) {
+        myShare = (myDebt['amount'] as num).toDouble();
+        isInvolved = true;
+      }
+    }
+
+    // Display Logic
+    String amountText;
+    Color amountColor;
+    String statusText;
+
+    if (isPayer) {
+      // I paid the total
+      amountText = '+${currencyFormat.format(totalAmount)}';
+      amountColor = AppColors.teal500;
+      statusText = 'Bạn đã trả';
+    } else if (isInvolved) {
+      // I owe my share
+      amountText = '-${currencyFormat.format(myShare)}';
+      amountColor = AppColors.danger;
+      statusText = 'Bạn nợ';
+    } else {
+      // Not involved
+      amountText = currencyFormat.format(totalAmount);
+      amountColor = AppColors.textSecondary;
+      statusText = '$payerName đã trả';
     }
 
     return InkWell(
@@ -1073,7 +1083,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         ),
         child: Row(
           children: [
-            // Avatar
+            // Avatar (Show Payer's avatar)
             CircleAvatar(
               radius: 22,
               backgroundColor: AppColors.primary.withOpacity(0.1),
@@ -1092,49 +1102,63 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                   : null,
             ),
             const SizedBox(width: 12),
-            // Info
+            // Middle: Description & Time
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    payerName,
+                    description,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (createdAt != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      DateFormat('dd/MM/yyyy HH:mm').format(createdAt),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: amountColor.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                      if (createdAt != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.slate300,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          DateFormat('dd/MM HH:mm').format(createdAt),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
-            // Amount
+            // Right: Amount
             Text(
-              '-${currencyFormat.format(amount)}',
-              style: const TextStyle(
+              amountText,
+              style: TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.danger,
+                fontWeight: FontWeight.bold,
+                color: amountColor,
               ),
             ),
           ],

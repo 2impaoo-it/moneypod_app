@@ -592,10 +592,16 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
         gradientColors = [AppColors.violet500, AppColors.purple600];
     }
 
-    // Tính toán số liệu
-    final double progress = goal.progressPercentage / 100;
-    final double remaining = goal.remainingAmount;
-    final int percentage = goal.progressPercentage.toInt();
+    // Tính toán số liệu - For completed goals, always show 100%
+    final double progress = goal.status == 'COMPLETED'
+        ? 1.0
+        : goal.progressPercentage / 100;
+    final double remaining = goal.status == 'COMPLETED'
+        ? 0.0
+        : goal.remainingAmount;
+    final int percentage = goal.status == 'COMPLETED'
+        ? 100
+        : goal.progressPercentage.toInt();
 
     // Format deadline
     String? deadlineText;
@@ -645,24 +651,67 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            goal.name,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.slate900,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  goal.name,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.slate900,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (goal.status == 'COMPLETED') ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.check,
+                                        color: Colors.white,
+                                        size: 10,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Hoàn thành',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            deadlineText != null
-                                ? "Mục tiêu: $deadlineText"
-                                : "Chưa có deadline",
+                            goal.status == 'COMPLETED'
+                                ? 'Đã đạt mục tiêu!'
+                                : (deadlineText != null
+                                      ? "Mục tiêu: $deadlineText"
+                                      : "Chưa có deadline"),
                             style: TextStyle(
                               fontSize: 12,
-                              color: goal.isOverdue
-                                  ? Colors.red
-                                  : AppColors.slate500,
+                              color: goal.status == 'COMPLETED'
+                                  ? AppColors.success
+                                  : (goal.isOverdue
+                                        ? Colors.red
+                                        : AppColors.slate500),
                             ),
                           ),
                         ],
@@ -1184,10 +1233,15 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
 
   // Dialog Options (3-dot menu)
   void _showOptionsMenu(BuildContext context, SavingsGoal goal) {
+    // Capture parent context and blocs before modal
+    final parentContext = context;
+    final savingsBloc = parentContext.read<SavingsBloc>();
+    final dashboardBloc = parentContext.read<DashboardBloc>();
+
     showModalBottomSheet(
-      context: context,
+      context: parentContext,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (modalContext) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -1205,41 +1259,37 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
               ),
             ),
             const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+            // Only show Edit option if goal is not fully completed (completed + withdrawn)
+            if (!(goal.status == 'COMPLETED' && goal.currentAmount == 0))
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    LucideIcons.edit,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  LucideIcons.edit,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              title: const Text('Chỉnh sửa mục tiêu'),
-              onTap: () async {
-                // Capture the parent context and bloc before popping
-                final parentContext = this.context;
-                final bloc = parentContext.read<SavingsBloc>();
+                title: const Text('Chỉnh sửa mục tiêu'),
+                onTap: () async {
+                  Navigator.pop(modalContext); // Pop the modal
 
-                Navigator.pop(context); // Pop the modal
-
-                // Use the parent context to push, ensuring we stay in the right scope
-                final result = await parentContext.push(
-                  '/savings/create',
-                  extra: goal,
-                );
-
-                if (result == true) {
-                  bloc.add(LoadSavingsGoals());
-                  parentContext.read<DashboardBloc>().add(
-                    DashboardLoadRequested(),
+                  // Use the parent context to push
+                  final result = await parentContext.push(
+                    '/savings/create',
+                    extra: goal,
                   );
-                }
-              },
-            ),
+
+                  if (result == true) {
+                    savingsBloc.add(LoadSavingsGoals());
+                    dashboardBloc.add(DashboardLoadRequested());
+                  }
+                },
+              ),
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
@@ -1258,7 +1308,7 @@ class _SavingsScreenContentState extends State<SavingsScreenContent> {
                 style: TextStyle(color: AppColors.danger),
               ),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(modalContext);
                 _showDeleteConfirmDialog(goal);
               },
             ),

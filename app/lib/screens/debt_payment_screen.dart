@@ -15,7 +15,7 @@ class DebtPaymentScreen extends StatefulWidget {
   final String? existingProofImageUrl;
 
   const DebtPaymentScreen({
-    Key? key,
+    super.key,
     required this.debtId,
     required this.creditorName,
     required this.creditorAvatar,
@@ -23,7 +23,7 @@ class DebtPaymentScreen extends StatefulWidget {
     required this.description,
     required this.groupName,
     this.existingProofImageUrl,
-  }) : super(key: key);
+  });
 
   @override
   State<DebtPaymentScreen> createState() => _DebtPaymentScreenState();

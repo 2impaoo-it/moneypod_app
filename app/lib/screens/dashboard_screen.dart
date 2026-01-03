@@ -14,6 +14,9 @@ import '../widgets/header_widget.dart';
 import '../widgets/insight_widget.dart';
 import '../models/profile.dart';
 import '../utils/popup_notification.dart';
+import 'voice_assistant_screen.dart';
+import '../models/voice_command.dart';
+import '../repositories/transaction_repository.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -172,22 +175,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                _buildBalanceRowItem(
-                                  LucideIcons.arrowDown,
-                                  "Thu nhập",
-                                  isBalanceVisible
-                                      ? currencyFormat.format(totalIncome)
-                                      : '******',
-                                  AppColors.success,
+                                InkWell(
+                                  onTap: () => context.push('/report'),
+                                  child: _buildBalanceRowItem(
+                                    LucideIcons.arrowDown,
+                                    "Thu nhập",
+                                    isBalanceVisible
+                                        ? currencyFormat.format(totalIncome)
+                                        : '******',
+                                    AppColors.success,
+                                  ),
                                 ),
                                 const SizedBox(width: 24),
-                                _buildBalanceRowItem(
-                                  LucideIcons.arrowUp,
-                                  "Chi tiêu",
-                                  isBalanceVisible
-                                      ? currencyFormat.format(totalExpense)
-                                      : '******',
-                                  AppColors.danger,
+                                InkWell(
+                                  onTap: () => context.push('/report'),
+                                  child: _buildBalanceRowItem(
+                                    LucideIcons.arrowUp,
+                                    "Chi tiêu",
+                                    isBalanceVisible
+                                        ? currencyFormat.format(totalExpense)
+                                        : '******',
+                                    AppColors.danger,
+                                  ),
                                 ),
                               ],
                             ),
@@ -266,6 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             context,
                             LucideIcons.mic,
                             "Giọng nói",
+                            onTap: _openVoiceAssistant,
                           ),
                           _buildQuickAction(
                             context,
@@ -309,108 +319,325 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const InsightWidget(),
                       const SizedBox(height: 24),
 
-                      // --- SPENDING CHARTS ---
+                      // --- SPENDING CHARTS - ENHANCED ---
                       if (state.categoryStats.isNotEmpty) ...[
-                        const Text(
-                          "Phân bổ chi tiêu tháng này",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          height: 200,
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                flex: 1,
-                                child: PieChart(
-                                  PieChartData(
-                                    sectionsSpace: 2,
-                                    centerSpaceRadius: 40,
-                                    sections: _generatePieSections(
-                                      state.categoryStats,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "Phân bổ chi tiêu",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withOpacity(
+                                            0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "Tháng này",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      InkWell(
+                                        onTap: () => context.push('/report'),
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            LucideIcons.arrowRight,
+                                            size: 20,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                height: 220,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    PieChart(
+                                      PieChartData(
+                                        sectionsSpace: 3,
+                                        centerSpaceRadius: 60,
+                                        sections: _generatePieSections(
+                                          state.categoryStats,
+                                        ),
+                                        pieTouchData: PieTouchData(
+                                          enabled: true,
+                                        ),
+                                      ),
+                                    ),
+                                    // Center Total Display
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.trendingDown,
+                                          color: AppColors.danger,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          NumberFormat.compact(
+                                            locale: 'vi',
+                                          ).format(
+                                            state.categoryStats.values.fold(
+                                              0.0,
+                                              (a, b) => a + b,
+                                            ),
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const Text(
+                                          "Chi tiêu",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 1,
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: _generateLegends(
-                                      state.categoryStats,
-                                    ),
-                                  ),
+                              const Divider(height: 32),
+                              // Enhanced legends with amounts
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 12,
+                                children: _generateEnhancedLegends(
+                                  state.categoryStats,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ] else ...[
-                        const Text(
-                          "Phân bổ chi tiêu",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
                         Container(
-                          height: 150,
-                          alignment: Alignment.center,
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            "Chưa có dữ liệu chi tiêu tháng này",
+                          child: Column(
+                            children: [
+                              const Text(
+                                "Phân bổ chi tiêu",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Container(
+                                height: 150,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.pieChart,
+                                      size: 48,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      "Chưa có dữ liệu chi tiêu tháng này",
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                       const SizedBox(height: 24),
 
-                      // --- INCOME CHARTS ---
+                      // --- INCOME CHARTS - ENHANCED ---
                       if (state.incomeStats.isNotEmpty) ...[
-                        const Text(
-                          "Phân bổ thu nhập tháng này",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          height: 200,
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                flex: 1,
-                                child: PieChart(
-                                  PieChartData(
-                                    sectionsSpace: 2,
-                                    centerSpaceRadius: 40,
-                                    sections: _generatePieSections(
-                                      state.incomeStats,
-                                      isIncome: true,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "Phân bổ thu nhập",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.success.withOpacity(
+                                            0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "Tháng này",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.success,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      InkWell(
+                                        onTap: () => context.push('/report'),
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            LucideIcons.arrowRight,
+                                            size: 20,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                height: 220,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    PieChart(
+                                      PieChartData(
+                                        sectionsSpace: 3,
+                                        centerSpaceRadius: 60,
+                                        sections: _generatePieSections(
+                                          state.incomeStats,
+                                          isIncome: true,
+                                        ),
+                                        pieTouchData: PieTouchData(
+                                          enabled: true,
+                                        ),
+                                      ),
+                                    ),
+                                    // Center Total Display
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          LucideIcons.trendingUp,
+                                          color: AppColors.success,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          NumberFormat.compact(
+                                            locale: 'vi',
+                                          ).format(
+                                            state.incomeStats.values.fold(
+                                              0.0,
+                                              (a, b) => a + b,
+                                            ),
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const Text(
+                                          "Thu nhập",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 1,
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: _generateLegends(
-                                      state.incomeStats,
-                                      isIncome: true,
-                                    ),
-                                  ),
+                              const Divider(height: 32),
+                              // Enhanced legends with amounts
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 12,
+                                children: _generateEnhancedLegends(
+                                  state.incomeStats,
+                                  isIncome: true,
                                 ),
                               ),
                             ],
@@ -554,8 +781,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return PieChartSectionData(
         color: color,
         value: percentage,
-        title: '',
-        radius: 20,
+        title: percentage >= 10 ? '${percentage.toInt()}%' : '',
+        titleStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        radius: 35,
+        titlePositionPercentageOffset: 0.55,
+      );
+    }).toList();
+  }
+
+  // Enhanced legends with colored dots, labels, and amounts
+  List<Widget> _generateEnhancedLegends(
+    Map<String, double> stats, {
+    bool isIncome = false,
+  }) {
+    double total = stats.values.fold(0, (sum, item) => sum + item);
+    if (total == 0) return [];
+    final fmt = NumberFormat.currency(
+      locale: 'vi',
+      symbol: '',
+      decimalDigits: 0,
+    );
+
+    return stats.entries.map((entry) {
+      final percentage = (entry.value / total) * 100;
+      final color = isIncome
+          ? _getIncomeColor(entry.key)
+          : _getColorForCategory(entry.key);
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              entry.key,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${percentage.toInt()}%',
+              style: TextStyle(fontSize: 11, color: color.withOpacity(0.7)),
+            ),
+          ],
+        ),
       );
     }).toList();
   }
@@ -761,6 +1046,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
       iconColor: const Color(0xFF4B5563),
       icon: LucideIcons.moreHorizontal,
     );
+  }
+
+  Future<void> _openVoiceAssistant() async {
+    final command = await showModalBottomSheet<VoiceCommand>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const VoiceAssistantScreen(),
+    );
+
+    if (command != null && mounted) {
+      await _executeVoiceCommand(command);
+    }
+  }
+
+  Future<void> _executeVoiceCommand(VoiceCommand command) async {
+    try {
+      final repository = context.read<TransactionRepository>();
+      final state = context.read<DashboardBloc>().state;
+      String? walletId;
+
+      if (state is DashboardLoaded && state.data.wallets.isNotEmpty) {
+        // Try to find default wallet, or fallback to first
+        walletId = state.data.wallets.first.id;
+      }
+
+      if (walletId == null) {
+        if (mounted) {
+          PopupNotification.showError(
+            context,
+            'Vui lòng tạo ví trước khi sử dụng tính năng này',
+          );
+        }
+        return;
+      }
+
+      switch (command.type) {
+        case 'expense':
+        case 'income':
+          await repository.createTransaction(
+            walletId: walletId,
+            amount: command.amount,
+            category: command.category ?? 'Khác',
+            type: command.type,
+            note: command.note ?? '',
+          );
+
+          if (mounted) {
+            PopupNotification.showSuccess(
+              context,
+              'Đã thêm ${command.type == 'expense' ? 'chi tiêu' : 'thu nhập'} thành công',
+            );
+            // Refresh dashboard
+            context.read<DashboardBloc>().add(DashboardRefreshRequested());
+          }
+          break;
+
+        case 'transfer':
+          if (mounted) {
+            PopupNotification.showInfo(
+              context,
+              'Tính năng chuyển tiền giọng nói đang phát triển',
+            );
+          }
+          break;
+
+        case 'query':
+          if (mounted) {
+            PopupNotification.showInfo(
+              context,
+              'Tính năng hỏi đáp đang phát triển',
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        PopupNotification.showError(context, 'Lỗi: $e');
+      }
+    }
   }
 }
 

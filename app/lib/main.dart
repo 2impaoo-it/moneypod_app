@@ -18,8 +18,11 @@ import 'bloc/savings/savings_bloc.dart';
 import 'bloc/savings/savings_event.dart';
 import 'bloc/notification/notification_bloc.dart';
 import 'bloc/settings/settings_cubit.dart';
+import 'bloc/budget/budget_bloc.dart';
+
 import 'repositories/savings_repository.dart';
 import 'repositories/notification_repository.dart';
+import 'repositories/transaction_repository.dart';
 
 // --- IMPORTS SERVICES ---
 import 'services/auth_service.dart';
@@ -53,6 +56,17 @@ import 'screens/transfer_money_screen.dart';
 import 'screens/wallet_list_screen.dart';
 import 'models/savings_goal.dart'; // Added import
 import 'config/app_config.dart';
+
+import 'models/transaction.dart'; // Added for CreateBudget route
+import 'bloc/financial_report/financial_report_bloc.dart';
+import 'bloc/financial_report/financial_report_state.dart';
+import 'screens/financial_report/financial_report_screen.dart';
+import 'screens/budget/create_budget_screen.dart';
+import 'screens/budget/budget_list_screen.dart';
+import 'screens/financial_report/statistics_calendar_screen.dart';
+
+import 'screens/debt_payment_screen.dart';
+import 'screens/confirm_receive_payment_screen.dart';
 
 // --- DESIGN SYSTEM CONSTANTS ---
 class AppColors {
@@ -175,6 +189,63 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
           path: '/notifications',
           builder: (context, state) => const NotificationsScreen(),
         ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/full-screen/debt/pay',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return DebtPaymentScreen(
+              debtId: extra?['debtId'] ?? '',
+              creditorName: extra?['creditorName'] ?? '',
+              creditorAvatar: extra?['creditorAvatar'] ?? '',
+              amount: extra?['amount'] ?? 0,
+              description: extra?['description'] ?? '',
+              groupName: extra?['groupName'] ?? '',
+              existingProofImageUrl: extra?['existingProofImageUrl'],
+            );
+          },
+        ),
+        GoRoute(
+          parentNavigatorKey: rootNavigatorKey,
+          path: '/full-screen/debt/confirm',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return ConfirmReceivePaymentScreen(
+              debtId: extra?['debtId'] ?? '',
+              debtorName: extra?['debtorName'] ?? '',
+              debtorAvatar: extra?['debtorAvatar'] ?? '',
+              amount: extra?['amount'] ?? 0,
+              description: extra?['description'] ?? '',
+              groupName: extra?['groupName'] ?? '',
+              paymentDate: extra?['paymentDate'],
+              paymentNote: extra?['paymentNote'],
+              proofImageUrl: extra?['proofImageUrl'],
+            );
+          },
+        ),
+        GoRoute(
+          path: '/report/create-budget',
+          redirect: (_, __) =>
+              '/create-budget', // Backwards compat if needed, or just remove
+        ),
+        GoRoute(
+          path: '/create-budget',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) {
+            final transactions = state.extra as List<Transaction>?;
+            return CreateBudgetScreen(transactions: transactions);
+          },
+        ),
+        GoRoute(
+          path: '/budget-list',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) => const BudgetListScreen(),
+        ),
+        GoRoute(
+          path: '/calendar',
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) => const StatisticsCalendarScreen(),
+        ),
         // Main app routes (có bottom nav)
         ShellRoute(
           navigatorKey: shellNavigatorKey,
@@ -194,6 +265,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               path: '/groups',
               builder: (context, state) => const GroupsScreen(),
             ),
+
             GoRoute(
               path: '/groups/create',
               builder: (context, state) => const CreateGroupScreen(),
@@ -235,6 +307,10 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
             GoRoute(
               path: '/profile/change-password',
               builder: (context, state) => const ChangePasswordScreen(),
+            ),
+            GoRoute(
+              path: '/report',
+              builder: (context, state) => const FinancialReportScreen(),
             ),
           ],
         ),
@@ -288,48 +364,58 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiRepositoryProvider(
       providers: [
-        BlocProvider(
-          create: (context) =>
-              AuthBloc(authService: AuthService())..add(AuthCheckRequested()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              TransactionBloc()..add(TransactionLoadRequested()),
-        ),
-        BlocProvider(
-          create: (context) => DashboardBloc()..add(DashboardLoadRequested()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
-        ),
-        BlocProvider(
-          create: (context) =>
-              NotificationBloc(repository: NotificationRepository()),
-        ),
-        BlocProvider(create: (context) => SettingsCubit()),
+        RepositoryProvider(create: (context) => TransactionRepository()),
       ],
-      child: MaterialApp.router(
-        title: 'MoneyPod',
-        debugShowCheckedModeBanner: false,
-        routerConfig: _appRouter,
-        theme: ThemeData(
-          scaffoldBackgroundColor: AppColors.background,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primary,
-            primary: AppColors.primary,
-            secondary: AppColors.primaryDark,
-            background: AppColors.background,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (context) =>
+                AuthBloc(authService: AuthService())..add(AuthCheckRequested()),
           ),
-          // Sử dụng Google Fonts Inter
-          textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
-              .apply(
-                bodyColor: AppColors.textPrimary,
-                displayColor: AppColors.textPrimary,
-              ),
-          useMaterial3: true,
+          BlocProvider(
+            create: (context) =>
+                TransactionBloc()..add(TransactionLoadRequested()),
+          ),
+          BlocProvider(
+            create: (context) => DashboardBloc()..add(DashboardLoadRequested()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                NotificationBloc(repository: NotificationRepository()),
+          ),
+          BlocProvider(
+            create: (context) =>
+                FinancialReportBloc(context.read<TransactionRepository>()),
+          ), // Inject
+          BlocProvider(create: (context) => SettingsCubit()),
+          BlocProvider(create: (context) => BudgetBloc()),
+        ],
+        child: MaterialApp.router(
+          title: 'MoneyPod',
+          debugShowCheckedModeBanner: false,
+          routerConfig: _appRouter,
+          theme: ThemeData(
+            scaffoldBackgroundColor: AppColors.background,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+              primary: AppColors.primary,
+              secondary: AppColors.primaryDark,
+              background: AppColors.background,
+            ),
+            // Sử dụng Google Fonts Inter
+            textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
+                .apply(
+                  bodyColor: AppColors.textPrimary,
+                  displayColor: AppColors.textPrimary,
+                ),
+            useMaterial3: true,
+          ),
         ),
       ),
     );
@@ -390,30 +476,49 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   // Hàm mở màn hình Thêm Chi Tiêu Nhóm
-  void _openAddExpenseScreen(BuildContext context) async {
+  void _openAddExpenseScreen(
+    BuildContext context, {
+    String? preSelectedGroupId,
+  }) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+      MaterialPageRoute(
+        builder: (context) =>
+            AddExpenseScreen(preSelectedGroupId: preSelectedGroupId),
+      ),
     );
 
     // Nếu thêm chi tiêu thành công, có thể refresh nếu cần
     if (result == true && mounted) {
-      // Refresh có thể được xử lý bởi GroupsScreen
+      // Refresh logic if needed, usually handled by BLoC or local state refresh
     }
   }
 
   // Kiểm tra xem có nên hiển thị FAB hay không
   bool _shouldShowFAB(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
+    // print("📍 [MainWrapper] Current Location: $location"); // DEBUG LOG
 
-    // Ẩn FAB trên các màn hình tạo mới, chi tiết, profile
-    if (location.contains('/create')) return false;
-    if (location.startsWith('/groups/') && location != '/groups') return false;
+    // Ẩn FAB trên các màn hình tạo mới, profile, đổi mật khẩu
+    if (location.contains('/create') && location != '/report/create-budget') {
+      return false;
+    }
+    if (location.startsWith('/debt/')) return false;
+    if (location.startsWith('/full-screen/')) return false;
+    // ALLOW Report page to have FAB
+    // if (location == '/report') return false;
     if (location.startsWith('/savings/') && location != '/savings') {
       return false;
     }
+    if (location.startsWith('/budget'))
+      return false; // Hide FAB on budget screens
+    if (location.startsWith('/calendar')) return false; // Hide FAB on calendar
     if (location.startsWith('/profile')) return false;
     if (location.startsWith('/change-password')) return false;
+
+    // Explicitly allow for groups list and group detail
+    if (location == '/groups' || location.startsWith('/groups/')) return true;
+    if (location == '/report') return true; // Show FAB on Report screen
 
     return true;
   }
@@ -423,8 +528,18 @@ class _MainWrapperState extends State<MainWrapper> {
     final String location = GoRouterState.of(context).uri.toString();
 
     if (location == '/groups') {
-      // Trên màn hình Nhóm chi tiêu -> Thêm chi tiêu nhóm
+      // Trên màn hình Danh sách Nhóm -> Thêm chi tiêu nhóm (không chọn trước)
       _openAddExpenseScreen(context);
+    } else if (location.startsWith('/groups/')) {
+      // Trên màn hình Chi tiết Nhóm -> Thêm chi tiêu cho nhóm này
+      // Extract Group ID from location /groups/:id
+      final parts = location.split('/');
+      if (parts.length > 2) {
+        final groupId = parts[2];
+        _openAddExpenseScreen(context, preSelectedGroupId: groupId);
+      } else {
+        _openAddExpenseScreen(context);
+      }
     } else if (location == '/savings') {
       // Trên màn hình Tiết kiệm -> Tạo mục tiêu mới
       final result = await context.push('/savings/create');
@@ -432,8 +547,24 @@ class _MainWrapperState extends State<MainWrapper> {
         context.read<SavingsBloc>().add(LoadSavingsGoals());
         context.read<DashboardBloc>().add(DashboardLoadRequested());
       }
+    } else if (location == '/report') {
+      // From main.dart, we might not have easy access to FinancialReportBloc state
+      // to pass 'transactions' unless we look it up via context.
+      // Attempt to get transactions from bloc if possible, or pass null.
+      List<Transaction>? transactions;
+      try {
+        final state = context.read<FinancialReportBloc>().state;
+        if (state is ReportLoaded) {
+          transactions = state.data.transactions;
+        }
+      } catch (e) {
+        // Bloc might not be in context here depending on provider setup
+        debugPrint("Could not find FinancialReportBloc in Main FAB: $e");
+      }
+
+      context.push('/create-budget', extra: transactions);
     } else {
-      // Các màn hình khác -> Thêm giao dịch cá nhân
+      // Mặc định: Thêm giao dịch cá nhân
       _showAddTransactionModal(context);
     }
   }

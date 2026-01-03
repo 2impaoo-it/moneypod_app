@@ -39,6 +39,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   void initState() {
     super.initState();
     _loadCurrentUser();
+    // Rebuild UI when name changes for live preview
+    _nameController.addListener(() {
+      setState(() {});
+    });
   }
 
   Future<void> _loadCurrentUser() async {
@@ -49,14 +53,34 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         final profileRepo = ProfileRepository();
         final profile = await profileRepo.fetchUserProfile(token);
         if (profile != null && profile.id != null) {
+          if (!mounted) return;
+
           setState(() {
             _currentUserId = profile.id;
-            // Cập nhật ID cho current user trong danh sách members
-            final index = _members.indexWhere(
+
+            // Tìm index của current user trong list
+            final currentUserIndex = _members.indexWhere(
               (m) => m['isCurrentUser'] == true,
             );
-            if (index != -1) {
-              _members[index]['id'] = profile.id;
+
+            String displayName = profile.fullName ?? profile.email ?? 'Bạn';
+            if (displayName.isEmpty) displayName = profile.email ?? 'Bạn';
+
+            // Get avatar initial
+            String avatarInitial = 'B';
+            if (displayName.isNotEmpty) {
+              avatarInitial = displayName.trim().substring(0, 1).toUpperCase();
+            }
+
+            if (currentUserIndex != -1) {
+              // Update existing entry
+              _members[currentUserIndex] = {
+                ..._members[currentUserIndex],
+                'id': profile.id,
+                'name': displayName,
+                'avatar': avatarInitial,
+                'avatar_url': profile.avatarUrl,
+              };
             }
           });
         }
@@ -65,40 +89,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       print('Error loading user profile: $e');
     }
   }
-
-  // Mock data danh sách liên hệ có thể thêm
-  final List<Map<String, dynamic>> _availableContacts = [
-    {
-      'id': '11111111-1111-1111-1111-111111111111',
-      'name': 'Minh Nguyễn',
-      'avatar': 'M',
-      'phone': '0901234567',
-    },
-    {
-      'id': '22222222-2222-2222-2222-222222222222',
-      'name': 'Lan Trần',
-      'avatar': 'L',
-      'phone': '0912345678',
-    },
-    {
-      'id': '33333333-3333-3333-3333-333333333333',
-      'name': 'Hùng Lê',
-      'avatar': 'H',
-      'phone': '0923456789',
-    },
-    {
-      'id': '44444444-4444-4444-4444-444444444444',
-      'name': 'Linh Phạm',
-      'avatar': 'Li',
-      'phone': '0934567890',
-    },
-    {
-      'id': '55555555-5555-5555-5555-555555555555',
-      'name': 'Tuấn Võ',
-      'avatar': 'T',
-      'phone': '0945678901',
-    },
-  ];
 
   @override
   void dispose() {
@@ -114,24 +104,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => _buildAddMemberSheet(),
     );
-  }
-
-  void _addMember(Map<String, dynamic> contact) {
-    if (_members.any((m) => m['id'] == contact['id'])) {
-      PopupNotification.showError(context, 'Thành viên đã có trong danh sách');
-      return;
-    }
-
-    setState(() {
-      _members.add({
-        'id': contact['id'],
-        'name': contact['name'],
-        'avatar': contact['avatar'],
-        'role': 'member',
-        'isCurrentUser': false,
-      });
-    });
-    Navigator.pop(context);
   }
 
   void _removeMember(String memberId) {
@@ -610,15 +582,20 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             backgroundColor: isCurrentUser
                 ? AppColors.primary.withOpacity(0.1)
                 : const Color(0xFFE2E8F0),
-            child: Text(
-              member['avatar'],
-              style: TextStyle(
-                color: isCurrentUser
-                    ? AppColors.primary
-                    : AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            backgroundImage: member['avatar_url'] != null
+                ? NetworkImage(member['avatar_url'])
+                : null,
+            child: member['avatar_url'] != null
+                ? null
+                : Text(
+                    member['avatar'],
+                    style: TextStyle(
+                      color: isCurrentUser
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -684,12 +661,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   }
 
   Widget _buildAddMemberSheet() {
-    final availableContacts = _availableContacts
-        .where((c) => !_members.any((m) => m['id'] == c['id']))
-        .toList();
-
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height:
+          MediaQuery.of(context).size.height *
+          0.4, // Reduced height since no list
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -725,118 +700,81 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               ],
             ),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
+          GestureDetector(
+            onTap: () {
+              Navigator.pop(context);
+              // Handle invite code generation or sharing logic here if needed separately,
+              // but currently it's part of group creation success.
+              // This UI seems to just be a visual cue or maybe it should copy a code?
+              // The original UI was just a static row.
+              // Since the group isn't created yet, we can't share a code.
+              // This might just be an informational section.
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      LucideIcons.link,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  child: const Icon(
-                    LucideIcons.link,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Mời bằng mã',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mời bằng mã',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Chia sẻ mã mời sau khi tạo nhóm',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        Text(
+                          'Chia sẻ mã mời sau khi tạo nhóm',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const Icon(
-                  LucideIcons.chevronRight,
-                  color: AppColors.textMuted,
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Danh bạ',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    color: AppColors.textMuted,
+                  ),
+                ],
               ),
             ),
           ),
-          Expanded(
-            child: availableContacts.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Đã thêm tất cả liên hệ',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: availableContacts.length,
-                    itemBuilder: (context, index) {
-                      final contact = availableContacts[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFE2E8F0),
-                          child: Text(
-                            contact['avatar'],
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          contact['name'],
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        subtitle: Text(
-                          contact['phone'],
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          onPressed: () => _addMember(contact),
-                          icon: const Icon(
-                            LucideIcons.userPlus,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Tính năng đồng bộ danh bạ đang được phát triển...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textMuted.withOpacity(0.7),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
           ),
         ],
       ),
@@ -959,17 +897,27 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                                     color: Colors.white,
                                     width: 2,
                                   ),
+                                  image: _members[index]['avatar_url'] != null
+                                      ? DecorationImage(
+                                          image: NetworkImage(
+                                            _members[index]['avatar_url'],
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
                                 ),
                                 alignment: Alignment.center,
-                                child: Text(
-                                  _members[index]['avatar'],
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: index == 0
-                                        ? Colors.white
-                                        : AppColors.textSecondary,
-                                  ),
-                                ),
+                                child: _members[index]['avatar_url'] != null
+                                    ? null
+                                    : Text(
+                                        _members[index]['avatar'],
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: index == 0
+                                              ? Colors.white
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
                               ),
                             ),
                           ),

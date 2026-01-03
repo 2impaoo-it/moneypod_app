@@ -70,7 +70,12 @@ class GroupRepository {
       final response = await _dio.post(
         '/groups',
         data: requestBody,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
@@ -120,7 +125,12 @@ class GroupRepository {
 
       final response = await _dio.get(
         '/groups',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
@@ -183,7 +193,12 @@ class GroupRepository {
       final response = await _dio.post(
         '/groups/join',
         data: requestBody,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       print('📡 [GroupRepo] Status code: ${response.statusCode}');
@@ -248,7 +263,12 @@ class GroupRepository {
       final response = await _dio.post(
         url,
         data: body,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -362,7 +382,12 @@ class GroupRepository {
       final token = await _authService.getToken();
       final response = await _dio.get(
         '/groups/$groupId/debts-to-me',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -395,7 +420,6 @@ class GroupRepository {
 
       final data = <String, dynamic>{};
       if (walletId != null) data['wallet_id'] = walletId;
-      if (proofImageUrl != null) data['proof_image_url'] = proofImageUrl;
       if (note != null && note.isNotEmpty) data['note'] = note;
 
       final response = await _dio.put(

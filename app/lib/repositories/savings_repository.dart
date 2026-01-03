@@ -260,6 +260,38 @@ class SavingsRepository {
     }
   }
 
+  /// Mark a savings goal as completed
+  /// This is called when user withdraws all money from a 100% goal
+  Future<void> markGoalCompleted(String goalId) async {
+    try {
+      print('🔵 [SavingsRepo] Đánh dấu hoàn thành mục tiêu $goalId');
+
+      final token = await _authService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
+      }
+
+      final response = await _dio.put(
+        '/savings/$goalId',
+        data: {'status': 'COMPLETED'},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        print('✅ [SavingsRepo] Đánh dấu hoàn thành thành công');
+      } else {
+        throw Exception(
+          response.data['error'] ?? 'Không thể đánh dấu hoàn thành',
+        );
+      }
+    } catch (e) {
+      print('❌ [SavingsRepo] Lỗi: $e');
+      rethrow;
+    }
+  }
+
   /// Xóa mục tiêu (phải rút hết tiền trước)
   Future<void> deleteSavingsGoal(String goalId) async {
     try {

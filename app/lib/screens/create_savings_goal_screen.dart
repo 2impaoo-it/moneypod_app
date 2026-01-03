@@ -9,11 +9,11 @@ import '../bloc/savings/savings_bloc.dart';
 import '../bloc/savings/savings_event.dart';
 import '../bloc/savings/savings_state.dart';
 import '../repositories/savings_repository.dart';
-import '../repositories/wallet_repository.dart';
+
 import '../utils/currency_formatter.dart';
 import '../theme/app_colors.dart';
 import '../models/savings_goal.dart';
-import '../models/wallet.dart';
+
 import '../utils/popup_notification.dart';
 
 /// Màn hình tạo hoặc chỉnh sửa mục tiêu tiết kiệm
@@ -45,16 +45,9 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _targetAmountController = TextEditingController();
-  final _initialAmountController = TextEditingController(text: '0');
 
   DateTime? _selectedDate;
   bool _isLoading = false;
-
-  // Wallet selection
-  final WalletRepository _walletRepository = WalletRepository();
-  List<Wallet> _wallets = [];
-  bool _walletsLoading = false;
-  String? _selectedWalletId;
 
   // Selected icon and color
   String _selectedIcon = 'savings';
@@ -139,7 +132,6 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   @override
   void initState() {
     super.initState();
-    _loadWallets();
     if (_isEditing) {
       final goal = widget.editingGoal!;
       _nameController.text = goal.name;
@@ -154,28 +146,10 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
     }
   }
 
-  Future<void> _loadWallets() async {
-    setState(() => _walletsLoading = true);
-    try {
-      final wallets = await _walletRepository.getWallets();
-      setState(() {
-        _wallets = wallets;
-        _walletsLoading = false;
-        if (_wallets.isNotEmpty) {
-          _selectedWalletId = _wallets.first.id;
-        }
-      });
-    } catch (e) {
-      if (mounted) setState(() => _walletsLoading = false);
-      debugPrint('❌ Lỗi load wallets: $e');
-    }
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
     _targetAmountController.dispose();
-    _initialAmountController.dispose();
     super.dispose();
   }
 
@@ -218,12 +192,18 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   }
 
   void _selectDate() async {
+    // In edit mode, allow selecting the existing deadline even if it's in the past
+    final DateTime minDate =
+        _isEditing &&
+            _selectedDate != null &&
+            _selectedDate!.isBefore(DateTime.now())
+        ? _selectedDate!
+        : DateTime.now().subtract(const Duration(days: 1));
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now(), // Default to NOW
-      firstDate: DateTime.now().subtract(
-        const Duration(days: 1),
-      ), // Allow today
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: minDate,
       lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
       builder: (context, child) {
         return Theme(
@@ -254,54 +234,16 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
       return;
     }
 
-    // Parse amounts
+    // Parse target amount
     final targetAmount = CurrencyInputFormatter.parse(
       _targetAmountController.text,
     );
-    final initialAmount = CurrencyInputFormatter.parse(
-      _initialAmountController.text,
-    );
-
-    // Validation: Initial Amount vs Target Amount (Create Mode Only)
-    if (!_isEditing && initialAmount > targetAmount) {
-      PopupNotification.showError(
-        context,
-        'Số tiền ban đầu không được lớn hơn số tiền mục tiêu',
-      );
-      return;
-    }
-
-    // Validation: Wallet selection required if initial amount > 0
-    if (!_isEditing && initialAmount > 0) {
-      if (_selectedWalletId == null) {
-        PopupNotification.showError(
-          context,
-          'Vui lòng chọn ví để nạp tiền ban đầu',
-        );
-        return;
-      }
-
-      // Validate wallet balance
-      final selectedWallet = _wallets.firstWhere(
-        (w) => w.id == _selectedWalletId,
-      );
-      if (selectedWallet.balance < initialAmount) {
-        PopupNotification.showError(
-          context,
-          'Số dư ví không đủ (${currencyFormat.format(selectedWallet.balance)})',
-        );
-        return;
-      }
-    }
 
     setState(() => _isLoading = true);
 
     try {
       // Determine Hex Color to save
-      // Map back from 'key' to valid Hex if possible, or use the key directly if backend supports it.
-      // Based on previous code, backend seems to store Hex.
       String colorHex = '#8B5CF6';
-      // We manually map based on key as per original code switch case used before
       switch (_selectedColor) {
         case 'blue':
           colorHex = '#3B82F6';
@@ -328,7 +270,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
           colorHex = '#6366F1';
           break;
         default:
-          colorHex = _selectedColor; // Keep original if it was already hex
+          colorHex = _selectedColor;
       }
 
       if (_isEditing) {
@@ -344,10 +286,9 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
           ),
         );
       } else {
-        // Create using repository directly to handle initial deposit
+        // Create using repository directly
         final savingsRepo = SavingsRepository();
 
-        // Step 1: Create the goal
         await savingsRepo.createSavingsGoal(
           name: _nameController.text,
           targetAmount: targetAmount,
@@ -356,31 +297,12 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
           deadline: _selectedDate,
         );
 
-        // Step 2: If initial amount > 0, deposit it
-        if (initialAmount > 0 && _selectedWalletId != null) {
-          // Reload goals to get the newly created goal's ID
-          final goals = await savingsRepo.getSavingsGoals();
-          // Find the most recently created goal with matching name
-          final newGoal = goals.firstWhere(
-            (g) => g.name == _nameController.text,
-            orElse: () => throw Exception('Không tìm thấy mục tiêu vừa tạo'),
-          );
-
-          // Deposit initial amount
-          await savingsRepo.depositToGoal(
-            goalId: newGoal.id,
-            walletId: _selectedWalletId!,
-            amount: initialAmount,
-            note: 'Số tiền ban đầu',
-          );
-        }
-
         setState(() => _isLoading = false);
         if (mounted) {
           PopupNotification.showSuccess(context, 'Tạo mục tiêu thành công!');
           context.pop(true);
         }
-        return; // Exit early since we handled success
+        return;
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -464,9 +386,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
     );
     // If Editing, usage currentAmount from goal.
     // If Creating, use initialAmount input.
-    final currentAmount = _isEditing
-        ? widget.editingGoal!.currentAmount
-        : CurrencyInputFormatter.parse(_initialAmountController.text);
+    final currentAmount = _isEditing ? widget.editingGoal!.currentAmount : 0.0;
 
     final progress = targetAmount > 0
         ? (currentAmount / targetAmount).clamp(0.0, 1.0)
@@ -655,90 +575,6 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
 
           // Date picker
           _buildDateField(),
-
-          if (!_isEditing) ...[
-            const SizedBox(height: 16),
-            // Wallet selection
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.wallet,
-                      size: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Chọn ví',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.slate200),
-                  ),
-                  child: _walletsLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : DropdownButton<String>(
-                          value: _selectedWalletId,
-                          isExpanded: true,
-                          underline: const SizedBox(),
-                          hint: const Text('Chọn ví để nạp tiền ban đầu'),
-                          items: _wallets.map((wallet) {
-                            return DropdownMenuItem<String>(
-                              value: wallet.id,
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(wallet.name),
-                                  Text(
-                                    currencyFormat.format(wallet.balance),
-                                    style: const TextStyle(
-                                      color: AppColors.success,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedWalletId = value);
-                          },
-                        ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Initial amount - Only show when creating
-            _buildTextField(
-              controller: _initialAmountController,
-              label: 'Số tiền ban đầu',
-              hint: '0',
-              icon: LucideIcons.piggyBank,
-              keyboardType: TextInputType.number,
-              inputFormatters: [CurrencyInputFormatter()],
-              suffix: '₫',
-            ),
-          ],
         ],
       ),
     );
