@@ -224,17 +224,31 @@ GET /transactions
 
 #### Query Parameters
 
-| Parameter   | Type   | Required | Description                  |
-| ----------- | ------ | -------- | ---------------------------- |
-| `wallet_id` | UUID   | ❌       | Filter theo ví               |
-| `category`  | string | ❌       | Filter theo danh mục         |
-| `type`      | string | ❌       | `"income"` hoặc `"expense"`  |
-| `month`     | int    | ❌       | Tháng (1-12)                 |
-| `year`      | int    | ❌       | Năm (2024, 2025, ...)        |
-| `page`      | int    | ❌       | Số trang (default: 1)        |
-| `page_size` | int    | ❌       | Số items/trang (default: 20) |
+| Parameter   | Type   | Required | Description                                                         |
+| ----------- | ------ | -------- | ------------------------------------------------------------------- |
+| `wallet_id` | UUID   | ❌       | **✅ Filter theo ví cụ thể (QUAN TRỌNG: Dùng khi xem chi tiết ví)** |
+| `category`  | string | ❌       | Filter theo danh mục                                                |
+| `type`      | string | ❌       | `"income"` hoặc `"expense"`                                         |
+| `month`     | int    | ❌       | Tháng (1-12)                                                        |
+| `year`      | int    | ❌       | Năm (2024, 2025, ...)                                               |
+| `page`      | int    | ❌       | Số trang (default: 1)                                               |
+| `page_size` | int    | ❌       | Số items/trang (default: 20)                                        |
 
-#### Example Request
+#### Example Requests
+
+**Lấy tất cả giao dịch:**
+
+```http
+GET /transactions?page=1&page_size=20
+```
+
+**Lấy giao dịch của 1 ví cụ thể (Wallet Detail Screen):**
+
+```http
+GET /transactions?wallet_id=uuid-ví-cụ-thể&page=1&page_size=20
+```
+
+**Lấy chi tiêu tháng 1/2024:**
 
 ```http
 GET /transactions?type=expense&month=1&year=2024&page=1&page_size=10

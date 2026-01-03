@@ -76,9 +76,15 @@ func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, walletI
 	var transactions []models.Transaction
 	var total int64
 
-	log.Printf("🔍 Filter params: userID=%s, type=%s, month=%d, year=%d", userID, transactionType, month, year)
+	log.Printf("🔍 Filter params: userID=%s, walletID=%s, type=%s, month=%d, year=%d", userID, walletID, transactionType, month, year)
 
 	query := r.db.Model(&models.Transaction{}).Where("user_id = ?", userID)
+
+	// Filter by wallet_id
+	if walletID != "" {
+		query = query.Where("wallet_id = ?", walletID)
+		log.Printf("💰 Added wallet filter: %s", walletID)
+	}
 
 	// Filter by category
 	if category != "" {
