@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../utils/popup_notification.dart';
-import '../main.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'add_expense_screen.dart';
+import 'debt_payment_screen.dart';
+import 'confirm_receive_payment_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
@@ -210,10 +212,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.purple.withOpacity(0.1),
+                    color: AppColors.purple600.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(LucideIcons.phone, color: AppColors.purple),
+                  child: const Icon(
+                    LucideIcons.phone,
+                    color: AppColors.purple600,
+                  ),
                 ),
                 title: const Text('Thêm bằng số điện thoại'),
                 subtitle: const Text('Nhập SĐT người muốn mời'),
@@ -669,8 +674,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
 
   Widget _buildDebtItem(Map<String, dynamic> debt, {required bool isMyDebt}) {
     final amount = double.tryParse(debt['amount'].toString()) ?? 0.0;
-    // Logic lookup name
+    // Logic lookup name and avatar
     String name = 'Người lạ';
+    String avatarUrl = '';
 
     // Determine the ID of the person we are displaying
     dynamic targetId;
@@ -694,6 +700,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       if (found != null) {
         final u = found['user'] ?? found;
         name = u['full_name'] ?? u['name'] ?? u['email'] ?? 'Thành viên';
+        avatarUrl = u['avatar_url'] ?? '';
       }
     }
 
@@ -705,86 +712,150 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     }
 
     final note = debt['note'] ?? 'Chi tiêu nhóm';
+    final groupName = _groupData['name'] ?? 'Nhóm';
+    final debtId = debt['id']?.toString() ?? '';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isMyDebt
-                  ? Colors.red.withOpacity(0.1)
-                  : Colors.green.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isMyDebt ? LucideIcons.arrowUpRight : LucideIcons.arrowDownLeft,
-              color: isMyDebt ? Colors.red : Colors.green,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  note,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                currencyFormat.format(amount),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isMyDebt ? Colors.red : Colors.green,
-                ),
+    // Lấy hình ảnh minh chứng từ expense
+    final expenseImageUrl = (debt['expense'] is Map)
+        ? (debt['expense']['image_url'] as String?)
+        : null;
+
+    return GestureDetector(
+      onTap: () async {
+        if (isMyDebt) {
+          // Tôi nợ người khác - Navigate to debt payment screen
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DebtPaymentScreen(
+                debtId: debtId,
+                creditorName: name,
+                creditorAvatar: avatarUrl,
+                amount: amount.round(),
+                description: note,
+                groupName: groupName,
+                existingProofImageUrl: expenseImageUrl,
               ),
-              if (isMyDebt)
-                TextButton(
-                  onPressed: () => _markPaid(debt['id'].toString()),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(50, 24),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: AppColors.primary,
+            ),
+          );
+
+          // Refresh if payment was made
+          if (result == true) {
+            _loadAllData();
+          }
+        } else {
+          // Người khác nợ tôi - Navigate to confirm receive payment screen
+          final paymentDate = debt['payment_confirmed_at'] as String?;
+          final paymentNote = debt['payment_note'] as String?;
+
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConfirmReceivePaymentScreen(
+                debtId: debtId,
+                debtorName: name,
+                debtorAvatar: avatarUrl,
+                amount: amount.round(),
+                description: note,
+                groupName: groupName,
+                paymentDate: paymentDate,
+                paymentNote: paymentNote,
+                proofImageUrl: expenseImageUrl,
+              ),
+            ),
+          );
+
+          // Refresh if confirmed
+          if (result == true) {
+            _loadAllData();
+          }
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.slate100),
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.slate200,
+              backgroundImage:
+                  (avatarUrl.isNotEmpty && avatarUrl.startsWith('http'))
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: (avatarUrl.isEmpty || !avatarUrl.startsWith('http'))
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.slate700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            // Name and Description
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.slate900,
+                    ),
                   ),
-                  child: const Text('Đã trả?', style: TextStyle(fontSize: 12)),
-                ),
-            ],
-          ),
-        ],
+                  const SizedBox(height: 2),
+                  Text(
+                    note,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.group,
+                        size: 12,
+                        color: AppColors.slate400,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        groupName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.slate500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Amount
+            Text(
+              currencyFormat.format(amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: isMyDebt ? AppColors.red500 : AppColors.teal500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

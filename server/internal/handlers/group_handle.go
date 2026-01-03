@@ -125,12 +125,63 @@ func (h *GroupHandler) MarkDebtPaid(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.MarkDebtAsPaid(debtID, userID); err != nil {
+	// Parse request body để lấy wallet_id, proof_image_url, và note
+	var requestBody struct {
+		WalletID      *string `json:"wallet_id"`
+		ProofImageURL string  `json:"proof_image_url"`
+		Note          string  `json:"note"`
+	}
+	c.BindJSON(&requestBody)
+
+	// Convert wallet_id string to UUID
+	var walletID *uuid.UUID
+	if requestBody.WalletID != nil && *requestBody.WalletID != "" {
+		parsed, err := uuid.Parse(*requestBody.WalletID)
+		if err == nil {
+			walletID = &parsed
+		}
+	}
+
+	if err := h.service.MarkDebtAsPaid(debtID, userID, walletID, requestBody.ProofImageURL, requestBody.Note); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Đã xác nhận thanh toán!"})
+	c.JSON(200, gin.H{"message": "Đã gửi yêu cầu thanh toán. Chờ chủ nợ xác nhận."})
+}
+
+// API: Xác nhận đã nhận tiền (chủ nợ)
+func (h *GroupHandler) ConfirmReceivePayment(c *gin.Context) {
+	idVal, _ := c.Get("userID")
+	userID, _ := uuid.Parse(idVal.(string))
+
+	debtID, err := uuid.Parse(c.Param("debt_id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "debt_id không hợp lệ"})
+		return
+	}
+
+	// Parse request body để lấy wallet_id (ví nhận tiền)
+	var requestBody struct {
+		WalletID string `json:"wallet_id"`
+	}
+	if err := c.BindJSON(&requestBody); err != nil || requestBody.WalletID == "" {
+		c.JSON(400, gin.H{"error": "wallet_id là bắt buộc"})
+		return
+	}
+
+	receiverWalletID, err := uuid.Parse(requestBody.WalletID)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "wallet_id không hợp lệ"})
+		return
+	}
+
+	if err := h.service.ConfirmReceivePayment(debtID, userID, receiverWalletID); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Đã xác nhận nhận tiền thành công!"})
 }
 
 // API: Xem nợ của tôi

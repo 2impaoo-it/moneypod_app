@@ -202,6 +202,7 @@ func main() {
 		protected.DELETE("/groups/:id/members/:user_id", groupHandler.KickMember) // Kick thành viên
 		protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)              // Rời nhóm
 		protected.PUT("/groups/debts/:debt_id/paid", groupHandler.MarkDebtPaid)
+		protected.PUT("/groups/debts/:debt_id/confirm", groupHandler.ConfirmReceivePayment) // Chủ nợ xác nhận đã nhận tiền
 
 		// Payment Request System (New)
 		protected.POST("/groups/debts/:debt_id/payment-request", groupHandler.RequestDebtPayment)       // Người nợ gửi request trả nợ

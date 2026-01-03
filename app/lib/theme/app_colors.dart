@@ -8,6 +8,7 @@ class AppColors {
   static const Color slate300 = Color(0xFFCBD5E1);
   static const Color slate400 = Color(0xFF94A3B8);
   static const Color slate500 = Color(0xFF64748B);
+  static const Color slate600 = Color(0xFF475569);
   static const Color slate700 = Color(0xFF334155);
   static const Color slate900 = Color(0xFF0F172A);
 
@@ -27,19 +28,20 @@ class AppColors {
   static const Color orange50 = Color(0xFFFFF7ED);
   static const Color orange100 = Color(0xFFFFEDD5);
   static const Color orange600 = Color(0xFFEA580C);
-  
+
   static const Color red500 = Color(0xFFEF4444);
-  
+
+  static const Color blue50 = Color(0xFFEFF6FF);
   static const Color blue100 = Color(0xFFDBEAFE);
   static const Color blue500 = Color(0xFF3B82F6);
   static const Color blue600 = Color(0xFF2563EB);
-  
+
   static const Color teal100 = Color(0xFFCCFBF1);
   static const Color teal600 = Color(0xFF0D9488);
-  
+
   static const Color purple100 = Color(0xFFF3E8FF);
   static const Color purple600 = Color(0xFF9333EA);
-  
+
   static const Color violet500 = Color(0xFF8B5CF6);
 
   // Semantic (for CreateGroupScreen & General Usage)

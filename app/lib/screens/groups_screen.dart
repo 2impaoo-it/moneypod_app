@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/group_repository.dart';
+import 'debt_payment_screen.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
@@ -15,27 +16,6 @@ String formatCurrency(int amount) {
   return '$str ₫';
 }
 
-final Map<String, dynamic> debtOptimization = {
-  "from": {"name": "Minh", "avatar": "M"},
-  "to": {"name": "Lan", "avatar": "L"},
-  "amount": 150000,
-};
-
-final List<Map<String, dynamic>> pendingSettlements = [
-  {
-    "name": "Hùng",
-    "avatar": "H",
-    "description": "Tiền ăn tối nhóm",
-    "amount": 85000,
-  },
-  {
-    "name": "Linh",
-    "avatar": "Li",
-    "description": "Tiền Grab đi chung",
-    "amount": 45000,
-  },
-];
-
 // --- MAIN SCREEN ---
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -44,16 +24,290 @@ class GroupsScreen extends StatefulWidget {
   State<GroupsScreen> createState() => _GroupsScreenState();
 }
 
-class _GroupsScreenState extends State<GroupsScreen> {
+class _GroupsScreenState extends State<GroupsScreen>
+    with WidgetsBindingObserver {
   // Data list
   List<Map<String, dynamic>> _groupsList = [];
   bool _isLoading = true;
   final GroupRepository _groupRepository = GroupRepository();
 
+  // Debt optimization and pending settlements
+  Map<String, dynamic>? _optimizedDebt;
+  List<Map<String, dynamic>> _pendingSettlements = [];
+  bool _isLoadingDebts = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchGroups();
+    _fetchDebtData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Auto-refresh khi app quay lại foreground
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+
+  // Fetch tất cả dữ liệu về nợ
+  Future<void> _fetchDebtData() async {
+    setState(() => _isLoadingDebts = true);
+
+    try {
+      // Lấy tất cả các nhóm để tính toán nợ tối ưu
+      final groups = await _groupRepository.getGroups();
+
+      // Fetch debts từ tất cả các nhóm
+      List<Map<String, dynamic>> allMyDebts = [];
+      List<Map<String, dynamic>> allDebtsToMe = [];
+
+      for (var group in groups) {
+        final groupId = group['id']?.toString();
+        final groupName = group['name'] ?? 'Nhóm';
+        if (groupId != null) {
+          final myDebts = await _groupRepository.getMyDebts(groupId);
+          final debtsToMe = await _groupRepository.getDebtsToMe(groupId);
+
+          allMyDebts.addAll(
+            myDebts.map(
+              (d) => {...d, 'group_id': groupId, 'group_name': groupName},
+            ),
+          );
+          allDebtsToMe.addAll(
+            debtsToMe.map(
+              (d) => {...d, 'group_id': groupId, 'group_name': groupName},
+            ),
+          );
+        }
+      }
+
+      // Tính toán nợ tối ưu
+      _optimizedDebt = _calculateOptimizedDebt(allMyDebts, allDebtsToMe);
+
+      // Lấy danh sách chờ thanh toán (người khác nợ tôi)
+      _pendingSettlements = _mapPendingSettlements(allDebtsToMe);
+
+      print('DEBUG: Total debts to me: ${allDebtsToMe.length}');
+      print(
+        'DEBUG: Pending settlements after filter: ${_pendingSettlements.length}',
+      );
+      for (var debt in allDebtsToMe) {
+        print(
+          'DEBUG DEBT: ${debt['from_user']?['full_name']} - ${debt['amount']} - is_paid: ${debt['is_paid']}',
+        );
+      }
+
+      setState(() => _isLoadingDebts = false);
+    } catch (e) {
+      print('Error fetching debt data: $e');
+      setState(() => _isLoadingDebts = false);
+    }
+  }
+
+  // Tính toán nợ tối ưu bằng thuật toán net balance
+  Map<String, dynamic>? _calculateOptimizedDebt(
+    List<Map<String, dynamic>> myDebts,
+    List<Map<String, dynamic>> debtsToMe,
+  ) {
+    print('\n=== DEBT OPTIMIZATION CALCULATION ===');
+    print('My debts (I owe): ${myDebts.length}');
+    print('Debts to me (Others owe me): ${debtsToMe.length}');
+
+    // Map để lưu net balance của từng người
+    Map<String, double> netBalance = {};
+    Map<String, Map<String, String>> userInfo = {}; // Lưu thông tin user
+
+    // Tính toán: Tôi nợ ai (trừ balance)
+    print('\n--- Processing MY DEBTS (I owe others) ---');
+    for (var debt in myDebts) {
+      if (debt['is_paid'] == true) continue; // Skip nợ đã trả
+
+      final toUserId = debt['to_user_id']?.toString();
+      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
+
+      // Lấy thông tin từ to_user object
+      final toUser = debt['to_user'] as Map<String, dynamic>?;
+      final toUserName =
+          toUser?['full_name'] ??
+          toUser?['name'] ??
+          toUser?['email'] ??
+          'Unknown';
+      final toUserAvatar = toUser?['avatar_url'] ?? '';
+
+      if (toUserId != null && amount > 0) {
+        netBalance[toUserId] = (netBalance[toUserId] ?? 0.0) - amount;
+        userInfo[toUserId] = {'name': toUserName, 'avatar': toUserAvatar};
+        print(
+          '  I owe $toUserName: -$amount (new balance: ${netBalance[toUserId]})',
+        );
+      }
+    }
+
+    // Tính toán: Ai nợ tôi (cộng balance)
+    print('\n--- Processing DEBTS TO ME (Others owe me) ---');
+    for (var debt in debtsToMe) {
+      if (debt['is_paid'] == true) continue; // Skip nợ đã trả
+
+      final fromUserId = debt['from_user_id']?.toString();
+      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
+
+      // Lấy thông tin từ from_user object
+      final fromUser = debt['from_user'] as Map<String, dynamic>?;
+      final fromUserName =
+          fromUser?['full_name'] ??
+          fromUser?['name'] ??
+          fromUser?['email'] ??
+          'Unknown';
+      final fromUserAvatar = fromUser?['avatar_url'] ?? '';
+
+      if (fromUserId != null && amount > 0) {
+        netBalance[fromUserId] = (netBalance[fromUserId] ?? 0.0) + amount;
+        userInfo[fromUserId] = {'name': fromUserName, 'avatar': fromUserAvatar};
+        print(
+          '  $fromUserName owes me: +$amount (new balance: ${netBalance[fromUserId]})',
+        );
+      }
+    }
+
+    // Tìm người tôi nợ nhiều nhất (balance âm nhất)
+    print('\n--- NET BALANCE SUMMARY ---');
+    for (var entry in netBalance.entries) {
+      final userName = userInfo[entry.key]?['name'] ?? 'Unknown';
+      print('  $userName (${entry.key}): ${entry.value}');
+    }
+
+    String? maxCreditorId;
+    double maxDebt = 0.0;
+
+    for (var entry in netBalance.entries) {
+      if (entry.value < -0.01 && entry.value.abs() > maxDebt) {
+        maxDebt = entry.value.abs();
+        maxCreditorId = entry.key;
+      }
+    }
+
+    // Nếu tôi không nợ ai, return null
+    if (maxCreditorId == null || maxDebt < 1) {
+      print('RESULT: No optimization needed (balance >= 0)');
+      print('=================================\n');
+      return null;
+    }
+
+    // Tìm tất cả các debt records liên quan đến người này để lấy debt_id
+    String? debtId;
+    for (var debt in myDebts) {
+      if (debt['to_user_id']?.toString() == maxCreditorId &&
+          debt['is_paid'] != true) {
+        debtId = debt['id']?.toString();
+        break;
+      }
+    }
+
+    final creditorName = userInfo[maxCreditorId]?['name'] ?? 'Unknown';
+    print('\nRESULT: Optimized debt found!');
+    print('  Pay to: $creditorName');
+    print('  Amount: $maxDebt');
+    print('  Debt ID: $debtId');
+    print('=================================\n');
+
+    return {
+      'from': {'name': 'Bạn', 'avatar': 'B'},
+      'to': userInfo[maxCreditorId],
+      'amount': maxDebt.round(),
+      'debt_id': debtId,
+    };
+  }
+
+  // Map pending settlements từ debts to me
+  List<Map<String, dynamic>> _mapPendingSettlements(
+    List<Map<String, dynamic>> debtsToMe,
+  ) {
+    return debtsToMe.where((debt) => debt['is_paid'] != true).map((debt) {
+      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
+
+      // Lấy thông tin từ from_user object
+      final fromUser = debt['from_user'] as Map<String, dynamic>?;
+      final fromUserName =
+          fromUser?['full_name'] ??
+          fromUser?['name'] ??
+          fromUser?['email'] ??
+          'Unknown';
+      final fromUserAvatar = fromUser?['avatar_url'] ?? '';
+
+      final expenseData = debt['expense'] as Map<String, dynamic>?;
+      final description = expenseData?['description'] ?? 'Chi phí nhóm';
+      final expenseImageUrl =
+          expenseData?['image_url'] ?? ''; // Hình ảnh bill từ expense
+      final groupName = debt['group_name'] ?? 'Nhóm';
+
+      return {
+        'name': fromUserName,
+        'avatar': fromUserAvatar,
+        'description': description,
+        'group_name': groupName,
+        'amount': amount.round(),
+        'debt_id': debt['id']?.toString(),
+        'expense_image_url': expenseImageUrl,
+      };
+    }).toList();
+  }
+
+  // Đánh dấu đã trả nợ
+  Future<void> _markDebtAsPaid(String? debtId) async {
+    if (debtId == null) {
+      PopupNotification.showError(context, 'Không tìm thấy thông tin nợ');
+      return;
+    }
+
+    try {
+      await _groupRepository.markDebtPaid(debtId);
+      PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
+
+      // Refresh data
+      await _fetchDebtData();
+    } catch (e) {
+      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
+    }
+  }
+
+  // Hiển thị thông tin về tối ưu hoá
+  void _showOptimizationInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Tối ưu trả nợ',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        content: const Text(
+          'Hệ thống tự động tính toán và cân bằng các khoản nợ giữa bạn và thành viên khác.\n\n'
+          'Ví dụ: Bạn nợ A 500k, nhưng A nợ bạn 300k → Bạn chỉ cần trả A 200k.\n\n'
+          'Giúp giảm số lần giao dịch và đơn giản hoá việc thanh toán.',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Refresh toàn bộ data (groups + debts)
+  Future<void> _refreshData() async {
+    await Future.wait([_fetchGroups(), _fetchDebtData()]);
   }
 
   Future<void> _fetchGroups() async {
@@ -331,7 +585,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _fetchGroups,
+          onRefresh: _refreshData,
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             physics: const AlwaysScrollableScrollPhysics(),
@@ -654,20 +908,27 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   // 3. Debt Optimization Section
   Widget _buildDebtOptimizationSection() {
+    // Nếu đang loading hoặc không có nợ tối ưu, không hiển thị
+    if (_isLoadingDebts || _optimizedDebt == null) {
+      return const SizedBox.shrink();
+    }
+
+    final debt = _optimizedDebt!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
         // Title Row
         Row(
-          children: const [
-            Icon(
+          children: [
+            const Icon(
               Icons.auto_awesome,
               color: AppColors.amber500,
               size: 20,
             ), // Icon Sparkles tương tự
-            SizedBox(width: 8),
-            Text(
+            const SizedBox(width: 8),
+            const Text(
               "Tối ưu trả nợ",
               style: TextStyle(
                 fontSize: 15,
@@ -675,9 +936,23 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 color: AppColors.slate700,
               ),
             ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => _showOptimizationInfo(context),
+              child: const Icon(
+                Icons.info_outline,
+                size: 16,
+                color: AppColors.slate400,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        const Text(
+          'Sau khi tính toán tổng các khoản nợ',
+          style: TextStyle(fontSize: 12, color: AppColors.slate600),
+        ),
+        const SizedBox(height: 8),
         // Debt Card
         Container(
           padding: const EdgeInsets.all(16),
@@ -696,8 +971,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
               Row(
                 children: [
                   _buildAvatarCircle(
-                    debtOptimization['from']['avatar'],
-                    debtOptimization['from']['name'],
+                    debt['from']['avatar'],
+                    debt['from']['name'],
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8.0),
@@ -707,13 +982,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       size: 18,
                     ),
                   ),
-                  _buildAvatarCircle(
-                    debtOptimization['to']['avatar'],
-                    debtOptimization['to']['name'],
-                  ),
+                  _buildAvatarCircle(debt['to']['avatar'], debt['to']['name']),
                   const Spacer(),
                   Text(
-                    formatCurrency(debtOptimization['amount']),
+                    formatCurrency(debt['amount']),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -727,7 +999,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _markDebtAsPaid(debt['debt_id']),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.amber500,
                     foregroundColor: Colors.white,
@@ -751,16 +1023,34 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   // Helper cho Avatar trong Debt Card
-  Widget _buildAvatarCircle(String char, String name) {
+  Widget _buildAvatarCircle(String? avatarUrl, String name) {
+    // Lấy chữ cái đầu để làm fallback
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
     return Row(
       children: [
         CircleAvatar(
           radius: 18,
           backgroundColor: AppColors.slate200,
-          child: Text(
-            char,
-            style: const TextStyle(fontSize: 12, color: AppColors.slate700),
-          ),
+          backgroundImage:
+              (avatarUrl != null &&
+                  avatarUrl.isNotEmpty &&
+                  avatarUrl.startsWith('http'))
+              ? NetworkImage(avatarUrl)
+              : null,
+          child:
+              (avatarUrl == null ||
+                  avatarUrl.isEmpty ||
+                  !avatarUrl.startsWith('http'))
+              ? Text(
+                  initial,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.slate700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              : null,
         ),
         const SizedBox(width: 6),
         Text(
@@ -777,6 +1067,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
   // 4. Pending Settlements Section
   Widget _buildPendingSettlementsSection() {
+    // Nếu đang loading hoặc không có pending settlements, không hiển thị
+    if (_isLoadingDebts || _pendingSettlements.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -790,89 +1085,131 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        ...pendingSettlements.map(
-          (item) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.slate100,
-              ), // Thêm border nhẹ cho rõ ràng
-            ),
-            child: Row(
-              children: [
-                // Avatar
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.slate200,
-                  child: Text(
-                    item['avatar'],
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.slate700,
-                    ),
+        ..._pendingSettlements.map(
+          (item) => GestureDetector(
+            onTap: () async {
+              // Navigate to debt payment screen
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DebtPaymentScreen(
+                    debtId: item['debt_id'] ?? '',
+                    creditorName: item['name'] ?? 'Unknown',
+                    creditorAvatar: item['avatar'] ?? '',
+                    amount: item['amount'] ?? 0,
+                    description: item['description'] ?? '',
+                    groupName: item['group_name'] ?? 'Nhóm',
+                    existingProofImageUrl: item['expense_image_url'],
                   ),
                 ),
-                const SizedBox(width: 12),
-                // Name & Desc
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              );
+
+              // Refresh if payment was made
+              if (result == true) {
+                _fetchDebtData();
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.slate100),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.slate200,
+                    backgroundImage:
+                        (item['avatar'] != null &&
+                            item['avatar'].toString().isNotEmpty &&
+                            item['avatar'].toString().startsWith('http'))
+                        ? NetworkImage(item['avatar'])
+                        : null,
+                    child:
+                        (item['avatar'] == null ||
+                            item['avatar'].toString().isEmpty ||
+                            !item['avatar'].toString().startsWith('http'))
+                        ? Text(
+                            item['name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.slate700,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Name & Desc & Group
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.slate900,
+                          ),
+                        ),
+                        Text(
+                          item['description'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.group,
+                              size: 11,
+                              color: AppColors.slate400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item['group_name'] ?? 'Nhóm',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.slate400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Amount
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        item['name'],
+                        formatCurrency(item['amount']),
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.slate900,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.red500,
                         ),
                       ),
-                      Text(
-                        item['description'],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.slate500,
-                        ),
+                      const SizedBox(height: 4),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: AppColors.slate400,
                       ),
                     ],
                   ),
-                ),
-                // Amount
-                Text(
-                  formatCurrency(item['amount']),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.red500,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Action Buttons Column
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: () {},
-                      child: const Icon(
-                        Icons.notifications_none,
-                        size: 20,
-                        color: AppColors.slate400,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () {},
-                      child: const Icon(
-                        Icons.check_circle_outline,
-                        size: 20,
-                        color: AppColors.teal500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

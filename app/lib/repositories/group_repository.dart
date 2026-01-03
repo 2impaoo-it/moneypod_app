@@ -375,18 +375,62 @@ class GroupRepository {
     }
   }
 
-  /// Đánh dấu đã trả nợ
+  /// Đánh dấu đã trả nợ với wallet và proof image
   /// PUT /groups/debts/:debt_id/paid
-  Future<void> markDebtPaid(String debtId) async {
+  Future<void> markDebtPaid(
+    String debtId, {
+    String? walletId,
+    String? proofImagePath,
+    String? note,
+  }) async {
     try {
       final token = await _authService.getToken();
+
+      // Nếu có hình ảnh, upload trước
+      String? proofImageUrl;
+      if (proofImagePath != null && proofImagePath.isNotEmpty) {
+        // TODO: Upload image và lấy URL
+        // proofImageUrl = await _uploadImage(proofImagePath);
+      }
+
+      final data = <String, dynamic>{};
+      if (walletId != null) data['wallet_id'] = walletId;
+      if (proofImageUrl != null) data['proof_image_url'] = proofImageUrl;
+      if (note != null && note.isNotEmpty) data['note'] = note;
+
       final response = await _dio.put(
         '/groups/debts/$debtId/paid',
+        data: data,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode != 200) {
         throw Exception(response.data['error'] ?? 'Lỗi cập nhật trạng thái nợ');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Xác nhận đã nhận tiền (chủ nợ)
+  /// PUT /groups/debts/:debt_id/confirm
+  Future<void> confirmReceivePayment(
+    String debtId, {
+    required String walletId,
+  }) async {
+    try {
+      final token = await _authService.getToken();
+
+      final data = <String, dynamic>{'wallet_id': walletId};
+
+      final response = await _dio.put(
+        '/groups/debts/$debtId/confirm',
+        data: data,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(response.data['error'] ?? 'Lỗi xác nhận nhận tiền');
       }
     } catch (e) {
       rethrow;

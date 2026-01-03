@@ -314,8 +314,8 @@ func (s *GroupService) CreateExpense(groupID uuid.UUID, req CreateExpenseRequest
 	return nil
 }
 
-// MarkDebtAsPaid: Đánh dấu đã trả nợ
-func (s *GroupService) MarkDebtAsPaid(debtID uuid.UUID, userID uuid.UUID) error {
+// MarkDebtAsPaid: Đánh dấu đã trả nợ (người nợ xác nhận)
+func (s *GroupService) MarkDebtAsPaid(debtID uuid.UUID, userID uuid.UUID, walletID *uuid.UUID, proofImageURL string, note string) error {
 	var debt models.Debt
 
 	// Tìm khoản nợ
@@ -323,9 +323,9 @@ func (s *GroupService) MarkDebtAsPaid(debtID uuid.UUID, userID uuid.UUID) error 
 		return errors.New("khoản nợ không tồn tại")
 	}
 
-	// Kiểm tra quyền: Chỉ chủ nợ (ToUserID) mới được đánh dấu đã trả
-	if debt.ToUserID != userID {
-		return errors.New("bạn không phải chủ nợ, không có quyền xác nhận")
+	// Kiểm tra quyền: Chỉ con nợ (FromUserID) mới được xác nhận trả
+	if debt.FromUserID != userID {
+		return errors.New("bạn không phải con nợ, không có quyền xác nhận")
 	}
 
 	// Kiểm tra đã trả chưa
@@ -333,9 +333,108 @@ func (s *GroupService) MarkDebtAsPaid(debtID uuid.UUID, userID uuid.UUID) error 
 		return errors.New("khoản nợ này đã được thanh toán rồi")
 	}
 
+	// Lưu thông tin ví và hình ảnh minh chứng, ghi chú
+	if walletID != nil {
+		debt.PaymentWalletID = walletID
+	}
+	if proofImageURL != "" {
+		debt.ProofImageURL = proofImageURL
+	}
+	if note != "" {
+		debt.PaymentNote = note
+	}
+
+	// CHƯƠ đánh dấu IsPaid = true, chờ chủ nợ xác nhận
+	// debt.IsPaid vẫn giữ là false
+
+	return s.db.Save(&debt).Error
+}
+
+// ConfirmReceivePayment: Chủ nợ xác nhận đã nhận tiền và tạo transaction
+func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.UUID, receiverWalletID uuid.UUID) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var debt models.Debt
+	// Tìm khoản nợ và preload các quan hệ cần thiết
+	if err := tx.Preload("Expense").Preload("FromUser").Preload("ToUser").First(&debt, "id = ?", debtID).Error; err != nil {
+		tx.Rollback()
+		return errors.New("khoản nợ không tồn tại")
+	}
+
+	// Kiểm tra quyền: Chỉ chủ nợ (ToUserID) mới được xác nhận
+	if debt.ToUserID != creditorID {
+		tx.Rollback()
+		return errors.New("bạn không phải chủ nợ, không có quyền xác nhận")
+	}
+
+	// Kiểm tra đã trả chưa
+	if debt.IsPaid {
+		tx.Rollback()
+		return errors.New("khoản nợ này đã được xác nhận rồi")
+	}
+
+	// Kiểm tra debtor đã gửi yêu cầu chưa (có payment_wallet_id)
+	if debt.PaymentWalletID == nil {
+		tx.Rollback()
+		return errors.New("người nợ chưa gửi yêu cầu thanh toán")
+	}
+
 	// Đánh dấu đã trả
 	debt.IsPaid = true
-	return s.db.Save(&debt).Error
+	// Lưu thời gian xác nhận (dùng CreatedAt của một BaseModel mới hoặc time.Now())
+	// Ở đây đơn giản hóa: không cần field mới, chỉ cần IsPaid = true là đủ
+
+	if err := tx.Save(&debt).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Tạo transaction cho người nhận (chủ nợ - creditor)
+	creditorTrans := models.Transaction{
+		UserID:   creditorID,
+		WalletID: receiverWalletID,
+		Type:     "income",
+		Amount:   debt.Amount,
+		Note:     fmt.Sprintf("Nhận tiền trả nợ từ %s: %s", debt.FromUser.FullName, debt.Expense.Description),
+	}
+	if err := tx.Create(&creditorTrans).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Cập nhật số dư ví người nhận
+	if err := tx.Model(&models.Wallet{}).Where("id = ?", receiverWalletID).
+		Update("balance", gorm.Expr("balance + ?", debt.Amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Tạo transaction cho người trả (debtor)
+	debtorTrans := models.Transaction{
+		UserID:   debt.FromUserID,
+		WalletID: *debt.PaymentWalletID,
+		Type:     "expense",
+		Amount:   debt.Amount,
+		Note:     fmt.Sprintf("Trả nợ cho %s: %s", debt.ToUser.FullName, debt.Expense.Description),
+	}
+	if err := tx.Create(&debtorTrans).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Trừ tiền ví người trả
+	if err := tx.Model(&models.Wallet{}).Where("id = ?", debt.PaymentWalletID).
+		Update("balance", gorm.Expr("balance - ?", debt.Amount)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 // GetMyDebts: Xem danh sách nợ của tôi trong nhóm
@@ -343,7 +442,7 @@ func (s *GroupService) GetMyDebts(groupID uuid.UUID, userID uuid.UUID) ([]models
 	var debts []models.Debt
 
 	// Lấy tất cả nợ của user trong nhóm này
-	err := s.db.Preload("Expense").
+	err := s.db.Preload("Expense").Preload("FromUser").Preload("ToUser").
 		Joins("JOIN expenses ON debts.expense_id = expenses.id").
 		Where("expenses.group_id = ? AND debts.from_user_id = ?", groupID, userID).
 		Find(&debts).Error
@@ -356,7 +455,7 @@ func (s *GroupService) GetDebtsToMe(groupID uuid.UUID, userID uuid.UUID) ([]mode
 	var debts []models.Debt
 
 	// Lấy tất cả nợ người khác nợ user trong nhóm này
-	err := s.db.Preload("Expense").
+	err := s.db.Preload("Expense").Preload("FromUser").Preload("ToUser").
 		Joins("JOIN expenses ON debts.expense_id = expenses.id").
 		Where("expenses.group_id = ? AND debts.to_user_id = ?", groupID, userID).
 		Find(&debts).Error

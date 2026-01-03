@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/notification.dart';
+import '../screens/debt_payment_screen.dart';
 
 class NotificationHandler {
   /// Handle navigation when user taps on a notification
@@ -26,6 +27,8 @@ class NotificationHandler {
         _handleTransaction(context, data);
         break;
       case 'debt_reminder':
+        _handleDebtReminder(context, data);
+        break;
       case 'group_expense':
       case 'group_member_added':
       case 'group_member_removed':
@@ -70,6 +73,38 @@ class NotificationHandler {
   ) {
     // Navigate to transaction list
     context.go('/transactions');
+  }
+
+  static void _handleDebtReminder(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    // Navigate to debt payment screen
+    final debtId = data['debt_id']?.toString();
+    final creditorName = data['creditor_name']?.toString() ?? 'Unknown';
+    final creditorAvatar = data['creditor_avatar']?.toString() ?? '';
+    final amount = (data['amount'] as num?)?.toInt() ?? 0;
+    final description = data['description']?.toString() ?? 'Chi phí nhóm';
+    final groupName = data['group_name']?.toString() ?? 'Nhóm';
+
+    if (debtId != null && debtId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DebtPaymentScreen(
+            debtId: debtId,
+            creditorName: creditorName,
+            creditorAvatar: creditorAvatar,
+            amount: amount,
+            description: description,
+            groupName: groupName,
+          ),
+        ),
+      );
+    } else {
+      // Fallback to groups screen
+      context.go('/groups');
+    }
   }
 
   static void _handleGroupExpense(
