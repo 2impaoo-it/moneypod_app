@@ -1129,6 +1129,54 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               ],
             ),
             const Divider(height: 32),
+            // Payer Info
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  backgroundImage:
+                      payerAvatar != null && payerAvatar.toString().isNotEmpty
+                      ? NetworkImage(payerAvatar)
+                      : null,
+                  child: payerAvatar == null || payerAvatar.toString().isEmpty
+                      ? Text(
+                          payerName.isNotEmpty
+                              ? payerName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Người chi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      Text(
+                        payerName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             // Details
             if (createdAt != null)
               _buildDetailRow(

@@ -104,31 +104,13 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo/Icon
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryDark],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    LucideIcons.wallet,
-                    size: 64,
-                    color: Colors.white,
-                  ),
+                // Logo/Icon - Sử dụng icon ứng dụng (transparent)
+                Image.asset(
+                  'assets/icons/android_foreground-removebg-preview.png',
+                  width: 220,
+                  height: 220,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 2),
 
                 // App Name
                 const Text(
@@ -214,8 +196,8 @@ class _SplashScreenState extends State<SplashScreen>
                         const SizedBox(height: 8),
                         Text(
                           _errorType == 'maintenance'
-                              ? 'Server đang trong quá trình bảo trì.\nVui lòng thử lại sau ít phút.'
-                              : 'Vui lòng kiểm tra:\n• Kết nối mạng\n• Server\n',
+                              ? 'Hệ thống đang được nâng cấp.\nVui lòng thử lại sau ít phút.'
+                              : 'Vui lòng kiểm tra kết nối mạng\nvà thử lại.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 13,

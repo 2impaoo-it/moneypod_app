@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../utils/dio_client.dart';
+import '../utils/error_handler.dart';
 
 /// Service để kiểm tra kết nối server
 class ApiService {
@@ -15,7 +16,9 @@ class ApiService {
   /// errorType có thể là: 'maintenance' (503), 'no_internet' (mất mạng), null (nếu OK)
   static Future<Map<String, dynamic>> checkServerHealth() async {
     try {
-      print('🔵 [ApiService] Kiểm tra server health...');
+      if (kDebugMode) {
+        print('🔵 [ApiService] Kiểm tra server health...');
+      }
 
       final response = await _dio.get(
         '$baseUrl/ping',
@@ -25,21 +28,16 @@ class ApiService {
         ),
       );
 
-      print('📡 [ApiService] Status code: ${response.statusCode}');
-      print('📡 [ApiService] Response body: ${response.data}');
+      if (kDebugMode) {
+        print('📡 [ApiService] Status code: ${response.statusCode}');
+      }
 
       // Check 503 - Server đang bảo trì
       if (response.statusCode == 503) {
-        print('🔧 [ApiService] Server đang bảo trì (503)');
-        String maintenanceMessage = 'Server đang bảo trì, vui lòng thử lại sau';
-        if (response.data is Map) {
-          maintenanceMessage = response.data['message'] ?? maintenanceMessage;
-        }
-
         return {
           'isHealthy': false,
           'errorType': 'maintenance',
-          'message': maintenanceMessage,
+          'message': 'Máy chủ đang bảo trì. Vui lòng quay lại sau.',
         };
       }
 
@@ -49,39 +47,49 @@ class ApiService {
 
         // Kiểm tra message có chứa "moneypod" không
         if (message.contains('moneypod')) {
-          print('✅ [ApiService] Server hoạt động tốt!');
           return {'isHealthy': true, 'errorType': null};
         }
       }
 
-      print('❌ [ApiService] Server trả về response không hợp lệ');
       return {
         'isHealthy': false,
         'errorType': 'unknown',
-        'message': 'Server trả về phản hồi không hợp lệ',
+        'message': 'Dịch vụ tạm thời không khả dụng.',
       };
     } on DioException catch (e) {
+      ErrorHandler.logError(e);
+
       if (e.error is SocketException ||
           e.type == DioExceptionType.connectionTimeout) {
-        print('❌ [ApiService] Lỗi kết nối: $e');
         return {
           'isHealthy': false,
           'errorType': 'no_internet',
-          'message': 'Không thể kết nối đến server',
+          'message': 'Không có kết nối mạng. Vui lòng kiểm tra Wi-Fi hoặc 4G.',
         };
       }
-      print('❌ [ApiService] Dio error: $e');
+
+      // Check for Ngrok tunnel errors
+      final responseBody = e.response?.data?.toString() ?? '';
+      if (responseBody.contains('ngrok') ||
+          responseBody.contains('ERR_NGROK')) {
+        return {
+          'isHealthy': false,
+          'errorType': 'maintenance',
+          'message': 'Máy chủ đang bảo trì. Vui lòng quay lại sau.',
+        };
+      }
+
       return {
         'isHealthy': false,
         'errorType': 'unknown',
-        'message': e.response?.data['error'] ?? 'Có lỗi xảy ra',
+        'message': ErrorHandler.getFriendlyMessage(e),
       };
     } catch (e) {
-      print('❌ [ApiService] Lỗi không xác định: $e');
+      ErrorHandler.logError(e);
       return {
         'isHealthy': false,
         'errorType': 'unknown',
-        'message': 'Có lỗi xảy ra: $e',
+        'message': ErrorHandler.getFriendlyMessage(e),
       };
     }
   }
