@@ -73,14 +73,17 @@ func (h *TransactionHandler) GetList(c *gin.Context) {
 	// Kiểm tra có filter không
 	category := c.Query("category")
 	transactionType := c.Query("type")
-	walletID := c.Query("wallet_id") // <-- Thêm
+	walletID := c.Query("wallet_id")
 	month := c.Query("month")
 	year := c.Query("year")
 	page := c.DefaultQuery("page", "1")
 	pageSize := c.DefaultQuery("page_size", "20")
 
+	// Debug log
+	fmt.Printf("📥 Handler received: walletID='%s', category='%s', type='%s'\n", walletID, category, transactionType)
+
 	// Nếu có filter thì dùng GetTransactionsWithFilters
-	if category != "" || transactionType != "" || month != "" || year != "" || walletID != "" { // <-- Check walletID
+	if category != "" || transactionType != "" || month != "" || year != "" || walletID != "" {
 		var monthInt, yearInt int
 		if month != "" {
 			fmt.Sscanf(month, "%d", &monthInt)

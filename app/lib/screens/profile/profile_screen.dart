@@ -15,6 +15,7 @@ import 'package:MoneyPod/bloc/auth/auth_event.dart';
 import 'package:MoneyPod/services/biometric_service.dart';
 import '../../main.dart';
 import '../../utils/popup_notification.dart';
+import '../notifications_screen.dart';
 import '../../bloc/dashboard/dashboard_bloc.dart';
 import '../../bloc/dashboard/dashboard_event.dart';
 import '../../bloc/savings/savings_bloc.dart';
@@ -1086,9 +1087,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'Thông báo',
             iconColor: AppColors.warning,
             onTap: () {
-              PopupNotification.showSuccess(
+              Navigator.push(
                 context,
-                'Chức năng đang phát triển',
+                MaterialPageRoute(
+                  builder: (context) => const NotificationsScreen(),
+                ),
               );
             },
           ),

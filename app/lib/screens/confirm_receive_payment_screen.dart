@@ -18,7 +18,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? proofImageUrl;
 
   const ConfirmReceivePaymentScreen({
-    Key? key,
+    super.key,
     required this.debtId,
     required this.debtorName,
     required this.debtorAvatar,
@@ -28,7 +28,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.paymentDate,
     this.paymentNote,
     this.proofImageUrl,
-  }) : super(key: key);
+  });
 
   @override
   State<ConfirmReceivePaymentScreen> createState() =>
@@ -410,7 +410,7 @@ class _ConfirmReceivePaymentScreenState
                   ),
                 ),
               );
-            }).toList(),
+            }),
         ],
       ),
     );

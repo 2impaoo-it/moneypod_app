@@ -8,6 +8,8 @@ import '../bloc/notification/notification_event.dart';
 import '../bloc/notification/notification_state.dart';
 import '../models/notification.dart';
 import '../repositories/notification_repository.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../theme/app_colors.dart';
 import '../utils/notification_handler.dart';
 import 'notification_settings_screen.dart';
 
@@ -167,10 +169,9 @@ class _NotificationsScreenView extends StatelessWidget {
                   );
                 }
               },
-              child: ListView.separated(
-                padding: const EdgeInsets.all(8),
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: state.notifications.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final notification = state.notifications[index];
                   return _NotificationItem(
@@ -222,14 +223,32 @@ class _NotificationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine visuals based on notification types (can be expanded)
+    final isAlert =
+        notification.type == 'security_alert' ||
+        notification.type == 'low_balance' ||
+        notification.type == 'budget_exceeded';
+
+    final iconColor = isAlert
+        ? AppColors.danger
+        : (notification.isRead ? AppColors.slate400 : AppColors.primary);
+
+    final bgColor = notification.isRead
+        ? Colors.white
+        : AppColors.blue50.withOpacity(0.3);
+
     return Dismissible(
       key: Key(notification.id),
       direction: DismissDirection.endToStart,
       background: Container(
-        color: Colors.red,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.danger,
+          borderRadius: BorderRadius.circular(16),
+        ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: const Icon(Icons.delete, color: Colors.white),
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(LucideIcons.trash2, color: Colors.white),
       ),
       confirmDismiss: (direction) async {
         return await showDialog(
@@ -255,57 +274,123 @@ class _NotificationItem extends StatelessWidget {
           NotificationDelete(token, notification.id),
         );
       },
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: notification.isRead
-              ? Colors.grey[300]
-              : Colors.blue[100],
-          child: Text(notification.icon, style: const TextStyle(fontSize: 24)),
-        ),
-        title: Text(
-          notification.title,
-          style: TextStyle(
-            fontWeight: notification.isRead
-                ? FontWeight.normal
-                : FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(notification.body),
-            const SizedBox(height: 4),
-            Text(
-              timeago.format(notification.createdAt, locale: 'vi'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.slate200.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+          border: Border.all(
+            color: notification.isRead
+                ? Colors.transparent
+                : AppColors.primary.withOpacity(0.1),
+            width: 1,
+          ),
         ),
-        trailing: !notification.isRead
-            ? const Icon(Icons.circle, size: 12, color: Colors.blue)
-            : null,
-        onTap: () async {
-          // Mark as read
-          if (!notification.isRead) {
-            context.read<NotificationBloc>().add(
-              NotificationMarkAsRead(token, notification.id),
-            );
-          }
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () async {
+              // Mark as read immediately
+              if (!notification.isRead) {
+                context.read<NotificationBloc>().add(
+                  NotificationMarkAsRead(token, notification.id),
+                );
+              }
 
-          // Pop notification screen first to avoid navigation conflict
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
+              // Handle tap navigation
+              _handleNotificationTap(context, notification);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon container
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      notification.icon,
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
 
-          // Small delay to ensure pop animation completes
-          await Future.delayed(const Duration(milliseconds: 300));
-
-          // Then navigate based on notification type
-          if (context.mounted) {
-            _handleNotificationTap(context, notification);
-          }
-        },
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                notification.title,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: notification.isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (!notification.isRead)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          notification.body,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: notification.isRead
+                                ? AppColors.textSecondary
+                                : AppColors.textPrimary,
+                            height: 1.4,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          timeago.format(notification.createdAt, locale: 'vi'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -314,7 +399,6 @@ class _NotificationItem extends StatelessWidget {
     BuildContext context,
     AppNotification notification,
   ) {
-    // Use NotificationHandler to navigate
     NotificationHandler.handleNotificationTap(context, notification);
   }
 }

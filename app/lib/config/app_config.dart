@@ -22,7 +22,7 @@ class AppConfig {
   };
 
   // Override URL nếu được define khi build
-  static const String? _overrideUrl = String.fromEnvironment(
+  static const String _overrideUrl = String.fromEnvironment(
     'BASE_URL',
     defaultValue: '',
   );
@@ -30,8 +30,8 @@ class AppConfig {
   /// Lấy Base URL cho API
   static String get baseUrl {
     // Priority: Override URL > Environment URL > Development URL
-    if (_overrideUrl != null && _overrideUrl!.isNotEmpty) {
-      return _overrideUrl!;
+    if (_overrideUrl.isNotEmpty) {
+      return _overrideUrl;
     }
     return _baseUrls[environment] ?? _baseUrls['development']!;
   }

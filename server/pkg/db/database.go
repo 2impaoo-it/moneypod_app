@@ -43,6 +43,7 @@ func ConnectDatabase() {
 		&models.SavingsTransaction{},  // Bảng savings_transactions
 		&models.Notification{},        // Bảng notifications
 		&models.NotificationSetting{}, // Bảng notification_settings
+		&models.Budget{},              // Bảng budgets
 	)
 	if err != nil {
 		log.Fatal("❌ Không thể khởi tạo bảng: ", err)

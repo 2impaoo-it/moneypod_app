@@ -117,6 +117,50 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 		log.Printf("ℹ️ Không trigger low balance: Type=%s, Balance=%.0f >= %.0f", req.Type, wallet.Balance, lowBalanceThreshold)
 	}
 
+	// 8. 🔥 Kiểm tra Ngân sách (Over Budget)
+	if req.Type == constants.TransactionTypeExpense {
+		go func() {
+			month := int(req.Date.Month())
+			year := req.Date.Year()
+			category := req.Category
+
+			var budget models.Budget
+			// Tìm ngân sách cho danh mục này
+			if err := s.db.Where("user_id = ? AND category = ? AND month = ? AND year = ?", userID, category, month, year).First(&budget).Error; err != nil {
+				// Không có ngân sách, bỏ qua
+				return
+			}
+
+			// Tính tổng chi tiêu
+			var totalSpent float64
+			s.db.Model(&models.Transaction{}).
+				Select("COALESCE(SUM(amount), 0)").
+				Where("user_id = ? AND category = ? AND type = ? AND EXTRACT(MONTH FROM date) = ? AND EXTRACT(YEAR FROM date) = ?",
+					userID, category, "expense", month, year).
+				Scan(&totalSpent)
+
+			log.Printf("🔍 Check Budget: Category='%s', Limit=%.0f, Spent=%.0f", category, budget.Amount, totalSpent)
+
+			if totalSpent > budget.Amount {
+				// Gửi thông báo
+				log.Printf("⚠️ OVER BUDGET DETECTED! Category '%s' exceeded limit.", category)
+				
+				var user models.User
+				if err := s.db.First(&user, "id = ?", userID).Error; err == nil && user.FCMToken != "" && s.notifService != nil {
+					title := "⚠️ Cảnh báo vượt ngân sách"
+					body := fmt.Sprintf("Bạn đã chi tiêu vượt quá ngân sách cho mục '%s'. (Đã chi: %.0f đ / Hạn mức: %.0f đ)", category, totalSpent, budget.Amount)
+					data := map[string]interface{}{
+						"type":      "over_budget",
+						"category":  category,
+						"spent":     totalSpent,
+						"limit":     budget.Amount,
+					}
+					s.notifService.CreateAndSendNotification(userID, "over_budget", title, body, data, user.FCMToken)
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 

@@ -17,11 +17,15 @@ func NewReceiptHandler(service *services.ReceiptService) *ReceiptHandler {
 }
 
 func (h *ReceiptHandler) Scan(c *gin.Context) {
-	// 1. Nhận file từ Request (Key là "image")
-	file, _, err := c.Request.FormFile("image")
+	// 1. Nhận file từ Request (Key là "images" - hỗ trợ multi-file từ Flutter)
+	file, _, err := c.Request.FormFile("images")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Vui lòng gửi file ảnh với key là 'image'"})
-		return
+		// Fallback thử key "image" nếu không tìm thấy "images"
+		file, _, err = c.Request.FormFile("image")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Vui lòng gửi file ảnh với key là 'images' hoặc 'image'"})
+			return
+		}
 	}
 	defer file.Close()
 

@@ -411,7 +411,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: DropdownButtonFormField<Wallet>(
-        value: selectedWallet,
+        initialValue: selectedWallet,
         decoration: const InputDecoration(
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -6,6 +6,7 @@ import '../bloc/transaction/transaction_bloc.dart';
 import '../bloc/transaction/transaction_state.dart';
 import '../bloc/transaction/transaction_event.dart';
 import '../models/transaction.dart';
+import '../utils/category_helper.dart'; // Import Category Helper
 import '../main.dart'; // Import để lấy AppColors
 
 class TransactionsScreen extends StatefulWidget {
@@ -260,7 +261,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
     final amount = tx.amount;
     final isExpense = tx.isExpense;
-    final style = _getCategoryStyle(tx.category);
+
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
 
     return InkWell(
       onTap: () => _showTransactionDetail(tx),
@@ -273,25 +276,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         child: Row(
           children: [
-            // User Avatar hoặc Category Icon
+            // Category Icon (No Avatar)
             Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: style.bgColor,
+                color: backgroundColor,
                 borderRadius: BorderRadius.circular(22),
               ),
-              child: tx.userAvatar != null && tx.userAvatar!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: Image.network(
-                        tx.userAvatar!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Icon(style.icon, color: style.iconColor, size: 20),
-                      ),
-                    )
-                  : Icon(style.icon, color: style.iconColor, size: 20),
+              child: Icon(
+                CategoryHelper.getIcon(tx.category),
+                color: categoryColor,
+                size: 20,
+              ),
             ),
 
             const SizedBox(width: 12),
@@ -302,45 +299,59 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Tên ví
+                  if (tx.walletName != null)
+                    Text(
+                      tx.walletName!,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+
+                  // Category Name as Title
                   Text(
-                    tx.walletName ?? 'Ví chưa xác định',
+                    tx.category,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
+
                   const SizedBox(height: 2),
-                  // Tiêu đề giao dịch
-                  Text(
-                    tx.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+
                   Row(
                     children: [
-                      Text(
-                        tx.hashtag ?? '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          "•",
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 10,
+                      // Hashtag or Title or Date
+                      if (tx.hashtag != null)
+                        Text(
+                          tx.hashtag!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryDark,
                           ),
                         ),
-                      ),
+                      if (tx.hashtag != null) const SizedBox(width: 4),
+                      if (tx.title.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            tx.title,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      if ((tx.title.isNotEmpty || tx.hashtag != null))
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            "•",
+                            style: TextStyle(color: Colors.grey, fontSize: 10),
+                          ),
+                        ),
                       Text(
                         DateFormat('HH:mm').format(tx.date),
                         style: const TextStyle(
@@ -372,94 +383,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   // --- HELPER METHODS FOR STYLING ---
 
   String _getCategoryDisplay(String category) {
-    // Map cả tiếng Việt và tiếng Anh
-    final lowerCategory = category.toLowerCase();
-    if (lowerCategory.contains('ăn') ||
-        lowerCategory.contains('food') ||
-        lowerCategory.contains('ăn uống')) {
-      return 'Ăn uống';
-    } else if (lowerCategory.contains('di chuyển') ||
-        lowerCategory.contains('transport')) {
-      return 'Di chuyển';
-    } else if (lowerCategory.contains('mua sắm') ||
-        lowerCategory.contains('shopping')) {
-      return 'Mua sắm';
-    } else if (lowerCategory.contains('giải trí') ||
-        lowerCategory.contains('entertainment')) {
-      return 'Giải trí';
-    } else if (lowerCategory.contains('lương') ||
-        lowerCategory.contains('salary')) {
-      return 'Lương';
-    } else if (lowerCategory.contains('hóa đơn') ||
-        lowerCategory.contains('bill')) {
-      return 'Hóa đơn';
-    } else if (lowerCategory.contains('sức khỏe') ||
-        lowerCategory.contains('health')) {
-      return 'Sức khỏe';
-    }
-    return 'Khác';
-  }
-
-  _CategoryStyle _getCategoryStyle(String category) {
-    final lowerCategory = category.toLowerCase();
-
-    if (lowerCategory.contains('ăn') ||
-        lowerCategory.contains('food') ||
-        lowerCategory.contains('ăn uống')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFCCFBF1), // teal-100
-        iconColor: const Color(0xFF0D9488), // teal-600
-        icon: LucideIcons.utensils,
-      );
-    } else if (lowerCategory.contains('di chuyển') ||
-        lowerCategory.contains('transport')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFDBEAFE), // blue-100
-        iconColor: const Color(0xFF2563EB), // blue-600
-        icon: LucideIcons.car,
-      );
-    } else if (lowerCategory.contains('mua sắm') ||
-        lowerCategory.contains('shopping')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFCE7F3), // pink-100
-        iconColor: const Color(0xFFDB2777), // pink-600
-        icon: LucideIcons.shoppingBag,
-      );
-    } else if (lowerCategory.contains('giải trí') ||
-        lowerCategory.contains('entertainment')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFF3E8FF), // purple-100
-        iconColor: const Color(0xFF9333EA), // purple-600
-        icon: LucideIcons.gamepad2,
-      );
-    } else if (lowerCategory.contains('lương') ||
-        lowerCategory.contains('salary')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFDCFCE7), // green-100
-        iconColor: const Color(0xFF16A34A), // green-600
-        icon: LucideIcons.wallet,
-      );
-    } else if (lowerCategory.contains('hóa đơn') ||
-        lowerCategory.contains('bill')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFFEDD5), // orange-100
-        iconColor: const Color(0xFFEA580C), // orange-600
-        icon: LucideIcons.fileText,
-      );
-    } else if (lowerCategory.contains('sức khỏe') ||
-        lowerCategory.contains('health')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFEE2E2), // red-100
-        iconColor: const Color(0xFFDC2626), // red-600
-        icon: LucideIcons.heart,
-      );
-    }
-
-    return _CategoryStyle(
-      bgColor: const Color(0xFFF3F4F6), // gray-100
-      iconColor: const Color(0xFF4B5563), // gray-600
-      icon: LucideIcons.moreHorizontal,
-    );
+    // Helper to map complex category names if needed, or just return as is
+    return category; // implementation can be refined if grouping needed
   }
 
   // Hiển thị chi tiết transaction
@@ -470,7 +395,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       decimalDigits: 0,
     );
     final isExpense = tx.isExpense;
-    final style = _getCategoryStyle(tx.category);
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
 
     showModalBottomSheet(
       context: context,
@@ -493,23 +419,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: style.bgColor,
+                    color: backgroundColor,
                     borderRadius: BorderRadius.circular(28),
                   ),
-                  child: tx.userAvatar != null && tx.userAvatar!.isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: Image.network(
-                            tx.userAvatar!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Icon(
-                              style.icon,
-                              color: style.iconColor,
-                              size: 28,
-                            ),
-                          ),
-                        )
-                      : Icon(style.icon, color: style.iconColor, size: 28),
+                  child: Icon(
+                    CategoryHelper.getIcon(tx.category),
+                    color: categoryColor,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -517,7 +434,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        tx.userName ?? 'Unknown',
+                        tx.category,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -548,15 +465,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               'Loại giao dịch',
               isExpense ? 'Chi tiêu' : 'Thu nhập',
             ),
-            _buildDetailRow('Danh mục', _getCategoryDisplay(tx.category)),
+            _buildDetailRow('Danh mục', tx.category),
             _buildDetailRow(
               'Số tiền',
               "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
               valueColor: isExpense ? AppColors.danger : AppColors.success,
             ),
-            if (tx.hashtag != null && tx.hashtag!.isNotEmpty)
-              _buildDetailRow('Hashtag', tx.hashtag!),
             if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
 
             // Proof Image
             if (tx.proofImage != null && tx.proofImage!.isNotEmpty) ...[
@@ -623,16 +539,4 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
     );
   }
-}
-
-class _CategoryStyle {
-  final Color bgColor;
-  final Color iconColor;
-  final IconData icon;
-
-  _CategoryStyle({
-    required this.bgColor,
-    required this.iconColor,
-    required this.icon,
-  });
 }

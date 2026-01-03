@@ -29,6 +29,8 @@ class Transaction extends Equatable {
     this.proofImage,
   });
 
+  String get type => isExpense ? 'expense' : 'income';
+
   @override
   List<Object?> get props => [
     id,

@@ -708,39 +708,41 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               ),
             ),
             const SizedBox(height: 16),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+            // Only show Edit option if goal is not fully completed (completed + withdrawn)
+            if (!(goal.status == 'COMPLETED' && goal.currentAmount == 0))
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    LucideIcons.edit,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  LucideIcons.edit,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+                title: const Text('Chỉnh sửa mục tiêu'),
+                onTap: () async {
+                  // Capture the parent context and bloc before popping
+                  final parentContext = this.context;
+                  final bloc = parentContext.read<SavingsBloc>();
+
+                  Navigator.pop(context); // Pop the modal
+
+                  // Use the parent context to push, ensuring we stay in the right scope
+                  final result = await parentContext.push(
+                    '/savings/create',
+                    extra: goal,
+                  );
+
+                  if (result == true) {
+                    _shouldReload = true;
+                    bloc.add(LoadSavingsGoals());
+                  }
+                },
               ),
-              title: const Text('Chỉnh sửa mục tiêu'),
-              onTap: () async {
-                // Capture the parent context and bloc before popping
-                final parentContext = this.context;
-                final bloc = parentContext.read<SavingsBloc>();
-
-                Navigator.pop(context); // Pop the modal
-
-                // Use the parent context to push, ensuring we stay in the right scope
-                final result = await parentContext.push(
-                  '/savings/create',
-                  extra: goal,
-                );
-
-                if (result == true) {
-                  _shouldReload = true;
-                  bloc.add(LoadSavingsGoals());
-                }
-              },
-            ),
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
@@ -969,8 +971,13 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                 final themeGradient = _getThemeGradient(goal.color);
                 final themeIcon = _getThemeIcon(goal.icon);
 
-                final progress = goal.progressPercentage / 100;
-                final remaining = goal.remainingAmount;
+                // For completed goals, always show 100% regardless of current amount
+                final progress = goal.status == 'COMPLETED'
+                    ? 1.0
+                    : goal.progressPercentage / 100;
+                final remaining = goal.status == 'COMPLETED'
+                    ? 0.0
+                    : goal.remainingAmount;
 
                 // Calculate Time Left
                 String timeText = "Không giới hạn";
@@ -1220,6 +1227,80 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
   }
 
   Widget _buildQuickActions(SavingsGoal goal) {
+    // If goal is completed, show completion badge with optional withdraw button
+    if (goal.status == 'COMPLETED') {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.success.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.checkCircle,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Mục tiêu đã hoàn thành!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.success,
+                      ),
+                    ),
+                    Text(
+                      'Bạn đã đạt được mục tiêu tiết kiệm này',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Show withdraw button if there's still money in the goal
+          if (goal.currentAmount > 0) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showWithdrawModal(goal),
+                icon: const Icon(LucideIcons.wallet, size: 18),
+                label: Text('Rút ${currencyFormat.format(goal.currentAmount)}'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -1232,7 +1313,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
         _buildCircularActionButton(
           icon: LucideIcons.minus,
           label: 'Rút tiền',
-          color: AppColors.warning, // Or Red/Orange
+          color: AppColors.warning,
           onTap: () => _showWithdrawModal(goal),
         ),
       ],

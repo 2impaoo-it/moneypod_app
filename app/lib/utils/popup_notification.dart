@@ -16,6 +16,10 @@ class PopupNotification {
     await _showDialog(context, message, isError: true, isWarning: true);
   }
 
+  static Future<void> showInfo(BuildContext context, String message) async {
+    await _showDialog(context, message, isError: false);
+  }
+
   static Future<void> _showDialog(
     BuildContext context,
     String message, {
@@ -45,76 +49,78 @@ class PopupNotification {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isWarning
-                        ? AppColors.warning.withOpacity(0.1)
-                        : (isError
-                              ? AppColors.danger.withOpacity(0.1)
-                              : AppColors.success.withOpacity(0.1)),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isWarning
-                        ? LucideIcons.alertTriangle
-                        : (isError
-                              ? LucideIcons.alertCircle
-                              : LucideIcons.checkCircle2),
-                    size: 48,
-                    color: isWarning
-                        ? AppColors.warning
-                        : (isError ? AppColors.danger : AppColors.success),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  isWarning ? "Cảnh báo" : (isError ? "Lỗi" : "Thành công"),
-                  style: GoogleFonts.inter(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isWarning
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isWarning
+                          ? AppColors.warning.withOpacity(0.1)
+                          : (isError
+                                ? AppColors.danger.withOpacity(0.1)
+                                : AppColors.success.withOpacity(0.1)),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isWarning
+                          ? LucideIcons.alertTriangle
+                          : (isError
+                                ? LucideIcons.alertCircle
+                                : LucideIcons.checkCircle2),
+                      size: 48,
+                      color: isWarning
                           ? AppColors.warning
-                          : (isError ? AppColors.danger : AppColors.primary),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          : (isError ? AppColors.danger : AppColors.success),
                     ),
-                    child: const Text(
-                      "Đóng",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    isWarning ? "Cảnh báo" : (isError ? "Lỗi" : "Thành công"),
+                    style: GoogleFonts.inter(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isWarning
+                            ? AppColors.warning
+                            : (isError ? AppColors.danger : AppColors.primary),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Đóng",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

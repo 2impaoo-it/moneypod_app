@@ -82,8 +82,13 @@ func (r *TransactionRepository) GetByUserIDWithFilters(userID uuid.UUID, walletI
 
 	// Filter by wallet_id
 	if walletID != "" {
-		query = query.Where("wallet_id = ?", walletID)
-		log.Printf("💰 Added wallet filter: %s", walletID)
+		walletUUID, err := uuid.Parse(walletID)
+		if err == nil {
+			query = query.Where("wallet_id = ?", walletUUID)
+			log.Printf("💰 Added wallet filter: %s", walletUUID)
+		} else {
+			log.Printf("⚠️ Invalid wallet_id format: %s", walletID)
+		}
 	}
 
 	// Filter by category
