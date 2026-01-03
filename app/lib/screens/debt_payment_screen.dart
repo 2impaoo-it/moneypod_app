@@ -196,23 +196,12 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
                 : null,
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Chủ nợ',
-                  style: TextStyle(fontSize: 12, color: AppColors.slate500),
-                ),
-                Text(
-                  widget.creditorName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.slate900,
-                  ),
-                ),
-              ],
+          Text(
+            widget.creditorName,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.slate900,
             ),
           ),
         ],

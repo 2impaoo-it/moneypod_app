@@ -195,24 +195,12 @@ class _ConfirmReceivePaymentScreenState
                 : null,
           ),
           const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Chủ nợ',
-                  style: TextStyle(fontSize: 12, color: AppColors.slate500),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.debtorName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.slate900,
-                  ),
-                ),
-              ],
+          Text(
+            widget.debtorName,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.slate900,
             ),
           ),
         ],
@@ -465,36 +453,74 @@ class _ConfirmReceivePaymentScreenState
   }
 
   Widget _buildConfirmButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _confirmReceivePayment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có paymentDate)
+    final bool canConfirm =
+        widget.paymentDate != null && widget.paymentDate!.isNotEmpty;
+
+    return Column(
+      children: [
+        if (!canConfirm)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Chờ người nợ gửi xác nhận thanh toán',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          disabledBackgroundColor: AppColors.slate300,
-        ),
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Text(
-                'Xác nhận đã nhận tiền',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: (_isLoading || !canConfirm)
+                ? null
+                : _confirmReceivePayment,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: canConfirm
+                  ? AppColors.primary
+                  : AppColors.slate300,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-      ),
+              disabledBackgroundColor: AppColors.slate300,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    canConfirm ? 'Xác nhận đã nhận tiền' : 'Chưa thể xác nhận',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

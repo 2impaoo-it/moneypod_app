@@ -1159,64 +1159,147 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                         ],
                       ),
                     ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: Stack(
-                          fit: StackFit.expand,
+                  // Hiển thị khác khi mục tiêu đã hoàn thành
+                  if (goal.status == 'COMPLETED')
+                    Column(
+                      children: [
+                        Text(
+                          currencyFormat.format(goal.targetAmount),
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            CircularProgressIndicator(
-                              value: progress,
-                              strokeWidth: 8,
-                              backgroundColor: Colors.white.withOpacity(0.2),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Colors.white,
+                            Flexible(
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    'Ngày bắt đầu',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(goal.createdAt),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            Center(
-                              child: Text(
-                                '${(progress * 100).toInt()}%',
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              width: 1,
+                              height: 40,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            Flexible(
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    'Ngày hoàn thành',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    goal.updatedAt != null
+                                        ? DateFormat(
+                                            'dd/MM/yyyy',
+                                          ).format(goal.updatedAt!)
+                                        : DateFormat(
+                                            'dd/MM/yyyy',
+                                          ).format(DateTime.now()),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              CircularProgressIndicator(
+                                value: progress,
+                                strokeWidth: 8,
+                                backgroundColor: Colors.white.withOpacity(0.2),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                              Center(
+                                child: Text(
+                                  '${(progress * 100).toInt()}%',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                currencyFormat.format(goal.currentAmount),
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                              Text(
+                                '/ ${currencyFormat.format(goal.targetAmount)}',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 24),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              currencyFormat.format(goal.currentAmount),
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '/ ${currencyFormat.format(goal.targetAmount)}',
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -1398,28 +1481,30 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                icon: LucideIcons.target,
-                label: 'Còn lại',
-                value: currencyFormat.format(remaining),
-                color: themeColor,
+        // Ẩn thống kê "Còn lại" và "Thời gian" khi mục tiêu đã hoàn thành
+        if (goal.status != 'COMPLETED')
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  icon: LucideIcons.target,
+                  label: 'Còn lại',
+                  value: currencyFormat.format(remaining),
+                  color: themeColor,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                icon: LucideIcons.calendar,
-                label: 'Thời gian',
-                value: timeText,
-                color: themeColor,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  icon: LucideIcons.calendar,
+                  label: 'Thời gian',
+                  value: timeText,
+                  color: themeColor,
+                ),
               ),
-            ),
-          ],
-        ),
-        if (monthlyAmount > 0) ...[
+            ],
+          ),
+        if (monthlyAmount > 0 && goal.status != 'COMPLETED') ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
