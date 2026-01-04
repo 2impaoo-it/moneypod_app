@@ -19,22 +19,36 @@ import '../utils/popup_notification.dart';
 /// Màn hình tạo hoặc chỉnh sửa mục tiêu tiết kiệm
 class CreateSavingsGoalScreen extends StatelessWidget {
   final SavingsGoal? editingGoal;
+  final SavingsRepository? savingsRepository;
 
-  const CreateSavingsGoalScreen({super.key, this.editingGoal});
+  const CreateSavingsGoalScreen({
+    super.key,
+    this.editingGoal,
+    this.savingsRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => SavingsBloc(SavingsRepository()),
-      child: CreateSavingsGoalContent(editingGoal: editingGoal),
+      create: (context) =>
+          SavingsBloc(savingsRepository ?? SavingsRepository()),
+      child: CreateSavingsGoalContent(
+        editingGoal: editingGoal,
+        savingsRepository: savingsRepository,
+      ),
     );
   }
 }
 
 class CreateSavingsGoalContent extends StatefulWidget {
   final SavingsGoal? editingGoal;
+  final SavingsRepository? savingsRepository;
 
-  const CreateSavingsGoalContent({super.key, this.editingGoal});
+  const CreateSavingsGoalContent({
+    super.key,
+    this.editingGoal,
+    this.savingsRepository,
+  });
 
   @override
   State<CreateSavingsGoalContent> createState() =>
@@ -42,6 +56,7 @@ class CreateSavingsGoalContent extends StatefulWidget {
 }
 
 class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
+  late final SavingsRepository _savingsRepository;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _targetAmountController = TextEditingController();
@@ -132,6 +147,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   @override
   void initState() {
     super.initState();
+    _savingsRepository = widget.savingsRepository ?? SavingsRepository();
     if (_isEditing) {
       final goal = widget.editingGoal!;
       _nameController.text = goal.name;
@@ -289,7 +305,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
         );
       } else {
         // Create using repository directly
-        final savingsRepo = SavingsRepository();
+        final savingsRepo = _savingsRepository;
 
         await savingsRepo.createSavingsGoal(
           name: _nameController.text,

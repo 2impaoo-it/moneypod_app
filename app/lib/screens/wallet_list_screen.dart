@@ -22,19 +22,19 @@ class WalletListScreen extends StatelessWidget {
       create: (context) =>
           WalletListBloc(walletRepository: WalletRepository())
             ..add(const LoadWalletList()),
-      child: const _WalletListView(),
+      child: const WalletListView(),
     );
   }
 }
 
-class _WalletListView extends StatefulWidget {
-  const _WalletListView();
+class WalletListView extends StatefulWidget {
+  const WalletListView({super.key});
 
   @override
-  State<_WalletListView> createState() => _WalletListViewState();
+  State<WalletListView> createState() => _WalletListViewState();
 }
 
-class _WalletListViewState extends State<_WalletListView> {
+class _WalletListViewState extends State<WalletListView> {
   // Use SettingsCubit for global state
 
   @override

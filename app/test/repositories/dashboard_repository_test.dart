@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:dio/dio.dart';
+import 'package:moneypod/models/dashboard_data.dart';
+
 import 'package:moneypod/repositories/dashboard_repository.dart';
 import 'package:moneypod/services/auth_service.dart';
 
@@ -20,32 +23,148 @@ void main() {
       dio: mockDio,
       authService: mockAuthService,
     );
+
+    // Default behaviors
+    when(
+      () => mockAuthService.getToken(),
+    ).thenAnswer((_) async => 'valid_token');
+
+    // Fix interceptors getter access
+    when(
+      () => mockDio.options,
+    ).thenReturn(BaseOptions(baseUrl: 'https://test.com'));
+    when(() => mockDio.interceptors).thenReturn(Interceptors());
   });
 
   group('DashboardRepository', () {
-    test('getDashboardData parses response correctly', () async {
-      when(() => mockAuthService.getToken()).thenAnswer((_) async => 'token');
-      when(
-        () => mockDio.get('/dashboard', options: any(named: 'options')),
-      ).thenAnswer(
-        (_) async => Response(
-          requestOptions: RequestOptions(path: '/dashboard'),
-          statusCode: 200,
-          data: {
-            'data': {
-              'user_info': {'id': 'u1', 'email': 'test@test.com'},
-              'total_balance': 1000000,
-              'wallets': [],
-              'recent_transactions': [],
-            },
+    test('throws exception when no token found', () async {
+      when(() => mockAuthService.getToken()).thenAnswer((_) async => null);
+
+      expect(
+        () => repository.getDashboardData(),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('đăng nhập'),
+          ),
+        ),
+      );
+    });
+
+    test('returns DashboardData on 200 success', () async {
+      final jsonResponse = {
+        'data': {
+          'user_info': {
+            'id': 'u1',
+            'email': 'test@test.com',
+            'full_name': 'Test',
           },
+          'total_balance': 1000000.0,
+          'wallets': [],
+          'recent_transactions': [],
+        },
+      };
+
+      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
+        (_) async => Response(
+          data: jsonResponse,
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/dashboard'),
         ),
       );
 
-      final data = await repository.getDashboardData();
+      final result = await repository.getDashboardData();
 
-      expect(data.totalBalance, 1000000.0);
-      expect(data.userInfo.id, 'u1');
+      expect(result, isA<DashboardData>());
+      expect(result.totalBalance, equals(1000000.0));
+    });
+
+    test('throws Exception on 401 Unauthorized', () async {
+      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
+        (_) async => Response(
+          data: {'error': 'Unauthorized'},
+          statusCode: 401,
+          requestOptions: RequestOptions(path: '/dashboard'),
+        ),
+      );
+
+      expect(
+        () => repository.getDashboardData(),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Unauthorized'),
+          ),
+        ),
+      );
+    });
+
+    test('throws Exception on 500 Server Error', () async {
+      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
+        (_) async => Response(
+          data: {'error': 'Internal Server Error'},
+          statusCode: 500,
+          requestOptions: RequestOptions(path: '/dashboard'),
+        ),
+      );
+
+      expect(
+        () => repository.getDashboardData(),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Server Error'),
+          ),
+        ),
+      );
+    });
+
+    test('throws Exception on Network Error (SocketException)', () async {
+      when(() => mockDio.get(any(), options: any(named: 'options'))).thenThrow(
+        DioException(
+          requestOptions: RequestOptions(path: '/dashboard'),
+          error: const SocketException('No Internet'),
+          type: DioExceptionType.connectionError,
+        ),
+      );
+
+      expect(
+        () => repository.getDashboardData(),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('kết nối mạng'),
+          ),
+        ),
+      );
+    });
+
+    test('throws Exception on Generic DioException', () async {
+      when(() => mockDio.get(any(), options: any(named: 'options'))).thenThrow(
+        DioException(
+          requestOptions: RequestOptions(path: '/dashboard'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/dashboard'),
+            data: {'error': 'Custom Error'},
+          ),
+          type: DioExceptionType.badResponse,
+        ),
+      );
+
+      expect(
+        () => repository.getDashboardData(),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Custom Error'),
+          ),
+        ),
+      );
     });
   });
 }

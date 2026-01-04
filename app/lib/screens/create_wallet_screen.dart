@@ -13,13 +13,16 @@ import '../utils/popup_notification.dart';
 
 /// Màn hình tạo ví mới với Material Design 3
 class CreateWalletScreen extends StatelessWidget {
-  const CreateWalletScreen({super.key});
+  const CreateWalletScreen({super.key, this.walletRepository});
+
+  final WalletRepository? walletRepository;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          CreateWalletBloc(walletRepository: WalletRepository()),
+      create: (context) => CreateWalletBloc(
+        walletRepository: walletRepository ?? WalletRepository(),
+      ),
       child: const _CreateWalletContent(),
     );
   }

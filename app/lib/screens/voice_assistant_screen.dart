@@ -11,15 +11,20 @@ import '../theme/app_colors.dart';
 /// Bottom sheet UI cho Voice Assistant
 class VoiceAssistantScreen extends StatefulWidget {
   final String? defaultWalletId;
+  final VoiceService? voiceService;
 
-  const VoiceAssistantScreen({super.key, this.defaultWalletId});
+  const VoiceAssistantScreen({
+    super.key,
+    this.defaultWalletId,
+    this.voiceService,
+  });
 
   @override
   State<VoiceAssistantScreen> createState() => _VoiceAssistantScreenState();
 }
 
 class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
-  final VoiceService _voiceService = VoiceService();
+  late final VoiceService _voiceService;
 
   String _recognizedText = '';
   String _statusText = 'Đang khởi tạo...';
@@ -30,6 +35,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
   @override
   void initState() {
     super.initState();
+    _voiceService = widget.voiceService ?? VoiceService();
     _initVoice();
   }
 

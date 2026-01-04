@@ -4,6 +4,7 @@ import '../models/profile.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/group_repository.dart';
+import '../repositories/profile_repository.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
@@ -20,7 +21,16 @@ String formatCurrency(int amount) {
 
 // --- MAIN SCREEN ---
 class GroupsScreen extends StatefulWidget {
-  const GroupsScreen({super.key});
+  final GroupRepository? groupRepository;
+  final AuthService? authService;
+  final ProfileRepository? profileRepository;
+
+  const GroupsScreen({
+    super.key,
+    this.groupRepository,
+    this.authService,
+    this.profileRepository,
+  });
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
@@ -31,7 +41,7 @@ class _GroupsScreenState extends State<GroupsScreen>
   // Data list
   List<Map<String, dynamic>> _groupsList = [];
   bool _isLoading = true;
-  final GroupRepository _groupRepository = GroupRepository();
+  late final GroupRepository _groupRepository;
 
   // Debt optimization and pending settlements
   Map<String, dynamic>? _optimizedDebt;
@@ -44,6 +54,7 @@ class _GroupsScreenState extends State<GroupsScreen>
   @override
   void initState() {
     super.initState();
+    _groupRepository = widget.groupRepository ?? GroupRepository();
     WidgetsBinding.instance.addObserver(this);
     _loadUserProfile();
     _fetchGroups();

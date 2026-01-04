@@ -17,23 +17,42 @@ import '../utils/currency_formatter.dart';
 
 class SavingsDetailScreen extends StatelessWidget {
   final String goalId;
+  final SavingsRepository? savingsRepository;
+  final WalletRepository? walletRepository;
 
-  const SavingsDetailScreen({super.key, required this.goalId});
+  const SavingsDetailScreen({
+    super.key,
+    required this.goalId,
+    this.savingsRepository,
+    this.walletRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) =>
-          SavingsBloc(SavingsRepository())..add(LoadSavingsGoals()),
-      child: SavingsDetailContent(goalId: goalId),
+          SavingsBloc(savingsRepository ?? SavingsRepository())
+            ..add(LoadSavingsGoals()),
+      child: SavingsDetailContent(
+        goalId: goalId,
+        savingsRepository: savingsRepository,
+        walletRepository: walletRepository,
+      ),
     );
   }
 }
 
 class SavingsDetailContent extends StatefulWidget {
   final String goalId;
+  final SavingsRepository? savingsRepository;
+  final WalletRepository? walletRepository;
 
-  const SavingsDetailContent({super.key, required this.goalId});
+  const SavingsDetailContent({
+    super.key,
+    required this.goalId,
+    this.savingsRepository,
+    this.walletRepository,
+  });
 
   @override
   State<SavingsDetailContent> createState() => _SavingsDetailContentState();
@@ -46,10 +65,10 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
     decimalDigits: 0,
   );
 
-  final WalletRepository _walletRepository = WalletRepository();
+  late final WalletRepository _walletRepository;
   List<Wallet> _wallets = [];
 
-  final SavingsRepository _savingsRepository = SavingsRepository();
+  late final SavingsRepository _savingsRepository;
   List<SavingsTransaction> _transactions = [];
   bool _transactionsLoading = false;
 
@@ -59,6 +78,8 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
   @override
   void initState() {
     super.initState();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
+    _savingsRepository = widget.savingsRepository ?? SavingsRepository();
     _loadWallets();
     _loadTransactions();
     _startCountdownTimer();

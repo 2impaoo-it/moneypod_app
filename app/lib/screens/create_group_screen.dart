@@ -9,13 +9,26 @@ import '../utils/popup_notification.dart';
 
 /// Màn hình tạo nhóm mới với UI/UX hoàn chỉnh
 class CreateGroupScreen extends StatefulWidget {
-  const CreateGroupScreen({super.key});
+  const CreateGroupScreen({
+    super.key,
+    this.authService,
+    this.groupRepository,
+    this.profileRepository,
+  });
+
+  final AuthService? authService;
+  final GroupRepository? groupRepository;
+  final ProfileRepository? profileRepository;
 
   @override
   State<CreateGroupScreen> createState() => _CreateGroupScreenState();
 }
 
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
+  late final AuthService _authService;
+  late final GroupRepository _groupRepository;
+  late final ProfileRepository _profileRepository;
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -38,6 +51,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   @override
   void initState() {
     super.initState();
+    _authService = widget.authService ?? AuthService();
+    _groupRepository = widget.groupRepository ?? GroupRepository();
+    _profileRepository = widget.profileRepository ?? ProfileRepository();
     _loadCurrentUser();
     // Rebuild UI when name changes for live preview
     _nameController.addListener(() {
@@ -47,10 +63,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   Future<void> _loadCurrentUser() async {
     try {
-      final authService = AuthService();
+      final authService = _authService;
       final token = await authService.getToken();
       if (token != null) {
-        final profileRepo = ProfileRepository();
+        final profileRepo = _profileRepository;
         final profile = await profileRepo.fetchUserProfile(token);
         if (profile != null && profile.id != null) {
           if (!mounted) return;
@@ -145,7 +161,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           )
           .toList();
 
-      final groupRepo = GroupRepository();
+      final groupRepo = _groupRepository;
       final result = await groupRepo.createGroup(
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),

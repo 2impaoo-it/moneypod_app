@@ -17,6 +17,8 @@ class DebtPaymentScreen extends StatefulWidget {
   final bool isPaid;
   final String? paymentWalletId;
   final String? paymentNote;
+  final GroupRepository? groupRepository;
+  final WalletRepository? walletRepository;
 
   const DebtPaymentScreen({
     super.key,
@@ -30,6 +32,8 @@ class DebtPaymentScreen extends StatefulWidget {
     this.isPaid = false,
     this.paymentWalletId,
     this.paymentNote,
+    this.groupRepository,
+    this.walletRepository,
   });
 
   @override
@@ -37,8 +41,8 @@ class DebtPaymentScreen extends StatefulWidget {
 }
 
 class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
-  final GroupRepository _groupRepository = GroupRepository();
-  final WalletRepository _walletRepository = WalletRepository();
+  late final GroupRepository _groupRepository;
+  late final WalletRepository _walletRepository;
   final TextEditingController _noteController = TextEditingController();
 
   List<Wallet> _wallets = [];
@@ -49,6 +53,8 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   @override
   void initState() {
     super.initState();
+    _groupRepository = widget.groupRepository ?? GroupRepository();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
     // Set note từ payment note nếu đã paid
     if (widget.isPaid && widget.paymentNote != null) {

@@ -10,14 +10,16 @@ import '../utils/currency_input_formatter.dart';
 
 /// Màn hình chuyển tiền giữa các ví
 class TransferMoneyScreen extends StatefulWidget {
-  const TransferMoneyScreen({super.key});
+  final WalletRepository? walletRepository;
+
+  const TransferMoneyScreen({super.key, this.walletRepository});
 
   @override
   State<TransferMoneyScreen> createState() => _TransferMoneyScreenState();
 }
 
 class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
-  final WalletRepository _walletRepository = WalletRepository();
+  late final WalletRepository _walletRepository;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
@@ -36,6 +38,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
   @override
   void initState() {
     super.initState();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
   }
 

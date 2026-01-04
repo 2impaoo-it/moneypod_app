@@ -5,20 +5,23 @@ import '../services/insight_service.dart';
 
 /// Widget hiển thị Insight thông minh
 class InsightWidget extends StatefulWidget {
-  const InsightWidget({super.key});
+  final InsightService? insightService;
+
+  const InsightWidget({super.key, this.insightService});
 
   @override
   State<InsightWidget> createState() => _InsightWidgetState();
 }
 
 class _InsightWidgetState extends State<InsightWidget> {
-  final InsightService _insightService = InsightService();
+  late final InsightService _insightService;
   String _insight = 'Đang tải insight thông minh...';
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _insightService = widget.insightService ?? InsightService();
     _loadInsight();
   }
 

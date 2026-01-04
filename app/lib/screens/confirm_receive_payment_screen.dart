@@ -35,7 +35,12 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.isPaid = false,
     this.receivedWalletId,
     this.hasPaymentRequest = false,
+    this.groupRepository,
+    this.walletRepository,
   });
+
+  final GroupRepository? groupRepository;
+  final WalletRepository? walletRepository;
 
   @override
   State<ConfirmReceivePaymentScreen> createState() =>
@@ -44,8 +49,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
 
 class _ConfirmReceivePaymentScreenState
     extends State<ConfirmReceivePaymentScreen> {
-  final GroupRepository _groupRepository = GroupRepository();
-  final WalletRepository _walletRepository = WalletRepository();
+  late final GroupRepository _groupRepository;
+  late final WalletRepository _walletRepository;
 
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
@@ -55,6 +60,8 @@ class _ConfirmReceivePaymentScreenState
   @override
   void initState() {
     super.initState();
+    _groupRepository = widget.groupRepository ?? GroupRepository();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
   }
 
