@@ -4,6 +4,8 @@ import '../models/profile.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/group_repository.dart';
+import 'debt_payment_screen.dart';
+import 'confirm_receive_payment_screen.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
@@ -240,23 +242,6 @@ class _GroupsScreenState extends State<GroupsScreen>
     };
   }
 
-  Future<void> _loadUserProfile() async {
-    try {
-      final token = await AuthService().getToken();
-      if (token == null) return;
-      final profile = await ProfileService().getUserProfile(token);
-      if (mounted) {
-        setState(() {
-          _currentUser = profile;
-        });
-        // Recalculate if needed, but fetchDebtData calls calculate
-        _fetchDebtData();
-      }
-    } catch (e) {
-      print('Error loading profile: $e');
-    }
-  }
-
   // Map pending settlements từ myDebts (TÔI NỢ người khác)
   List<Map<String, dynamic>> _mapPendingSettlements(
     List<Map<String, dynamic>> myDebts,
@@ -279,11 +264,6 @@ class _GroupsScreenState extends State<GroupsScreen>
           expenseData?['image_url'] ?? ''; // Hình ảnh bill từ expense
       final groupName = debt['group_name'] ?? 'Nhóm';
 
-      // Payment confirmation info
-      final paymentConfirmedAt = debt['payment_confirmed_at'];
-      final paymentWalletId = debt['payment_wallet_id']?.toString();
-      final paymentNote = debt['payment_note'] as String?;
-
       return {
         'name': toUserName,
         'avatar': toUserAvatar,
@@ -292,9 +272,6 @@ class _GroupsScreenState extends State<GroupsScreen>
         'amount': amount.round(),
         'debt_id': debt['id']?.toString(),
         'expense_image_url': expenseImageUrl,
-        'payment_confirmed_at': paymentConfirmedAt,
-        'payment_wallet_id': paymentWalletId,
-        'payment_note': paymentNote,
       };
     }).toList();
   }
@@ -1259,20 +1236,23 @@ class _GroupsScreenState extends State<GroupsScreen>
           (item) => GestureDetector(
             onTap: () async {
               // "Chờ thanh toán" là TÔI NỢ người khác -> Navigate đến màn hình trả nợ
-              final result = await context.push(
-                '/full-screen/debt/pay',
-                extra: {
-                  'debtId': item['debt_id'] ?? '',
-                  'creditorName': item['name'] ?? 'Unknown',
-                  'creditorAvatar': item['avatar'] ?? '',
-                  'amount': item['amount'] ?? 0,
-                  'description': item['description'] ?? '',
-                  'groupName': item['group_name'] ?? 'Nhóm',
-                  'existingProofImageUrl': item['expense_image_url'],
-                  'isPaid': item['payment_wallet_id'] != null,
-                  'paymentWalletId': item['payment_wallet_id'],
-                  'paymentNote': item['payment_note'],
-                },
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (context) => DebtPaymentScreen(
+                    debtId: item['debt_id'] ?? '',
+                    creditorName: item['name'] ?? 'Unknown',
+                    creditorAvatar: item['avatar'] ?? '',
+                    amount: item['amount'] ?? 0,
+                    description: item['description'] ?? '',
+                    groupName: item['group_name'] ?? 'Nhóm',
+                    existingProofImageUrl: item['expense_image_url'],
+                    isPaid: item['payment_confirmed_at'] != null,
+                    paymentWalletId: item['payment_wallet_id'],
+                    paymentNote: item['payment_note'],
+                  ),
+                ),
               );
 
               // Refresh if payment was made
@@ -1451,6 +1431,213 @@ class _GroupsScreenState extends State<GroupsScreen>
                     'receivedWalletId': item['received_wallet_id'],
                     'hasPaymentRequest': item['has_payment_request'] ?? false,
                   },
+                );
+
+                // Refresh if confirmed
+                if (result == true) {
+                  _fetchDebtData();
+                }
+              } else {
+                // Chưa có payment request
+                PopupNotification.showInfo(
+                  context,
+                  'Chờ ${item['name']} gửi yêu cầu thanh toán để bạn xác nhận.',
+                );
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.slate100),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.slate200,
+                    backgroundImage:
+                        (item['avatar'] != null &&
+                            item['avatar'].toString().isNotEmpty &&
+                            item['avatar'].toString().startsWith('http'))
+                        ? NetworkImage(item['avatar'])
+                        : null,
+                    child:
+                        (item['avatar'] == null ||
+                            item['avatar'].toString().isEmpty ||
+                            !item['avatar'].toString().startsWith('http'))
+                        ? Text(
+                            item['name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.slate700,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Name & Desc & Group
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.slate900,
+                          ),
+                        ),
+                        Text(
+                          item['description'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.group,
+                              size: 11,
+                              color: AppColors.slate400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item['group_name'] ?? 'Nhóm',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.slate400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Amount & Status
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatCurrency(item['amount']),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.green500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Badge cho payment status
+                      if (item['is_paid'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.green100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã nhận',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.green600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else if (item['has_payment_request'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã gửi',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.amber700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: AppColors.slate400,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 5. People Owe Me Section (Người nợ tôi - chờ họ trả)
+  Widget _buildPeopleOweMeSection() {
+    // Nếu đang loading hoặc không có người nợ tôi, không hiển thị
+    if (_isLoadingDebts || _peopleOweMe.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          "Đang chờ thu",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.slate700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._peopleOweMe.map(
+          (item) => GestureDetector(
+            onTap: () async {
+              // Người nợ TÔI -> Navigate tới màn hình xác nhận nhận tiền
+              // Chỉ navigate nếu đã có payment request
+              if (item['has_payment_request'] == true ||
+                  item['is_paid'] == true) {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (context) => ConfirmReceivePaymentScreen(
+                      debtId: item['debt_id'] ?? '',
+                      debtorName: item['name'] ?? 'Unknown',
+                      debtorAvatar: item['avatar'] ?? '',
+                      amount: item['amount'] ?? 0,
+                      description: item['description'] ?? '',
+                      groupName: item['group_name'] ?? 'Nhóm',
+                      proofImageUrl: item['expense_image_url'],
+                      paymentDate: item['payment_date'],
+                      paymentNote: item['payment_note'],
+                      isPaid: item['is_paid'] ?? false,
+                      receivedWalletId: item['received_wallet_id'],
+                    ),
+                  ),
                 );
 
                 // Refresh if confirmed

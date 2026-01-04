@@ -65,13 +65,10 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
 
         // Nếu đã paid, chọn ví đã dùng thanh toán
         if (widget.isPaid && widget.paymentWalletId != null) {
-          try {
-            _selectedWallet = _wallets.firstWhere(
-              (w) => w.id == widget.paymentWalletId,
-            );
-          } catch (_) {
-            if (_wallets.isNotEmpty) _selectedWallet = _wallets.first;
-          }
+          _selectedWallet = _wallets.firstWhere(
+            (w) => w.id == widget.paymentWalletId,
+            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+          );
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
@@ -116,7 +113,7 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
       setState(() => _isLoading = false);
 
       // Pop trước khi show notification
-      context.pop(true);
+      Navigator.pop(context, true);
 
       // Show notification sau khi pop
       Future.delayed(const Duration(milliseconds: 100), () {
