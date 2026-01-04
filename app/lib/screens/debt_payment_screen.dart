@@ -13,6 +13,9 @@ class DebtPaymentScreen extends StatefulWidget {
   final String description;
   final String groupName;
   final String? existingProofImageUrl;
+  final bool isPaid;
+  final String? paymentWalletId;
+  final String? paymentNote;
 
   const DebtPaymentScreen({
     super.key,
@@ -23,6 +26,9 @@ class DebtPaymentScreen extends StatefulWidget {
     required this.description,
     required this.groupName,
     this.existingProofImageUrl,
+    this.isPaid = false,
+    this.paymentWalletId,
+    this.paymentNote,
   });
 
   @override
@@ -43,6 +49,10 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   void initState() {
     super.initState();
     _loadWallets();
+    // Set note từ payment note nếu đã paid
+    if (widget.isPaid && widget.paymentNote != null) {
+      _noteController.text = widget.paymentNote!;
+    }
   }
 
   Future<void> _loadWallets() async {
@@ -51,7 +61,14 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
       setState(() {
         _wallets = wallets;
         _isLoadingWallets = false;
-        if (_wallets.isNotEmpty) {
+
+        // Nếu đã paid, chọn ví đã dùng thanh toán
+        if (widget.isPaid && widget.paymentWalletId != null) {
+          _selectedWallet = _wallets.firstWhere(
+            (w) => w.id == widget.paymentWalletId,
+            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+          );
+        } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
       });
@@ -90,16 +107,24 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
 
       if (!mounted) return;
 
-      PopupNotification.showSuccess(
-        context,
-        'Đã gửi xác nhận thanh toán. Chờ chủ nợ xác nhận.',
-      );
+      setState(() => _isLoading = false);
 
-      Navigator.pop(context, true); // Trả về true để refresh
+      // Pop trước khi show notification
+      Navigator.pop(context, true);
+
+      // Show notification sau khi pop
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          PopupNotification.showSuccess(
+            context,
+            'Đã gửi xác nhận thanh toán. Chờ chủ nợ xác nhận.',
+          );
+        }
+      });
     } catch (e) {
       if (!mounted) return;
-      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
       setState(() => _isLoading = false);
+      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
     }
   }
 
@@ -114,6 +139,8 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
+      extendBody: false,
       backgroundColor: AppColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -268,13 +295,38 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chọn ví thanh toán',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.slate900,
-            ),
+          Row(
+            children: [
+              const Text(
+                'Chọn ví thanh toán',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.slate900,
+                ),
+              ),
+              if (widget.isPaid) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.blue100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Đã gửi',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.blue600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
           if (_wallets.isEmpty)
@@ -282,6 +334,11 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
               'Bạn chưa có ví nào. Vui lòng tạo ví trước.',
               style: TextStyle(color: AppColors.slate500, fontSize: 14),
             )
+          else if (widget.isPaid)
+            // Chỉ hiển thị ví đã chọn khi đã paid
+            ..._wallets
+                .where((w) => w.id == _selectedWallet?.id)
+                .map((wallet) => _buildWalletOption(wallet))
           else
             ..._wallets.map((wallet) => _buildWalletOption(wallet)),
         ],
@@ -294,7 +351,7 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
     final hasEnoughBalance = wallet.balance >= widget.amount;
 
     return GestureDetector(
-      onTap: hasEnoughBalance
+      onTap: (hasEnoughBalance && !widget.isPaid)
           ? () {
               setState(() {
                 _selectedWallet = wallet;
@@ -381,6 +438,7 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _noteController,
+            enabled: !widget.isPaid,
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Nhập ghi chú của bạn...',
@@ -455,6 +513,65 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   }
 
   Widget _buildPaymentButton() {
+    // Nếu đã paid, hiển thị trạng thái đã xác nhận
+    if (widget.isPaid) {
+      return Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.blue100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.blue600,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Bạn đã gửi xác nhận thanh toán. Chờ chủ nợ xác nhận.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.blue600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.blue500,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBackgroundColor: AppColors.blue500,
+              ),
+              child: const Text(
+                '✓ Đã gửi xác nhận thanh toán',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(

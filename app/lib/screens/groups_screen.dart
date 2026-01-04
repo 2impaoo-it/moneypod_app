@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/group_repository.dart';
 import 'debt_payment_screen.dart';
+import 'confirm_receive_payment_screen.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
@@ -33,7 +34,8 @@ class _GroupsScreenState extends State<GroupsScreen>
 
   // Debt optimization and pending settlements
   Map<String, dynamic>? _optimizedDebt;
-  List<Map<String, dynamic>> _pendingSettlements = [];
+  List<Map<String, dynamic>> _pendingSettlements = []; // Tôi nợ người khác
+  List<Map<String, dynamic>> _peopleOweMe = []; // Người nợ tôi
   bool _isLoadingDebts = true;
 
   @override
@@ -94,8 +96,11 @@ class _GroupsScreenState extends State<GroupsScreen>
       // Tính toán nợ tối ưu
       _optimizedDebt = _calculateOptimizedDebt(allMyDebts, allDebtsToMe);
 
-      // Lấy danh sách chờ thanh toán (người khác nợ tôi)
-      _pendingSettlements = _mapPendingSettlements(allDebtsToMe);
+      // Lấy danh sách chờ thanh toán (TÔI NỢ người khác - cần trả)
+      _pendingSettlements = _mapPendingSettlements(allMyDebts);
+
+      // Lấy danh sách người nợ tôi (người khác NỢ TÔI - chờ xác nhận)
+      _peopleOweMe = _mapPeopleOweMe(allDebtsToMe);
 
       print('DEBUG: Total debts to me: ${allDebtsToMe.length}');
       print(
@@ -228,14 +233,48 @@ class _GroupsScreenState extends State<GroupsScreen>
     };
   }
 
-  // Map pending settlements từ debts to me
+  // Map pending settlements từ myDebts (TÔI NỢ người khác)
   List<Map<String, dynamic>> _mapPendingSettlements(
+    List<Map<String, dynamic>> myDebts,
+  ) {
+    return myDebts.where((debt) => debt['is_paid'] != true).map((debt) {
+      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
+
+      // Lấy thông tin từ to_user object (người tôi nợ)
+      final toUser = debt['to_user'] as Map<String, dynamic>?;
+      final toUserName =
+          toUser?['full_name'] ??
+          toUser?['name'] ??
+          toUser?['email'] ??
+          'Unknown';
+      final toUserAvatar = toUser?['avatar_url'] ?? '';
+
+      final expenseData = debt['expense'] as Map<String, dynamic>?;
+      final description = expenseData?['description'] ?? 'Chi phí nhóm';
+      final expenseImageUrl =
+          expenseData?['image_url'] ?? ''; // Hình ảnh bill từ expense
+      final groupName = debt['group_name'] ?? 'Nhóm';
+
+      return {
+        'name': toUserName,
+        'avatar': toUserAvatar,
+        'description': description,
+        'group_name': groupName,
+        'amount': amount.round(),
+        'debt_id': debt['id']?.toString(),
+        'expense_image_url': expenseImageUrl,
+      };
+    }).toList();
+  }
+
+  // Map danh sách người nợ tôi từ debtsToMe (người khác NỢ TÔI)
+  List<Map<String, dynamic>> _mapPeopleOweMe(
     List<Map<String, dynamic>> debtsToMe,
   ) {
     return debtsToMe.where((debt) => debt['is_paid'] != true).map((debt) {
       final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
 
-      // Lấy thông tin từ from_user object
+      // Lấy thông tin từ from_user object (người nợ tôi)
       final fromUser = debt['from_user'] as Map<String, dynamic>?;
       final fromUserName =
           fromUser?['full_name'] ??
@@ -246,9 +285,15 @@ class _GroupsScreenState extends State<GroupsScreen>
 
       final expenseData = debt['expense'] as Map<String, dynamic>?;
       final description = expenseData?['description'] ?? 'Chi phí nhóm';
-      final expenseImageUrl =
-          expenseData?['image_url'] ?? ''; // Hình ảnh bill từ expense
+      final expenseImageUrl = expenseData?['image_url'] ?? '';
       final groupName = debt['group_name'] ?? 'Nhóm';
+
+      // Kiểm tra xem người nợ đã gửi yêu cầu thanh toán chưa
+      final hasPaymentRequest = debt['payment_wallet_id'] != null;
+      final paymentDate = debt['payment_confirmed_at'] as String?;
+      final paymentNote = debt['payment_note'] as String?;
+      final isPaid = debt['is_paid'] == true;
+      final receivedWalletId = debt['received_wallet_id']?.toString();
 
       return {
         'name': fromUserName,
@@ -258,6 +303,11 @@ class _GroupsScreenState extends State<GroupsScreen>
         'amount': amount.round(),
         'debt_id': debt['id']?.toString(),
         'expense_image_url': expenseImageUrl,
+        'has_payment_request': hasPaymentRequest,
+        'payment_date': paymentDate,
+        'payment_note': paymentNote,
+        'is_paid': isPaid,
+        'received_wallet_id': receivedWalletId,
       };
     }).toList();
   }
@@ -637,8 +687,11 @@ class _GroupsScreenState extends State<GroupsScreen>
                 // 3. Debt Optimization Section (Static UI for now)
                 _buildDebtOptimizationSection(),
 
-                // 4. Pending Settlements Section (Static UI for now)
+                // 4. Pending Settlements Section (Tôi nợ người khác)
                 _buildPendingSettlementsSection(),
+
+                // 5. People Owe Me Section (Người nợ tôi)
+                _buildPeopleOweMeSection(),
 
                 // 6. Completed Groups Section
                 if (completedGroups.isNotEmpty) ...[
@@ -1088,10 +1141,11 @@ class _GroupsScreenState extends State<GroupsScreen>
         ..._pendingSettlements.map(
           (item) => GestureDetector(
             onTap: () async {
-              // Navigate to debt payment screen
+              // "Chờ thanh toán" là TÔI NỢ người khác -> Navigate đến màn hình trả nợ
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
+                  fullscreenDialog: true,
                   builder: (context) => DebtPaymentScreen(
                     debtId: item['debt_id'] ?? '',
                     creditorName: item['name'] ?? 'Unknown',
@@ -1100,6 +1154,9 @@ class _GroupsScreenState extends State<GroupsScreen>
                     description: item['description'] ?? '',
                     groupName: item['group_name'] ?? 'Nhóm',
                     existingProofImageUrl: item['expense_image_url'],
+                    isPaid: item['payment_confirmed_at'] != null,
+                    paymentWalletId: item['payment_wallet_id'],
+                    paymentNote: item['payment_note'],
                   ),
                 ),
               );
@@ -1206,6 +1263,213 @@ class _GroupsScreenState extends State<GroupsScreen>
                         size: 14,
                         color: AppColors.slate400,
                       ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 5. People Owe Me Section (Người nợ tôi - chờ họ trả)
+  Widget _buildPeopleOweMeSection() {
+    // Nếu đang loading hoặc không có người nợ tôi, không hiển thị
+    if (_isLoadingDebts || _peopleOweMe.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          "Đang chờ thu",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.slate700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._peopleOweMe.map(
+          (item) => GestureDetector(
+            onTap: () async {
+              // Người nợ TÔI -> Navigate tới màn hình xác nhận nhận tiền
+              // Chỉ navigate nếu đã có payment request
+              if (item['has_payment_request'] == true ||
+                  item['is_paid'] == true) {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (context) => ConfirmReceivePaymentScreen(
+                      debtId: item['debt_id'] ?? '',
+                      debtorName: item['name'] ?? 'Unknown',
+                      debtorAvatar: item['avatar'] ?? '',
+                      amount: item['amount'] ?? 0,
+                      description: item['description'] ?? '',
+                      groupName: item['group_name'] ?? 'Nhóm',
+                      proofImageUrl: item['expense_image_url'],
+                      paymentDate: item['payment_date'],
+                      paymentNote: item['payment_note'],
+                      isPaid: item['is_paid'] ?? false,
+                      receivedWalletId: item['received_wallet_id'],
+                    ),
+                  ),
+                );
+
+                // Refresh if confirmed
+                if (result == true) {
+                  _fetchDebtData();
+                }
+              } else {
+                // Chưa có payment request
+                PopupNotification.showInfo(
+                  context,
+                  'Chờ ${item['name']} gửi yêu cầu thanh toán để bạn xác nhận.',
+                );
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.slate100),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.slate200,
+                    backgroundImage:
+                        (item['avatar'] != null &&
+                            item['avatar'].toString().isNotEmpty &&
+                            item['avatar'].toString().startsWith('http'))
+                        ? NetworkImage(item['avatar'])
+                        : null,
+                    child:
+                        (item['avatar'] == null ||
+                            item['avatar'].toString().isEmpty ||
+                            !item['avatar'].toString().startsWith('http'))
+                        ? Text(
+                            item['name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.slate700,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Name & Desc & Group
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.slate900,
+                          ),
+                        ),
+                        Text(
+                          item['description'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.group,
+                              size: 11,
+                              color: AppColors.slate400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item['group_name'] ?? 'Nhóm',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.slate400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Amount & Status
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatCurrency(item['amount']),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.green500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Badge cho payment status
+                      if (item['is_paid'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.green100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã nhận',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.green600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else if (item['has_payment_request'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã gửi',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.amber700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: AppColors.slate400,
+                        ),
                     ],
                   ),
                 ],

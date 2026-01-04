@@ -17,13 +17,15 @@ class InsightService {
     _dio.options.baseUrl = AppConfig.baseUrl;
   }
 
-  /// Lấy insight thông minh cho tháng hiện tại
+  /// Lấy insight thông minh cho tháng trước
   /// - Kiểm tra cache trước
   /// - Nếu không có cache hoặc hết tháng mới -> gọi API
   Future<String> getMonthlyInsight() async {
     try {
       final now = DateTime.now();
-      final cacheKey = '$_cacheKeyPrefix${now.year}_${now.month}';
+      // Lấy tháng trước
+      final lastMonth = DateTime(now.year, now.month - 1, 1);
+      final cacheKey = '$_cacheKeyPrefix${lastMonth.year}_${lastMonth.month}';
 
       // 1. Kiểm tra cache
       final cachedInsight = await _getCachedInsight(cacheKey);
@@ -43,7 +45,7 @@ class InsightService {
       // Gọi API backend (backend sẽ gọi Gemini)
       final response = await _dio.get(
         '/insights/monthly',
-        queryParameters: {'month': now.month, 'year': now.year},
+        queryParameters: {'month': lastMonth.month, 'year': lastMonth.year},
         options: Options(
           headers: {'Authorization': 'Bearer $token'},
           // Thêm timeout riêng cho insight
@@ -120,12 +122,15 @@ class InsightService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
-      final currentCacheKey = '$_cacheKeyPrefix${now.year}_${now.month}';
+      // Lấy tháng trước
+      final lastMonth = DateTime(now.year, now.month - 1, 1);
+      final currentCacheKey =
+          '$_cacheKeyPrefix${lastMonth.year}_${lastMonth.month}';
 
       // Lấy tất cả keys
       final keys = prefs.getKeys();
 
-      // Xóa các key insight cũ (không phải tháng hiện tại)
+      // Xóa các key insight cũ (không phải tháng trước)
       for (var key in keys) {
         if (key.startsWith(_cacheKeyPrefix) && key != currentCacheKey) {
           await prefs.remove(key);

@@ -16,6 +16,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? paymentDate;
   final String? paymentNote;
   final String? proofImageUrl;
+  final bool isPaid;
+  final String? receivedWalletId;
 
   const ConfirmReceivePaymentScreen({
     super.key,
@@ -28,6 +30,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.paymentDate,
     this.paymentNote,
     this.proofImageUrl,
+    this.isPaid = false,
+    this.receivedWalletId,
   });
 
   @override
@@ -57,7 +61,14 @@ class _ConfirmReceivePaymentScreenState
       setState(() {
         _wallets = wallets;
         _isLoadingWallets = false;
-        if (_wallets.isNotEmpty) {
+
+        // Nếu đã paid, chọn ví đã nhận tiền
+        if (widget.isPaid && widget.receivedWalletId != null) {
+          _selectedWallet = _wallets.firstWhere(
+            (w) => w.id == widget.receivedWalletId,
+            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+          );
+        } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
       });
@@ -84,12 +95,20 @@ class _ConfirmReceivePaymentScreenState
 
       if (!mounted) return;
 
-      PopupNotification.showSuccess(
-        context,
-        'Đã xác nhận nhận tiền thành công',
-      );
+      setState(() => _isLoading = false);
 
-      Navigator.pop(context, true); // Trả về true để refresh
+      // Pop trước khi show notification
+      Navigator.pop(context, true);
+
+      // Show notification sau khi pop
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          PopupNotification.showSuccess(
+            context,
+            'Đã xác nhận nhận tiền thành công',
+          );
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
@@ -108,6 +127,8 @@ class _ConfirmReceivePaymentScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
+      extendBody: false,
       backgroundColor: AppColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -326,13 +347,38 @@ class _ConfirmReceivePaymentScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chọn ví nhận tiền',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.slate900,
-            ),
+          Row(
+            children: [
+              const Text(
+                'Chọn ví nhận tiền',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.slate900,
+                ),
+              ),
+              if (widget.isPaid) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.green100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Đã xác nhận',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.green700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
           if (_wallets.isEmpty)
@@ -340,11 +386,14 @@ class _ConfirmReceivePaymentScreenState
               'Không có ví nào. Vui lòng tạo ví trước.',
               style: TextStyle(color: AppColors.red500),
             )
-          else
-            ..._wallets.map((wallet) {
+          else if (widget.isPaid)
+            // Chỉ hiển thị ví đã chọn khi đã paid
+            ..._wallets.where((w) => w.id == _selectedWallet?.id).map((wallet) {
               final isSelected = _selectedWallet?.id == wallet.id;
               return GestureDetector(
-                onTap: () => setState(() => _selectedWallet = wallet),
+                onTap: widget.isPaid
+                    ? null
+                    : () => setState(() => _selectedWallet = wallet),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
@@ -453,6 +502,65 @@ class _ConfirmReceivePaymentScreenState
   }
 
   Widget _buildConfirmButton() {
+    // Nếu đã paid, hiển thị trạng thái đã xác nhận
+    if (widget.isPaid) {
+      return Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.green100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.green300),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.green700,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Bạn đã xác nhận nhận tiền cho khoản nợ này',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.green700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.green500,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBackgroundColor: AppColors.green500,
+              ),
+              child: const Text(
+                '✓ Đã xác nhận nhận tiền',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có paymentDate)
     final bool canConfirm =
         widget.paymentDate != null && widget.paymentDate!.isNotEmpty;
