@@ -131,15 +131,20 @@ func (h *GroupHandler) MarkDebtPaid(c *gin.Context) {
 		ProofImageURL string  `json:"proof_image_url"`
 		Note          string  `json:"note"`
 	}
-	c.BindJSON(&requestBody)
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(400, gin.H{"error": "Dữ liệu không hợp lệ: " + err.Error()})
+		return
+	}
 
 	// Convert wallet_id string to UUID
 	var walletID *uuid.UUID
 	if requestBody.WalletID != nil && *requestBody.WalletID != "" {
 		parsed, err := uuid.Parse(*requestBody.WalletID)
-		if err == nil {
-			walletID = &parsed
+		if err != nil {
+			c.JSON(400, gin.H{"error": "wallet_id không hợp lệ: " + err.Error()})
+			return
 		}
+		walletID = &parsed
 	}
 
 	if err := h.service.MarkDebtAsPaid(debtID, userID, walletID, requestBody.ProofImageURL, requestBody.Note); err != nil {

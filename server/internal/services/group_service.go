@@ -283,31 +283,49 @@ func (s *GroupService) CreateExpense(groupID uuid.UUID, req CreateExpenseRequest
 		return err
 	}
 
-	// 🔥 4. LOGIC GỬI THÔNG BÁO FCM (Giữ nguyên logic cũ của bạn)
+	// 🔥 4. LOGIC GỬI THÔNG BÁO (Cả FCM và lưu DB)
 	go func() {
-		// A. Lấy tên người trả tiền
+		if s.notifService == nil {
+			return
+		}
+
+		// A. Lấy thông tin người trả tiền và nhóm
 		var payer models.User
 		s.db.Select("full_name").First(&payer, "id = ?", req.PayerID)
 
-		// B. Lọc lấy Token của các thành viên khác
-		var tokens []string
+		var group models.Group
+		s.db.Select("name").First(&group, "id = ?", groupID)
+
+		// B. Gửi thông báo cho từng thành viên (không phải người trả)
 		for _, m := range members {
 			if m.UserID != req.PayerID {
 				var user models.User
-				// Chỉ lấy trường fcm_token
 				if err := s.db.Select("fcm_token").First(&user, "id = ?", m.UserID).Error; err == nil {
-					if user.FCMToken != "" {
-						tokens = append(tokens, user.FCMToken)
+					title := "💸 Hóa đơn mới!"
+					body := fmt.Sprintf("%s vừa thêm: %s - %.0f đ trong nhóm %s", payer.FullName, req.Description, req.Amount, group.Name)
+
+					// Tạo data để navigate
+					data := map[string]interface{}{
+						"type":        "group_expense",
+						"group_id":    groupID.String(),
+						"group_name":  group.Name,
+						"expense_id":  expense.ID.String(),
+						"amount":      req.Amount,
+						"description": req.Description,
+						"payer_name":  payer.FullName,
 					}
+
+					// Lưu vào DB và gửi FCM
+					s.notifService.CreateAndSendNotification(
+						m.UserID,
+						"group_expense",
+						title,
+						body,
+						data,
+						user.FCMToken,
+					)
 				}
 			}
-		}
-
-		// C. Gửi thông báo
-		if len(tokens) > 0 {
-			title := "💸 Hóa đơn mới!"
-			body := fmt.Sprintf("%s vừa thêm: %s - %.0f đ", payer.FullName, req.Description, req.Amount)
-			s.notifService.SendMulticastNotification(tokens, title, body)
 		}
 	}()
 

@@ -45,7 +45,7 @@ func (s *InsightService) GetMonthlyInsight(userID string, month, year int) (stri
 
 	// 2. Nếu không có giao dịch nào
 	if len(transactions) == 0 {
-		return "Bạn chưa có giao dịch nào trong tháng này. Hãy bắt đầu ghi chép chi tiêu để nhận insight!", nil
+		return "Bạn chưa có giao dịch nào trong tháng trước. Hãy bắt đầu ghi chép chi tiêu để nhận insight!", nil
 	}
 
 	// 3. Tạo summary data để gửi cho Gemini
@@ -65,7 +65,7 @@ func (s *InsightService) GetMonthlyInsight(userID string, month, year int) (stri
 
 	// 4. Tạo prompt cho Gemini
 	prompt := fmt.Sprintf(`
-Phân tích chi tiêu tháng %d/%d. Trả về 1-2 CÂU DUY NHẤT (tối đa 60 từ):
+Phân tích chi tiêu tháng %d/%d (tháng trước). Trả về 1-2 CÂU DUY NHẤT (tối đa 60 từ):
 
 Thu nhập: %.0f VNĐ | Chi tiêu: %.0f VNĐ
 Chi tiêu theo danh mục: %v
@@ -75,9 +75,10 @@ YÊU CẦU:
 - Chỉ 1-2 câu ngắn gọn
 - Nhận xét 1 điểm nổi bật + đề xuất 1 hành động
 - Giọng thân thiện
+- PHẢI dùng "tháng trước" thay vì "tháng này"
 - KHÔNG giải thích, KHÔNG phân tích dài
 
-VD: "Chi ăn uống 1.5 triệu đồng (40%% tổng chi), hãy nấu ăn nhà nhiều hơn để tiết kiệm nhé!"
+VD: "Chi ăn uống tháng trước 1.5 triệu đồng (40%% tổng chi), hãy nấu ăn nhà nhiều hơn để tiết kiệm nhé!"
 `,
 		month, year,
 		totalIncome,

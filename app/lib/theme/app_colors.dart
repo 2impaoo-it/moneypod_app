@@ -18,12 +18,17 @@ class AppColors {
   static const Color teal700 = Color(0xFF0F766E);
 
   static const Color green50 = Color(0xFFF0FDF4);
+  static const Color green100 = Color(0xFFDCFCE7);
+  static const Color green300 = Color(0xFF86EFAC);
   static const Color green500 = Color(0xFF22C55E);
+  static const Color green600 = Color(0xFF16A34A);
   static const Color green700 = Color(0xFF15803D);
 
   static const Color amber50 = Color(0xFFFFFBEB);
+  static const Color amber100 = Color(0xFFFEF3C7);
   static const Color amber200 = Color(0xFFFDE68A);
   static const Color amber500 = Color(0xFFF59E0B);
+  static const Color amber700 = Color(0xFFB45309);
 
   static const Color orange50 = Color(0xFFFFF7ED);
   static const Color orange100 = Color(0xFFFFEDD5);

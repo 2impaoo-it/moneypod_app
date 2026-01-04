@@ -309,6 +309,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       );
 
       if (mounted) {
+        setState(() => _isLoading = false);
         PopupNotification.showSuccess(
           context,
           '✅ Đã thêm chi tiêu thành công!',
@@ -317,8 +318,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     } catch (e) {
       if (mounted) {
-        PopupNotification.showError(context, '❌ Lỗi: $e');
         setState(() => _isLoading = false);
+        PopupNotification.showError(context, '❌ Lỗi: $e');
       }
     }
   }
