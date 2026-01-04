@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../repositories/transaction_repository.dart';
 import 'transaction_event.dart';
 import 'transaction_state.dart';
 
 class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
-  final TransactionRepository _repository = TransactionRepository();
+  final TransactionRepository _repository;
 
-  TransactionBloc() : super(TransactionInitial()) {
+  TransactionBloc({TransactionRepository? repository})
+    : _repository = repository ?? TransactionRepository(),
+      super(TransactionInitial()) {
     on<TransactionLoadRequested>(_onLoadRequested);
     on<TransactionAddRequested>(_onAddRequested);
     on<TransactionUpdateRequested>(_onUpdateRequested);
@@ -24,17 +27,19 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       );
 
       // Debug log
-      print('🔍 [TransactionBloc] Loaded ${transactions.length} transactions');
+      debugPrint(
+        '🔍 [TransactionBloc] Loaded ${transactions.length} transactions',
+      );
       if (transactions.isNotEmpty) {
-        print('🔍 [TransactionBloc] First transaction:');
-        print('   - User: ${transactions.first.userName}');
-        print('   - Avatar: ${transactions.first.userAvatar}');
-        print('   - Proof: ${transactions.first.proofImage}');
+        debugPrint('🔍 [TransactionBloc] First transaction:');
+        debugPrint('   - User: ${transactions.first.userName}');
+        debugPrint('   - Avatar: ${transactions.first.userAvatar}');
+        debugPrint('   - Proof: ${transactions.first.proofImage}');
       }
 
       emit(TransactionLoaded(transactions));
     } catch (e) {
-      print('❌ [TransactionBloc] Error: $e');
+      debugPrint('❌ [TransactionBloc] Error: $e');
       emit(TransactionError(e.toString()));
     }
   }

@@ -7,6 +7,7 @@ import '../bloc/transaction/transaction_state.dart';
 import '../bloc/transaction/transaction_event.dart';
 import '../models/transaction.dart';
 import '../utils/category_helper.dart'; // Import Category Helper
+import '../widgets/transaction_item.dart';
 import '../main.dart'; // Import để lấy AppColors
 
 class TransactionsScreen extends StatefulWidget {
@@ -94,7 +95,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -185,10 +186,24 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                     _selectedFilter,
                               )
                               .toList();
+
                     final grouped = <String, List<Transaction>>{};
                     for (var tx in filtered) {
                       final dateKey = DateFormat('dd/MM/yyyy').format(tx.date);
-                      grouped.putIfAbsent(dateKey, () => []).add(tx);
+                      final now = DateTime.now();
+                      final today = DateFormat('dd/MM/yyyy').format(now);
+                      final yesterday = DateFormat(
+                        'dd/MM/yyyy',
+                      ).format(now.subtract(const Duration(days: 1)));
+
+                      String key = dateKey;
+                      if (dateKey == today) {
+                        key = 'today';
+                      } else if (dateKey == yesterday) {
+                        key = 'yesterday';
+                      }
+
+                      grouped.putIfAbsent(key, () => []).add(tx);
                     }
                     if (grouped.isEmpty) {
                       return const Center(child: Text('Không có giao dịch.'));
@@ -204,7 +219,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           children: [
                             _buildDateHeader(dateKey),
                             ...transactions.map(
-                              (tx) => _buildTransactionItem(tx),
+                              (tx) => TransactionItem(
+                                transaction: tx,
+                                onTap: () => _showTransactionDetail(tx),
+                              ),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -248,133 +266,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: AppColors.textSecondary, // slate-500
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTransactionItem(Transaction tx) {
-    final currencyFormat = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: '₫',
-      decimalDigits: 0,
-    );
-    final amount = tx.amount;
-    final isExpense = tx.isExpense;
-
-    final categoryColor = CategoryHelper.getColor(tx.category);
-    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
-
-    return InkWell(
-      onTap: () => _showTransactionDetail(tx),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            // Category Icon (No Avatar)
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Icon(
-                CategoryHelper.getIcon(tx.category),
-                color: categoryColor,
-                size: 20,
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Content Column
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tên ví
-                  if (tx.walletName != null)
-                    Text(
-                      tx.walletName!,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-
-                  // Category Name as Title
-                  Text(
-                    tx.category,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-
-                  const SizedBox(height: 2),
-
-                  Row(
-                    children: [
-                      // Hashtag or Title or Date
-                      if (tx.hashtag != null)
-                        Text(
-                          tx.hashtag!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                      if (tx.hashtag != null) const SizedBox(width: 4),
-                      if (tx.title.isNotEmpty)
-                        Expanded(
-                          child: Text(
-                            tx.title,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      if ((tx.title.isNotEmpty || tx.hashtag != null))
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            "•",
-                            style: TextStyle(color: Colors.grey, fontSize: 10),
-                          ),
-                        ),
-                      Text(
-                        DateFormat('HH:mm').format(tx.date),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Amount Column
-            Text(
-              "${isExpense ? '-' : '+'}${currencyFormat.format(amount.abs())}",
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isExpense ? AppColors.danger : AppColors.success,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -513,7 +404,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   tx.proofImage!,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (context, error, stackTrace) => Container(
                     height: 150,
                     color: AppColors.background,
                     child: const Center(

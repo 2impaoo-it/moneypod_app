@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +14,10 @@ import '../../services/fcm_service.dart';
 import '../../utils/popup_notification.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final BiometricService? biometricService;
+  final FCMService? fcmService;
+
+  const LoginScreen({super.key, this.biometricService, this.fcmService});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -24,24 +28,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  late final BiometricService _biometricService;
+  late final FCMService _fcmService;
+
   bool _isObscure = true;
   List<Map<String, dynamic>> _savedAccounts = [];
   bool _showLoginForm = true;
+  DateTime? _lastBackPressTime;
 
   @override
   void initState() {
     super.initState();
+    _biometricService = widget.biometricService ?? BiometricService();
+    _fcmService = widget.fcmService ?? FCMService();
     _checkBiometrics();
     _loadSavedAccounts();
   }
 
   Future<void> _checkBiometrics() async {
-    await BiometricService().isBiometricAvailable();
+    await _biometricService.isBiometricAvailable();
     // Biometric check completed
   }
 
   Future<void> _loadSavedAccounts() async {
-    final accounts = await BiometricService().getSavedAccounts();
+    final accounts = await _biometricService.getSavedAccounts();
     if (mounted) {
       setState(() {
         _savedAccounts = accounts;
@@ -54,35 +64,42 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     // Lấy FCM token
-    final fcmService = FCMService();
-    final fcmToken = await fcmService.getCurrentToken();
+    final fcmToken = await _fcmService.getCurrentToken();
 
-    context.read<AuthBloc>().add(
-      AuthLoginRequested(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        fcmToken: fcmToken,
-      ),
-    );
+    if (mounted) {
+      context.read<AuthBloc>().add(
+        AuthLoginRequested(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          fcmToken: fcmToken,
+        ),
+      );
+    }
   }
 
   Future<void> _handleBiometricLogin(Map<String, dynamic> account) async {
-    final service = BiometricService();
+    final service = _biometricService;
     final authenticated = await service.authenticate();
 
     if (authenticated && mounted) {
       final email = account['email'];
       final password = await service.getPassword(email);
 
+      if (!mounted) return; // Check mounted after second await
+
       if (password != null) {
-        context.read<AuthBloc>().add(
-          AuthLoginRequested(email: email, password: password),
-        );
+        if (context.mounted) {
+          context.read<AuthBloc>().add(
+            AuthLoginRequested(email: email, password: password),
+          );
+        }
       } else {
-        PopupNotification.showError(
-          context,
-          'Thông tin đăng nhập đã hết hạn. Vui lòng đăng nhập lại bằng mật khẩu.',
-        );
+        if (context.mounted) {
+          PopupNotification.showError(
+            context,
+            'Thông tin đăng nhập đã hết hạn. Vui lòng đăng nhập lại bằng mật khẩu.',
+          );
+        }
         setState(() {
           _showLoginForm = true;
           _emailController.text = email;
@@ -110,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Xóa tài khoản đã lưu
   Future<void> _removeSavedAccount(String email) async {
-    await BiometricService().removeAccount(email);
+    await _biometricService.removeAccount(email);
     await _loadSavedAccounts();
   }
 
@@ -124,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Lấy password hiện tại hoặc từ biometric nếu auto login
           String passwordToSave = _passwordController.text;
           if (passwordToSave.isEmpty) {
-            final savedPass = await BiometricService().getPassword(user.email);
+            final savedPass = await _biometricService.getPassword(user.email);
             if (savedPass != null) passwordToSave = savedPass;
           }
 
@@ -137,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
             // Chỉ lưu/cập nhật nếu tài khoản ĐÃ có trong danh sách (tức là đang bật biometric)
             // Không tự động thêm mới nếu người dùng chưa bật.
-            final savedAccounts = await BiometricService().getSavedAccounts();
+            final savedAccounts = await _biometricService.getSavedAccounts();
             final isAlreadySaved = savedAccounts.any(
               (acc) => acc['email'] == user.email,
             );
@@ -164,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 avatarToSave = existingAccount['avatar_url'] as String?;
               }
 
-              await BiometricService().saveAccount(
+              await _biometricService.saveAccount(
                 email: user.email,
                 password: biometricEnabled ? passwordToSave : null,
                 name: nameToSave,
@@ -175,22 +192,66 @@ class _LoginScreenState extends State<LoginScreen> {
           }
 
           // Refresh dashboard
-          context.read<DashboardBloc>().add(DashboardRefreshRequested());
-          await PopupNotification.showSuccess(context, 'Đăng nhập thành công!');
+          if (context.mounted) {
+            context.read<DashboardBloc>().add(DashboardRefreshRequested());
+            await PopupNotification.showSuccess(
+              context,
+              'Đăng nhập thành công!',
+            );
+          }
           if (context.mounted) context.go('/');
         } else if (state is AuthError) {
-          PopupNotification.showError(context, state.message);
+          if (context.mounted) {
+            PopupNotification.showError(context, state.message);
+          }
         }
       },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: _showLoginForm || _savedAccounts.isEmpty
-                  ? _buildLoginForm()
-                  : _buildSavedAccountsList(),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+
+          final now = DateTime.now();
+          if (_lastBackPressTime == null ||
+              now.difference(_lastBackPressTime!) >
+                  const Duration(seconds: 2)) {
+            _lastBackPressTime = now;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'Nhấn lần nữa để thoát',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  backgroundColor: Colors.black87,
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                ),
+              );
+            }
+            return; // Prevent exit
+          }
+
+          // Thoát ứng dụng
+          await SystemNavigator.pop();
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: _showLoginForm || _savedAccounts.isEmpty
+                    ? _buildLoginForm()
+                    : _buildSavedAccountsList(),
+              ),
             ),
           ),
         ),
@@ -227,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _savedAccounts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final account = _savedAccounts[index];
             final email = account['email'] ?? '';
@@ -254,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -264,7 +325,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 contentPadding: const EdgeInsets.all(12),
                 leading: CircleAvatar(
                   radius: 24,
-                  backgroundColor: const Color(0xFF14B8A6).withOpacity(0.1),
+                  backgroundColor: const Color(
+                    0xFF14B8A6,
+                  ).withValues(alpha: 0.1),
                   backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
                       ? NetworkImage(avatarUrl)
                       : null,
@@ -289,9 +352,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 subtitle: Text(email),
-                trailing: const Icon(LucideIcons.chevronRight),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Nút X để xóa tài khoản
+                    IconButton(
+                      onPressed: () => _showDeleteAccountDialog(account),
+                      icon: const Icon(
+                        LucideIcons.x,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                      tooltip: 'Xóa tài khoản',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(LucideIcons.chevronRight),
+                  ],
+                ),
                 onTap: () => _handleAccountTap(account),
-                onLongPress: () => _showDeleteAccountDialog(account),
               ),
             );
           },

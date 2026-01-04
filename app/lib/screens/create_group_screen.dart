@@ -86,7 +86,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         }
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+      debugPrint('Error loading user profile: $e');
     }
   }
 
@@ -122,10 +122,12 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     if (_currentUserId == null) {
       await _loadCurrentUser();
       if (_currentUserId == null) {
-        PopupNotification.showError(
-          context,
-          'Không thể lấy thông tin người dùng. Vui lòng thử lại.',
-        );
+        if (mounted) {
+          PopupNotification.showError(
+            context,
+            'Không thể lấy thông tin người dùng. Vui lòng thử lại.',
+          );
+        }
         return;
       }
     }
@@ -205,9 +207,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -314,14 +318,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.1),
-            AppColors.primary.withOpacity(0.05),
+            AppColors.primary.withValues(alpha: 0.1),
+            AppColors.primary.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -369,7 +373,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -463,7 +467,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             suffixText: suffix,
@@ -485,7 +489,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -511,7 +515,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -572,7 +576,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCurrentUser
-              ? AppColors.primary.withOpacity(0.3)
+              ? AppColors.primary.withValues(alpha: 0.3)
               : Colors.transparent,
         ),
       ),
@@ -580,7 +584,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         children: [
           CircleAvatar(
             backgroundColor: isCurrentUser
-                ? AppColors.primary.withOpacity(0.1)
+                ? AppColors.primary.withValues(alpha: 0.1)
                 : const Color(0xFFE2E8F0),
             backgroundImage: member['avatar_url'] != null
                 ? NetworkImage(member['avatar_url'])
@@ -619,7 +623,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
@@ -676,7 +680,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.textMuted.withOpacity(0.3),
+              color: AppColors.textMuted.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -714,9 +718,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.05),
+                color: AppColors.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                ),
               ),
               child: Row(
                 children: [
@@ -771,7 +777,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textMuted.withOpacity(0.7),
+                color: AppColors.textMuted.withValues(alpha: 0.7),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -792,7 +798,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -823,14 +829,16 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withOpacity(0.05),
-                    AppColors.primary.withOpacity(0.02),
+                    AppColors.primary.withValues(alpha: 0.05),
+                    AppColors.primary.withValues(alpha: 0.02),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -934,7 +942,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
@@ -972,7 +980,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
             ),
             child: _isLoading
                 ? const SizedBox(
@@ -1008,7 +1016,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               side: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.3),
+                color: AppColors.textMuted.withValues(alpha: 0.3),
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(

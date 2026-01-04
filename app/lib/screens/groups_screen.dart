@@ -106,19 +106,19 @@ class _GroupsScreenState extends State<GroupsScreen>
       // Lấy danh sách người nợ tôi (người khác NỢ TÔI - chờ xác nhận)
       _peopleOweMe = _mapPeopleOweMe(allDebtsToMe);
 
-      print('DEBUG: Total debts to me: ${allDebtsToMe.length}');
-      print(
+      debugPrint('DEBUG: Total debts to me: ${allDebtsToMe.length}');
+      debugPrint(
         'DEBUG: Pending settlements after filter: ${_pendingSettlements.length}',
       );
       for (var debt in allDebtsToMe) {
-        print(
+        debugPrint(
           'DEBUG DEBT: ${debt['from_user']?['full_name']} - ${debt['amount']} - is_paid: ${debt['is_paid']}',
         );
       }
 
       setState(() => _isLoadingDebts = false);
     } catch (e) {
-      print('Error fetching debt data: $e');
+      debugPrint('Error fetching debt data: $e');
       setState(() => _isLoadingDebts = false);
     }
   }
@@ -128,16 +128,16 @@ class _GroupsScreenState extends State<GroupsScreen>
     List<Map<String, dynamic>> myDebts,
     List<Map<String, dynamic>> debtsToMe,
   ) {
-    print('\n=== DEBT OPTIMIZATION CALCULATION ===');
-    print('My debts (I owe): ${myDebts.length}');
-    print('Debts to me (Others owe me): ${debtsToMe.length}');
+    debugPrint('\n=== DEBT OPTIMIZATION CALCULATION ===');
+    debugPrint('My debts (I owe): ${myDebts.length}');
+    debugPrint('Debts to me (Others owe me): ${debtsToMe.length}');
 
     // Map để lưu net balance của từng người
     Map<String, double> netBalance = {};
     Map<String, Map<String, String>> userInfo = {}; // Lưu thông tin user
 
     // Tính toán: Tôi nợ ai (trừ balance)
-    print('\n--- Processing MY DEBTS (I owe others) ---');
+    debugPrint('\n--- Processing MY DEBTS (I owe others) ---');
     for (var debt in myDebts) {
       if (debt['is_paid'] == true) continue; // Skip nợ đã trả
 
@@ -156,14 +156,14 @@ class _GroupsScreenState extends State<GroupsScreen>
       if (toUserId != null && amount > 0) {
         netBalance[toUserId] = (netBalance[toUserId] ?? 0.0) - amount;
         userInfo[toUserId] = {'name': toUserName, 'avatar': toUserAvatar};
-        print(
+        debugPrint(
           '  I owe $toUserName: -$amount (new balance: ${netBalance[toUserId]})',
         );
       }
     }
 
     // Tính toán: Ai nợ tôi (cộng balance)
-    print('\n--- Processing DEBTS TO ME (Others owe me) ---');
+    debugPrint('\n--- Processing DEBTS TO ME (Others owe me) ---');
     for (var debt in debtsToMe) {
       if (debt['is_paid'] == true) continue; // Skip nợ đã trả
 
@@ -182,17 +182,17 @@ class _GroupsScreenState extends State<GroupsScreen>
       if (fromUserId != null && amount > 0) {
         netBalance[fromUserId] = (netBalance[fromUserId] ?? 0.0) + amount;
         userInfo[fromUserId] = {'name': fromUserName, 'avatar': fromUserAvatar};
-        print(
+        debugPrint(
           '  $fromUserName owes me: +$amount (new balance: ${netBalance[fromUserId]})',
         );
       }
     }
 
     // Tìm người tôi nợ nhiều nhất (balance âm nhất)
-    print('\n--- NET BALANCE SUMMARY ---');
+    debugPrint('\n--- NET BALANCE SUMMARY ---');
     for (var entry in netBalance.entries) {
       final userName = userInfo[entry.key]?['name'] ?? 'Unknown';
-      print('  $userName (${entry.key}): ${entry.value}');
+      debugPrint('  $userName (${entry.key}): ${entry.value}');
     }
 
     String? maxCreditorId;
@@ -207,8 +207,8 @@ class _GroupsScreenState extends State<GroupsScreen>
 
     // Nếu tôi không nợ ai, return null
     if (maxCreditorId == null || maxDebt < 1) {
-      print('RESULT: No optimization needed (balance >= 0)');
-      print('=================================\n');
+      debugPrint('RESULT: No optimization needed (balance >= 0)');
+      debugPrint('=================================\n');
       return null;
     }
 
@@ -223,11 +223,11 @@ class _GroupsScreenState extends State<GroupsScreen>
     }
 
     final creditorName = userInfo[maxCreditorId]?['name'] ?? 'Unknown';
-    print('\nRESULT: Optimized debt found!');
-    print('  Pay to: $creditorName');
-    print('  Amount: $maxDebt');
-    print('  Debt ID: $debtId');
-    print('=================================\n');
+    debugPrint('\nRESULT: Optimized debt found!');
+    debugPrint('  Pay to: $creditorName');
+    debugPrint('  Amount: $maxDebt');
+    debugPrint('  Debt ID: $debtId');
+    debugPrint('=================================\n');
 
     return {
       'from': {
@@ -253,7 +253,7 @@ class _GroupsScreenState extends State<GroupsScreen>
         _fetchDebtData();
       }
     } catch (e) {
-      print('Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     }
   }
 
@@ -353,12 +353,12 @@ class _GroupsScreenState extends State<GroupsScreen>
 
     try {
       await _groupRepository.markDebtPaid(debtId);
-      PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
+      if (mounted) PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
 
       // Refresh data
       await _fetchDebtData();
     } catch (e) {
-      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
+      if (mounted) PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
     }
   }
 
@@ -398,7 +398,7 @@ class _GroupsScreenState extends State<GroupsScreen>
 
       // Map API data to UI model
       final mappedGroups = groups.map((g) {
-        print("DEBUG GROUP: ${g['name']} - Members: ${g['members']}");
+        debugPrint("DEBUG GROUP: ${g['name']} - Members: ${g['members']}");
         // Calculate days left
         int daysLeft = 0;
         String status = 'active';
@@ -414,14 +414,16 @@ class _GroupsScreenState extends State<GroupsScreen>
               status = 'completed';
             }
           } catch (e) {
-            print('Error parsing deadline: $e');
+            debugPrint('Error parsing deadline: $e');
           }
         }
 
         // Parse members
         final membersList = g['members'] as List? ?? [];
         final int memberCount = membersList.length;
-        print("DEBUG: Group ${g['name']} has ${membersList.length} members");
+        debugPrint(
+          "DEBUG: Group ${g['name']} has ${membersList.length} members",
+        );
 
         // Parse avatars
         final avatars = membersList
@@ -460,7 +462,7 @@ class _GroupsScreenState extends State<GroupsScreen>
         });
       }
     } catch (e) {
-      print('Error fetching groups: $e');
+      debugPrint('Error fetching groups: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -592,7 +594,7 @@ class _GroupsScreenState extends State<GroupsScreen>
 
                               try {
                                 await _groupRepository.joinGroup(code: code);
-                                if (mounted) {
+                                if (mounted && ctx.mounted) {
                                   Navigator.pop(ctx);
                                   await PopupNotification.showSuccess(
                                     context,
@@ -602,7 +604,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                                 }
                               } catch (e) {
                                 setModalState(() => isLoading = false);
-                                if (mounted) {
+                                if (mounted && context.mounted) {
                                   PopupNotification.showError(
                                     context,
                                     e.toString().replaceAll('Exception: ', ''),
@@ -848,9 +850,8 @@ class _GroupsScreenState extends State<GroupsScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(
-                0.05,
-              ), // Giảm opacity cho nhẹ nhàng hơn
+              color: Colors.black.withValues(alpha: 0.05),
+              // Giảm opacity cho nhẹ nhàng hơn
               blurRadius: 3,
               offset: const Offset(0, 1),
             ),

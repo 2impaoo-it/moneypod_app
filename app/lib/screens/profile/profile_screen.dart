@@ -7,12 +7,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:MoneyPod/models/profile.dart';
-import 'package:MoneyPod/services/profile_service.dart';
-import 'package:MoneyPod/services/auth_service.dart';
-import 'package:MoneyPod/bloc/auth/auth_bloc.dart';
-import 'package:MoneyPod/bloc/auth/auth_event.dart';
-import 'package:MoneyPod/services/biometric_service.dart';
+import 'package:moneypod/models/profile.dart';
+import 'package:moneypod/services/profile_service.dart';
+import 'package:moneypod/services/auth_service.dart';
+import 'package:moneypod/bloc/auth/auth_bloc.dart';
+import 'package:moneypod/bloc/auth/auth_event.dart';
+import 'package:moneypod/services/biometric_service.dart';
 import '../../main.dart';
 import '../../utils/popup_notification.dart';
 import '../notifications_screen.dart';
@@ -24,11 +24,17 @@ import '../../bloc/savings/savings_event.dart';
 class ProfileScreen extends StatefulWidget {
   final ProfileService profileService;
   final String token;
+  final AuthService? authService;
+  final BiometricService? biometricService;
+  final firebase_auth.FirebaseAuth? firebaseAuth;
 
   const ProfileScreen({
     super.key,
     required this.profileService,
     required this.token,
+    this.authService,
+    this.biometricService,
+    this.firebaseAuth,
   });
 
   @override
@@ -39,12 +45,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   String? _error;
   Profile? _profile;
-  final AuthService _authService = AuthService();
-  final BiometricService _biometricService = BiometricService();
+  late final AuthService _authService;
+  late final BiometricService _biometricService;
 
   // Phone Verification State
-  final firebase_auth.FirebaseAuth _firebaseAuth =
-      firebase_auth.FirebaseAuth.instance;
+  late final firebase_auth.FirebaseAuth _firebaseAuth;
   String? _verificationId;
   Timer? _timer;
   int _countdown = 0;
@@ -55,6 +60,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _authService = widget.authService ?? AuthService();
+    _biometricService = widget.biometricService ?? BiometricService();
+    _firebaseAuth = widget.firebaseAuth ?? firebase_auth.FirebaseAuth.instance;
     _loadProfile();
   }
 
@@ -147,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         verificationFailed: (firebase_auth.FirebaseAuthException e) {
           setState(() => _loading = false);
           _showError(e.message ?? 'Lỗi xác thực số điện thoại');
-          print('Phone Auth Error: ${e.code} - ${e.message}');
+          debugPrint('Phone Auth Error: ${e.code} - ${e.message}');
         },
         codeSent: (String verificationId, int? resendToken) {
           setState(() {
@@ -474,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.textMuted.withOpacity(0.3),
+                    color: AppColors.textMuted.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -533,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         foregroundColor: AppColors.textSecondary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(
-                          color: AppColors.textMuted.withOpacity(0.3),
+                          color: AppColors.textMuted.withValues(alpha: 0.3),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -605,7 +613,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }
           }
         } catch (e) {
-          print('Error syncing biometric name: $e');
+          debugPrint('Error syncing biometric name: $e');
         }
 
         if (mounted) {
@@ -648,7 +656,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textMuted.withOpacity(0.3),
+                  color: AppColors.textMuted.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -666,7 +674,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -681,7 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.purple.withOpacity(0.1),
+                    color: AppColors.purple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(LucideIcons.image, color: AppColors.purple),
@@ -733,7 +741,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             }
           } catch (e) {
-            print('Error syncing biometric avatar: $e');
+            debugPrint('Biometrics not available: $e');
           }
 
           if (mounted) {
@@ -783,7 +791,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.danger.withOpacity(0.1),
+                color: AppColors.danger.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -874,7 +882,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
+                                    color: Colors.black.withValues(alpha: 0.1),
                                     blurRadius: 4,
                                   ),
                                 ],
@@ -903,7 +911,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _profile!.email ?? '',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -952,13 +960,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return CircleAvatar(
         radius: 50,
         backgroundImage: NetworkImage(avatarUrl),
-        backgroundColor: Colors.white.withOpacity(0.2),
+        backgroundColor: Colors.white.withValues(alpha: 0.2),
       );
     }
 
     return CircleAvatar(
       radius: 50,
-      backgroundColor: Colors.white.withOpacity(0.2),
+      backgroundColor: Colors.white.withValues(alpha: 0.2),
       child: Text(
         initials.isEmpty
             ? '?'
@@ -978,7 +986,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          ),
         ],
       ),
       child: Column(
@@ -989,7 +1000,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: _profile!.email ?? 'Chưa có',
             iconColor: AppColors.primary,
           ),
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           _buildInfoRow(
             icon: LucideIcons.user,
             label: 'Họ và tên',
@@ -999,7 +1010,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onEdit: _showEditProfileSheet,
           ),
 
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           _buildInfoRow(
             icon: LucideIcons.phone,
             label: 'Số điện thoại',
@@ -1028,7 +1039,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 20, color: iconColor),
@@ -1077,7 +1088,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          ),
         ],
       ),
       child: Column(
@@ -1095,14 +1109,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           _buildSettingsItem(
             icon: LucideIcons.lock,
             label: 'Đổi mật khẩu',
             iconColor: AppColors.primary,
             onTap: () => context.push('/profile/change-password'),
           ),
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           _buildSettingsItem(
             icon: LucideIcons.helpCircle,
             label: 'Trợ giúp & Hỗ trợ',
@@ -1114,7 +1128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           _buildSettingsItem(
             icon: LucideIcons.info,
             label: 'Về ứng dụng',
@@ -1128,7 +1142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
-          Divider(height: 1, color: AppColors.textMuted.withOpacity(0.1)),
+          Divider(height: 1, color: AppColors.textMuted.withValues(alpha: 0.1)),
           // Biometric Toggle Section
           _buildBiometricToggle(),
         ],
@@ -1157,7 +1171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -1432,7 +1446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, size: 20, color: iconColor),

@@ -529,7 +529,9 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
             decoration: BoxDecoration(
               color: AppColors.blue100,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.blue500.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [

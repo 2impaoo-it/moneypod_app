@@ -159,7 +159,8 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
       // Find the closest matching color in available colors or default
       // This logic is a bit simple, assumes basic hex codes match
       final found = _availableColors.firstWhere(
-        (c) => (c['color'] as Color).value
+        (c) => (c['color'] as Color)
+            .toARGB32()
             .toRadixString(16)
             .endsWith(_selectedColor.substring(1).toLowerCase()),
         orElse: () => _availableColors.first,
@@ -177,7 +178,8 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
     return _availableColors.firstWhere(
       (c) =>
           c['key'] == _selectedColor ||
-          (c['color'] as Color).value
+          (c['color'] as Color)
+              .toARGB32()
               .toRadixString(16)
               .endsWith(_selectedColor.replaceAll('#', '').toLowerCase()),
       orElse: () => _availableColors.first,
@@ -407,7 +409,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _currentColor.withOpacity(0.3),
+            color: _currentColor.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -422,7 +424,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(_currentIcon, color: Colors.white, size: 24),
@@ -447,7 +449,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                         'Mục tiêu: ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                   ],
@@ -463,7 +465,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
               Container(
                 height: 8,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -500,7 +502,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                     : '/ 0 ₫',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -517,7 +519,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -626,7 +628,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             suffixText: suffix,
@@ -648,7 +650,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -698,7 +700,9 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.textMuted.withOpacity(0.1)),
+              border: Border.all(
+                color: AppColors.textMuted.withValues(alpha: 0.1),
+              ),
             ),
             child: Row(
               children: [
@@ -714,7 +718,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                           : FontWeight.normal,
                       color: _selectedDate != null
                           ? AppColors.textPrimary
-                          : AppColors.textMuted.withOpacity(0.5),
+                          : AppColors.textMuted.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -738,7 +742,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -770,7 +774,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                     height: 64, // Increased size
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? _currentColor.withOpacity(0.1)
+                          ? _currentColor.withValues(alpha: 0.1)
                           : AppColors.background,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
@@ -800,7 +804,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -842,8 +846,8 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: (item['color'] as Color).withOpacity(
-                                  0.4,
+                                color: (item['color'] as Color).withValues(
+                                  alpha: 0.7,
                                 ),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
@@ -876,7 +880,7 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 4,
-          shadowColor: _currentColor.withOpacity(0.4),
+          shadowColor: _currentColor.withValues(alpha: 0.4),
         ),
         child: _isLoading
             ? const SizedBox(

@@ -112,8 +112,8 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: command.type == 'expense'
-                    ? AppColors.danger.withOpacity(0.1)
-                    : AppColors.success.withOpacity(0.1),
+                    ? AppColors.danger.withValues(alpha: 0.1)
+                    : AppColors.success.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -298,7 +298,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -320,7 +320,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
+              color: AppColors.primary.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(

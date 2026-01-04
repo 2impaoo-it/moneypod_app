@@ -20,7 +20,7 @@ class CustomBottomNavBar extends StatelessWidget {
       notchMargin: 8.0,
       color: Colors.white,
       elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       child: SizedBox(
         height: 60,
         child: Row(

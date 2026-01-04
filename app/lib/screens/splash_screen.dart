@@ -116,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -178,13 +178,13 @@ class _SplashScreenState extends State<SplashScreen>
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: _errorType == 'maintenance'
-                          ? AppColors.warning.withOpacity(0.1)
-                          : AppColors.danger.withOpacity(0.1),
+                          ? AppColors.warning.withValues(alpha: 0.1)
+                          : AppColors.danger.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: _errorType == 'maintenance'
-                            ? AppColors.warning.withOpacity(0.3)
-                            : AppColors.danger.withOpacity(0.3),
+                            ? AppColors.warning.withValues(alpha: 0.3)
+                            : AppColors.danger.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),

@@ -231,7 +231,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
         ),
         GoRoute(
           path: '/report/create-budget',
-          redirect: (_, __) =>
+          redirect: (context, state) =>
               '/create-budget', // Backwards compat if needed, or just remove
         ),
         GoRoute(
@@ -341,27 +341,31 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
   // 🔥 HÀM QUAN TRỌNG: Bắt sự kiện App Lifecycle
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    print('🔔 [AppLifecycle] ====== STATE CHANGED: $state ======');
+    debugPrint('🔔 [AppLifecycle] ====== STATE CHANGED: $state ======');
 
     if (state == AppLifecycleState.paused) {
       // User ẩn App (bấm Home, chuyển app khác, tắt màn hình) → Lưu thời gian
-      print('📱 [AppLifecycle] App going to background - Saving pause time...');
+      debugPrint(
+        '📱 [AppLifecycle] App going to background - Saving pause time...',
+      );
       SessionManager.saveLastActiveTime();
     } else if (state == AppLifecycleState.resumed) {
       // User quay lại App → Kiểm tra timeout
-      print('📱 [AppLifecycle] App coming to foreground - Checking session...');
+      debugPrint(
+        '📱 [AppLifecycle] App coming to foreground - Checking session...',
+      );
       _checkSessionTimeout();
     } else if (state == AppLifecycleState.inactive) {
-      print('📱 [AppLifecycle] App inactive (transitioning)');
+      debugPrint('📱 [AppLifecycle] App inactive (transitioning)');
     } else if (state == AppLifecycleState.detached) {
-      print('📱 [AppLifecycle] App detached');
+      debugPrint('📱 [AppLifecycle] App detached');
     }
   }
 
   Future<void> _checkSessionTimeout() async {
     final isExpired = await SessionManager.checkSessionExpired();
     if (isExpired && mounted) {
-      print('⏰ Session hết hạn! Chuyển về màn hình đăng nhập.');
+      debugPrint('⏰ Session hết hạn! Chuyển về màn hình đăng nhập.');
       // Chuyển về màn hình Login
       _appRouter.go('/login');
 
@@ -419,7 +423,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               seedColor: AppColors.primary,
               primary: AppColors.primary,
               secondary: AppColors.primaryDark,
-              background: AppColors.background,
+              surface: AppColors.background,
             ),
             // Sử dụng Google Fonts Inter
             textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
@@ -483,8 +487,10 @@ class _MainWrapperState extends State<MainWrapper> {
 
     // Nếu thêm giao dịch thành công, reload cả transactions và dashboard
     if (result == true && mounted) {
-      context.read<TransactionBloc>().add(TransactionLoadRequested());
-      context.read<DashboardBloc>().add(DashboardRefreshRequested());
+      if (context.mounted) {
+        context.read<TransactionBloc>().add(TransactionLoadRequested());
+        context.read<DashboardBloc>().add(DashboardRefreshRequested());
+      }
     }
   }
 
@@ -533,10 +539,12 @@ class _MainWrapperState extends State<MainWrapper> {
     // Explicitly allow for groups list and group detail
     if (location == '/groups' || location.startsWith('/groups/')) return true;
     if (location == '/report') return false; // Hide FAB on Report screen
-    if (location.startsWith('/debt-payment'))
+    if (location.startsWith('/debt-payment')) {
       return false; // Hide FAB on Debt Payment
-    if (location.startsWith('/confirm-receive-payment'))
+    }
+    if (location.startsWith('/confirm-receive-payment')) {
       return false; // Hide FAB on Confirm Receive Payment
+    }
 
     return true;
   }
@@ -562,8 +570,10 @@ class _MainWrapperState extends State<MainWrapper> {
       // Trên màn hình Tiết kiệm -> Tạo mục tiêu mới
       final result = await context.push('/savings/create');
       if (result == true && mounted) {
-        context.read<SavingsBloc>().add(LoadSavingsGoals());
-        context.read<DashboardBloc>().add(DashboardLoadRequested());
+        if (context.mounted) {
+          context.read<SavingsBloc>().add(LoadSavingsGoals());
+          context.read<DashboardBloc>().add(DashboardLoadRequested());
+        }
       }
     } else if (location == '/report') {
       // From main.dart, we might not have easy access to FinancialReportBloc state

@@ -9,13 +9,20 @@ import '../utils/dio_client.dart';
 import '../config/app_config.dart';
 
 class BillScanRepository {
-  final ImagePicker _imagePicker = ImagePicker();
-  final AuthService _authService = AuthService();
+  final ImagePicker _imagePicker;
+  final AuthService _authService;
   late final Dio _dio;
 
-  BillScanRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  BillScanRepository({
+    ImagePicker? imagePicker,
+    AuthService? authService,
+    Dio? dio,
+  }) : _imagePicker = imagePicker ?? ImagePicker(),
+       _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Kiểm tra và yêu cầu quyền camera

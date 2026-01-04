@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../repositories/notification_repository.dart';
 import 'notification_event.dart';
@@ -53,7 +54,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         );
       }
     } catch (e) {
-      print('Error loading unread count: $e');
+      debugPrint('Error loading unread count: $e');
     }
   }
 
@@ -99,7 +100,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         event.token,
         event.notificationId,
       );
-      print('Delete notification result: $success'); // DEBUG
+      debugPrint('Delete notification result: $success'); // DEBUG
       if (success) {
         // Refresh list immediately
         add(NotificationLoadRequested(event.token));
@@ -108,7 +109,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         emit(NotificationError('Xóa thất bại.'));
       }
     } catch (e) {
-      print('Exception deleting notification: $e'); // DEBUG
+      debugPrint('Exception deleting notification: $e'); // DEBUG
       emit(NotificationError('Lỗi xóa thông báo: $e'));
     }
   }
@@ -119,7 +120,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   ) async {
     try {
       final success = await repository.deleteAllNotifications(event.token);
-      print('Delete all notifications result: $success'); // DEBUG
+      debugPrint('Delete all notifications result: $success'); // DEBUG
       if (success) {
         emit(NotificationLoaded(notifications: [], unreadCount: 0));
         emit(NotificationActionSuccess('Đã xóa tất cả thông báo'));
@@ -127,7 +128,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         emit(NotificationError('Xóa thất bại. Vui lòng thử lại.'));
       }
     } catch (e) {
-      print('Exception deleting all notifications: $e'); // DEBUG
+      debugPrint('Exception deleting all notifications: $e'); // DEBUG
       emit(NotificationError('Lỗi xóa tất cả: $e'));
     }
   }

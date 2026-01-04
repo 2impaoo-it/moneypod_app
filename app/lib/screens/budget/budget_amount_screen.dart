@@ -216,7 +216,7 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
+                                    color: Colors.black.withValues(alpha: 0.05),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -328,7 +328,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -392,7 +394,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                     drawVerticalLine: false,
                                     getDrawingHorizontalLine: (value) {
                                       return FlLine(
-                                        color: Colors.black.withOpacity(0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         strokeWidth: 1,
                                         dashArray: [4, 4],
                                       );
@@ -409,8 +413,8 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                           toY: e.value.y,
                                           color: e.key == 5
                                               ? AppColors.primary
-                                              : AppColors.primary.withOpacity(
-                                                  0.3,
+                                              : AppColors.primary.withValues(
+                                                  alpha: 0.1,
                                                 ),
                                           width: 12,
                                           borderRadius: BorderRadius.circular(
@@ -449,8 +453,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          disabledBackgroundColor: AppColors.primary
-                              .withOpacity(0.5),
+                          disabledBackgroundColor: AppColors.primary.withValues(
+                            alpha: 0.5,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),

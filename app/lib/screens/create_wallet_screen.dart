@@ -94,10 +94,12 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
 
           // Xử lý khi có lỗi
           if (state.status == CreateWalletStatus.failure) {
-            PopupNotification.showError(
-              context,
-              state.errorMessage ?? 'Có lỗi xảy ra',
-            );
+            if (context.mounted) {
+              PopupNotification.showError(
+                context,
+                state.errorMessage ?? 'Có lỗi xảy ra',
+              );
+            }
           }
         },
         builder: (context, state) {
@@ -136,14 +138,17 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.1),
-            AppColors.primary.withOpacity(0.05),
+            AppColors.primary.withValues(alpha: 0.1),
+            AppColors.primary.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 1),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -200,7 +205,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -228,7 +233,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
               'Bạn có thể thay đổi số dư sau khi tạo ví',
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textMuted.withOpacity(0.7),
+                color: AppColors.textMuted.withValues(alpha: 0.7),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -291,7 +296,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
           decoration: InputDecoration(
             hintText: 'Ví tiền mặt, Ví ngân hàng, ...',
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             filled: true,
@@ -307,7 +312,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -379,7 +384,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
           decoration: InputDecoration(
             hintText: '0',
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             suffixText: '₫',
@@ -401,7 +406,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -460,11 +465,11 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shadowColor: AppColors.primary.withOpacity(0.3),
+              shadowColor: AppColors.primary.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+              disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
             ),
             child: isLoading
                 ? const SizedBox(
@@ -503,7 +508,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               side: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.3),
+                color: AppColors.textMuted.withValues(alpha: 0.3),
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(

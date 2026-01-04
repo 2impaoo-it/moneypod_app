@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
@@ -7,12 +8,15 @@ import '../config/app_config.dart';
 
 /// Repository cho quản lý Quỹ nhóm (Groups)
 class GroupRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  GroupRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  GroupRepository({Dio? dio, AuthService? authService})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Tạo quỹ nhóm mới
@@ -34,16 +38,16 @@ class GroupRepository {
     List<Map<String, dynamic>>? members,
   }) async {
     try {
-      print('🔵 [GroupRepo] Bắt đầu tạo quỹ nhóm: name=$name');
+      debugPrint('🔵 [GroupRepo] Bắt đầu tạo quỹ nhóm: name=$name');
 
       // Lấy token
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [GroupRepo] Không có token');
+        debugPrint('❌ [GroupRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [GroupRepo] Đã lấy token');
+      debugPrint('✅ [GroupRepo] Đã lấy token');
 
       // Tạo request body theo format backend yêu cầu
       final requestBody = <String, dynamic>{'name': name};
@@ -62,10 +66,10 @@ class GroupRepository {
       // Thêm members - backend yêu cầu field này (dù có thể rỗng)
       requestBody['members'] = members ?? [];
 
-      print('📦 [GroupRepo] Request body: $requestBody');
+      debugPrint('📦 [GroupRepo] Request body: $requestBody');
 
       // Gửi POST request
-      print('🌐 [GroupRepo] Gửi POST đến: /groups');
+      debugPrint('🌐 [GroupRepo] Gửi POST đến: /groups');
 
       final response = await _dio.post(
         '/groups',
@@ -78,30 +82,30 @@ class GroupRepository {
         ),
       );
 
-      print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.data}');
+      debugPrint('📡 [GroupRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(response.data['error'] ?? 'Không thể tạo quỹ nhóm');
       }
 
-      print('✅ [GroupRepo] Tạo quỹ nhóm thành công!');
+      debugPrint('✅ [GroupRepo] Tạo quỹ nhóm thành công!');
 
       // Parse response
       return response.data['data'] ?? response.data;
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [GroupRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [GroupRepo] DioException: $e');
+      debugPrint('❌ [GroupRepo] DioException: $e');
       throw Exception(e.response?.data['error'] ?? 'Lỗi khi tạo quỹ nhóm: $e');
     } catch (e) {
-      print('❌ [GroupRepo] Exception: $e');
+      debugPrint('❌ [GroupRepo] Exception: $e');
       rethrow;
     }
   }
@@ -109,19 +113,19 @@ class GroupRepository {
   /// Lấy danh sách quỹ nhóm của user
   Future<List<Map<String, dynamic>>> getGroups() async {
     try {
-      print('🔵 [GroupRepo] Lấy danh sách quỹ nhóm...');
+      debugPrint('🔵 [GroupRepo] Lấy danh sách quỹ nhóm...');
 
       // Lấy token
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [GroupRepo] Không có token');
+        debugPrint('❌ [GroupRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [GroupRepo] Đã lấy token');
+      debugPrint('✅ [GroupRepo] Đã lấy token');
 
       // Gửi GET request
-      print('🌐 [GroupRepo] Gửi GET đến: /groups');
+      debugPrint('🌐 [GroupRepo] Gửi GET đến: /groups');
 
       final response = await _dio.get(
         '/groups',
@@ -133,12 +137,12 @@ class GroupRepository {
         ),
       );
 
-      print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.data}');
+      debugPrint('📡 [GroupRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
-        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(
           response.data['error'] ?? 'Không thể lấy danh sách quỹ nhóm',
         );
@@ -147,21 +151,21 @@ class GroupRepository {
       // Parse response
       final List<dynamic> groupsJson = response.data['data'] ?? [];
 
-      print('✅ [GroupRepo] Lấy ${groupsJson.length} quỹ nhóm thành công!');
+      debugPrint('✅ [GroupRepo] Lấy ${groupsJson.length} quỹ nhóm thành công!');
       return groupsJson.cast<Map<String, dynamic>>();
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [GroupRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [GroupRepo] DioException: $e');
+      debugPrint('❌ [GroupRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Lỗi khi lấy danh sách quỹ nhóm: $e',
       );
     } catch (e) {
-      print('❌ [GroupRepo] Exception: $e');
+      debugPrint('❌ [GroupRepo] Exception: $e');
       rethrow;
     }
   }
@@ -172,23 +176,23 @@ class GroupRepository {
   /// - [code]: Mã mời (invite code)
   Future<void> joinGroup({required String code}) async {
     try {
-      print('🔵 [GroupRepo] Tham gia quỹ nhóm với mã: $code');
+      debugPrint('🔵 [GroupRepo] Tham gia quỹ nhóm với mã: $code');
 
       // Lấy token
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [GroupRepo] Không có token');
+        debugPrint('❌ [GroupRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [GroupRepo] Đã lấy token');
+      debugPrint('✅ [GroupRepo] Đã lấy token');
 
       // Tạo request body
       final requestBody = {'code': code};
-      print('📦 [GroupRepo] Request body: $requestBody');
+      debugPrint('📦 [GroupRepo] Request body: $requestBody');
 
       // Gửi POST request
-      print('🌐 [GroupRepo] Gửi POST đến: /groups/join');
+      debugPrint('🌐 [GroupRepo] Gửi POST đến: /groups/join');
 
       final response = await _dio.post(
         '/groups/join',
@@ -201,31 +205,31 @@ class GroupRepository {
         ),
       );
 
-      print('📡 [GroupRepo] Status code: ${response.statusCode}');
-      print('📡 [GroupRepo] Response body: ${response.data}');
+      debugPrint('📡 [GroupRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [GroupRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        print('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint('❌ [GroupRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(
           response.data['error'] ?? 'Không thể tham gia quỹ nhóm',
         );
       }
 
-      print('✅ [GroupRepo] Tham gia quỹ nhóm thành công!');
+      debugPrint('✅ [GroupRepo] Tham gia quỹ nhóm thành công!');
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [GroupRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [GroupRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [GroupRepo] DioException: $e');
+      debugPrint('❌ [GroupRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Lỗi khi tham gia quỹ nhóm: $e',
       );
     } catch (e) {
-      print('❌ [GroupRepo] Exception: $e');
+      debugPrint('❌ [GroupRepo] Exception: $e');
       rethrow;
     }
   }
@@ -370,7 +374,7 @@ class GroupRepository {
       }
       return [];
     } catch (e) {
-      print('Error getMyDebts: $e');
+      debugPrint('Error getMyDebts: $e');
       return [];
     }
   }
@@ -395,7 +399,7 @@ class GroupRepository {
       }
       return [];
     } catch (e) {
-      print('Error getDebtsToMe: $e');
+      debugPrint('Error getDebtsToMe: $e');
       return [];
     }
   }
@@ -560,7 +564,7 @@ class GroupRepository {
         );
       }
     } catch (e) {
-      print('Error getGroupDetails: $e');
+      debugPrint('Error getGroupDetails: $e');
       throw Exception('Lỗi khi lấy thông tin nhóm: $e');
     }
   }
@@ -609,7 +613,7 @@ class GroupRepository {
         throw Exception('Failed to load transactions');
       }
     } catch (e) {
-      print('Error getGroupExpenses: $e');
+      debugPrint('Error getGroupExpenses: $e');
       return [];
     }
   }

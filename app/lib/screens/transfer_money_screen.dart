@@ -64,23 +64,23 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
   }
 
   Future<void> _handleTransfer() async {
-    print('🔵 Transfer button pressed');
+    debugPrint('🔵 Transfer button pressed');
 
     // Validate
     if (_fromWallet == null) {
-      print('❌ From wallet is null');
+      debugPrint('❌ From wallet is null');
       PopupNotification.showWarning(context, 'Vui lòng chọn ví nguồn');
       return;
     }
 
     if (_toWallet == null) {
-      print('❌ To wallet is null');
+      debugPrint('❌ To wallet is null');
       PopupNotification.showWarning(context, 'Vui lòng chọn ví đích');
       return;
     }
 
     if (_amountController.text.isEmpty) {
-      print('❌ Amount is empty');
+      debugPrint('❌ Amount is empty');
       PopupNotification.showWarning(context, 'Vui lòng nhập số tiền');
       return;
     }
@@ -88,25 +88,25 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
     final amount = double.tryParse(
       _amountController.text.replaceAll('.', '').replaceAll(',', ''),
     );
-    print('💰 Parsed amount: $amount');
+    debugPrint('💰 Parsed amount: $amount');
 
     if (amount == null || amount <= 0) {
-      print('❌ Invalid amount');
+      debugPrint('❌ Invalid amount');
       PopupNotification.showWarning(context, 'Số tiền không hợp lệ');
       return;
     }
 
     if (amount > _fromWallet!.balance) {
-      print('❌ Insufficient balance: $amount > ${_fromWallet!.balance}');
+      debugPrint('❌ Insufficient balance: $amount > ${_fromWallet!.balance}');
       PopupNotification.showWarning(context, 'Số dư ví nguồn không đủ');
       return;
     }
 
-    print('✅ All validations passed. Starting transfer...');
-    print('📝 From: ${_fromWallet!.name} (${_fromWallet!.id})');
-    print('📝 To: ${_toWallet!.name} (${_toWallet!.id})');
-    print('📝 Amount: $amount');
-    print('📝 Note: ${_noteController.text}');
+    debugPrint('✅ All validations passed. Starting transfer...');
+    debugPrint('📝 From: ${_fromWallet!.name} (${_fromWallet!.id})');
+    debugPrint('📝 To: ${_toWallet!.name} (${_toWallet!.id})');
+    debugPrint('📝 Amount: $amount');
+    debugPrint('📝 Note: ${_noteController.text}');
 
     setState(() {
       _isTransferring = true;
@@ -120,7 +120,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
         note: _noteController.text,
       );
 
-      print('✅ Transfer successful');
+      debugPrint('✅ Transfer successful');
       if (mounted) {
         await PopupNotification.showSuccess(context, 'Chuyển tiền thành công!');
         if (mounted) {
@@ -128,7 +128,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
         }
       }
     } catch (e) {
-      print('❌ Transfer failed: $e');
+      debugPrint('❌ Transfer failed: $e');
       if (mounted) {
         await PopupNotification.showError(context, e.toString());
       }
@@ -232,7 +232,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -350,7 +350,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, -5),
                           ),
@@ -365,7 +365,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             disabledBackgroundColor: AppColors.primary
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -426,7 +426,7 @@ class _TransferMoneyScreenState extends State<TransferMoneyScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Icon(

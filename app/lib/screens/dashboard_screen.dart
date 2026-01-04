@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -127,7 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
+                              color: AppColors.primary.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -220,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -357,8 +356,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           vertical: 6,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primary.withOpacity(
-                                            0.1,
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.1,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             20,
@@ -542,8 +541,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           vertical: 6,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.success.withOpacity(
-                                            0.1,
+                                          color: AppColors.success.withValues(
+                                            alpha: 0.1,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             20,
@@ -703,7 +702,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: Colors.white, size: 16),
@@ -811,7 +810,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -834,7 +833,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 4),
             Text(
               '${percentage.toInt()}%',
-              style: TextStyle(fontSize: 11, color: color.withOpacity(0.7)),
+              style: TextStyle(
+                fontSize: 11,
+                color: color.withValues(alpha: 0.7),
+              ),
             ),
           ],
         ),

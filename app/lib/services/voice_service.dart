@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -26,11 +27,11 @@ class VoiceService {
       _isInitialized = await _speech
           .initialize(
             onError: (error) {
-              print('❌ Speech error: $error');
+              debugPrint('❌ Speech error: $error');
               _isListening = false;
             },
             onStatus: (status) {
-              print('🎤 Speech status: $status');
+              debugPrint('🎤 Speech status: $status');
               if (status == 'done' || status == 'notListening') {
                 _isListening = false;
               }
@@ -39,12 +40,12 @@ class VoiceService {
           .timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              print('⏰ Speech initialization timed out');
+              debugPrint('⏰ Speech initialization timed out');
               return false;
             },
           );
     } catch (e) {
-      print('❌ Speech initialization failed: $e');
+      debugPrint('❌ Speech initialization failed: $e');
       _isInitialized = false;
     }
 
@@ -55,7 +56,7 @@ class VoiceService {
         await _tts.setPitch(1.0);
         await _tts.setSpeechRate(0.5);
       } catch (e) {
-        print('⚠️ TTS setup failed (non-critical): $e');
+        debugPrint('⚠️ TTS setup failed (non-critical): $e');
       }
     }
 
@@ -86,9 +87,11 @@ class VoiceService {
           }
         },
         localeId: 'vi_VN', // Vietnamese
-        listenMode: ListenMode.confirmation,
-        cancelOnError: true,
-        partialResults: true,
+        listenOptions: SpeechListenOptions(
+          listenMode: ListenMode.confirmation,
+          cancelOnError: true,
+          partialResults: true,
+        ),
       );
     }
   }

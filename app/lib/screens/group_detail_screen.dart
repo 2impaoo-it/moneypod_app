@@ -170,7 +170,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.copy, color: AppColors.primary),
@@ -193,7 +193,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.purple600.withOpacity(0.1),
+                    color: AppColors.purple600.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -445,7 +445,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -504,7 +504,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -696,7 +696,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
             return;
           }
           // Tôi nợ người khác - Navigate to debt payment screen
-          print("🚀 Navigating to /full-screen/debt/pay");
+          debugPrint("🚀 Navigating to /full-screen/debt/pay");
           final result = await context.push(
             '/full-screen/debt/pay',
             extra: {
@@ -919,7 +919,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
@@ -929,8 +929,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: AppColors.primary.withOpacity(
-                                0.1,
+                              backgroundColor: AppColors.primary.withValues(
+                                alpha: 0.1,
                               ),
                               backgroundImage:
                                   (avatarUrl != null && avatarUrl.isNotEmpty)
@@ -979,8 +979,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                               ),
                               decoration: BoxDecoration(
                                 color: member['role'] == 'leader'
-                                    ? Colors.orange.withOpacity(0.1)
-                                    : Colors.blue.withOpacity(0.1),
+                                    ? Colors.orange.withValues(alpha: 0.1)
+                                    : Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1190,7 +1190,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                         statusText,
                         style: TextStyle(
                           fontSize: 12,
-                          color: amountColor.withOpacity(0.8),
+                          color: amountColor.withValues(alpha: 0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1323,7 +1323,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                     width: double.infinity,
                     fit: BoxFit
                         .contain, // Changed to contain to show full image, or cover with limit
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppColors.background,

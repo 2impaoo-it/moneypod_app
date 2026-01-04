@@ -15,16 +15,25 @@ import '../utils/popup_notification.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final String? preSelectedGroupId;
+  final GroupRepository? groupRepository;
+  final ProfileRepository? profileRepository;
+  final AuthService? authService;
 
-  const AddExpenseScreen({super.key, this.preSelectedGroupId});
+  const AddExpenseScreen({
+    super.key,
+    this.preSelectedGroupId,
+    this.groupRepository,
+    this.profileRepository,
+    this.authService,
+  });
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  final _groupRepo = GroupRepository();
-  final _profileRepo = ProfileRepository();
+  late final GroupRepository _groupRepo;
+  late final ProfileRepository _profileRepo;
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
 
@@ -48,13 +57,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
+    _groupRepo = widget.groupRepository ?? GroupRepository();
+    _profileRepo = widget.profileRepository ?? ProfileRepository();
     _selectedGroupId = widget.preSelectedGroupId;
-    _loadData();
+    _loadData(); // Will use widget.authService if available? No, need to store it or access widget.
   }
 
   Future<void> _loadData() async {
     try {
-      final token = await AuthService().getToken();
+      final token = await (widget.authService ?? AuthService()).getToken();
       if (token == null) {
         throw Exception('Chưa đăng nhập');
       }
@@ -117,7 +128,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      print('Error loading members: $e');
+      debugPrint('Error loading members: $e');
     }
   }
 
@@ -168,7 +179,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      PopupNotification.showError(context, 'Lỗi chụp ảnh: $e');
+      if (mounted) PopupNotification.showError(context, 'Lỗi chụp ảnh: $e');
     }
   }
 
@@ -181,7 +192,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      PopupNotification.showError(context, 'Lỗi chọn ảnh: $e');
+      if (mounted) PopupNotification.showError(context, 'Lỗi chọn ảnh: $e');
     }
   }
 

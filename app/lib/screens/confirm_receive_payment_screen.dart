@@ -202,7 +202,7 @@ class _ConfirmReceivePaymentScreenState
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             backgroundImage:
                 (widget.debtorAvatar.isNotEmpty &&
                     widget.debtorAvatar.startsWith('http'))
@@ -276,7 +276,7 @@ class _ConfirmReceivePaymentScreenState
       decoration: BoxDecoration(
         color: AppColors.blue50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +423,7 @@ class _ConfirmReceivePaymentScreenState
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
+              ? AppColors.primary.withValues(alpha: 0.1)
               : AppColors.slate50,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
@@ -496,7 +496,7 @@ class _ConfirmReceivePaymentScreenState
               widget.proofImageUrl!,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (context, error, stackTrace) => Container(
                 height: 200,
                 color: AppColors.slate100,
                 child: const Center(
@@ -584,9 +584,11 @@ class _ConfirmReceivePaymentScreenState
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.1),
+              color: AppColors.warning.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [

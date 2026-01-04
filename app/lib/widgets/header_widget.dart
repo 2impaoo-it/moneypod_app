@@ -1,5 +1,5 @@
-import 'package:MoneyPod/main.dart';
-import 'package:MoneyPod/models/profile.dart';
+import 'package:moneypod/main.dart';
+import 'package:moneypod/models/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -35,13 +35,13 @@ class _HeaderWidgetState extends State<HeaderWidget> {
 
     return GestureDetector(
       onTap: () {
-        print('Avatar tapped - navigating to /profile');
+        debugPrint('Avatar tapped - navigating to /profile');
         try {
           // Sử dụng push thay vì go để giữ lại lịch sử navigation,
           // cho phép user back về màn hình trước đó (Dashboard)
           context.push('/profile');
         } catch (e) {
-          print('Navigation error: $e');
+          debugPrint('Navigation error: $e');
         }
       },
       child: Row(

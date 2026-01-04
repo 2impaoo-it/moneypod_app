@@ -85,7 +85,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
         _wallets = wallets;
       });
     } catch (e) {
-      print('❌ Lỗi load wallets: $e');
+      debugPrint('Error loading wallets: $e');
     }
   }
 
@@ -101,7 +101,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
       });
     } catch (e) {
       if (mounted) setState(() => _transactionsLoading = false);
-      print('❌ Lỗi load transactions: $e');
+      debugPrint('Error loading transactions: $e');
     }
   }
 
@@ -206,7 +206,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.textMuted.withOpacity(0.3),
+                      color: AppColors.textMuted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -217,7 +217,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
+                        color: AppColors.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -323,7 +323,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   decoration: InputDecoration(
                     hintText: '0',
                     hintStyle: TextStyle(
-                      color: AppColors.textMuted.withOpacity(0.5),
+                      color: AppColors.textMuted.withValues(alpha: 0.5),
                     ),
                     suffixText: '₫',
                     suffixStyle: const TextStyle(
@@ -346,7 +346,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   decoration: InputDecoration(
                     hintText: 'Ghi chú (tùy chọn)',
                     hintStyle: TextStyle(
-                      color: AppColors.textMuted.withOpacity(0.5),
+                      color: AppColors.textMuted.withValues(alpha: 0.5),
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -467,7 +467,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.textMuted.withOpacity(0.3),
+                      color: AppColors.textMuted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -478,7 +478,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.warning.withOpacity(0.1),
+                        color: AppColors.warning.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -584,7 +584,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   decoration: InputDecoration(
                     hintText: '0',
                     hintStyle: TextStyle(
-                      color: AppColors.textMuted.withOpacity(0.5),
+                      color: AppColors.textMuted.withValues(alpha: 0.5),
                     ),
                     suffixText: '₫',
                     suffixStyle: const TextStyle(
@@ -607,7 +607,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   decoration: InputDecoration(
                     hintText: 'Lý do rút tiền (tùy chọn)',
                     hintStyle: TextStyle(
-                      color: AppColors.textMuted.withOpacity(0.5),
+                      color: AppColors.textMuted.withValues(alpha: 0.5),
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -703,7 +703,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.textMuted.withOpacity(0.3),
+                color: AppColors.textMuted.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -714,7 +714,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -747,7 +747,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.danger.withOpacity(0.1),
+                  color: AppColors.danger.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -797,6 +797,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
             ),
             ElevatedButton(
               onPressed: () {
+                debugPrint('Withdraw goalId: ${goal.id}');
                 Navigator.pop(dialogContext);
                 _showWithdrawModal(goal);
               },
@@ -920,7 +921,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
 
         return PopScope(
           canPop: false,
-          onPopInvoked: (didPop) {
+          onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
             Navigator.pop(context, _shouldReload);
           },
@@ -1089,7 +1090,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(themeIcon, size: 32, color: Colors.white),
@@ -1111,7 +1112,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                     'Mục tiêu: ${goal.deadline != null ? DateFormat('dd/MM/yyyy').format(goal.deadline!) : 'Không có'}',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -1133,7 +1134,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.danger.withOpacity(0.4),
+                            color: AppColors.danger.withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -1206,7 +1207,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                               ),
                               width: 1,
                               height: 40,
-                              color: Colors.white.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                             ),
                             Flexible(
                               child: Column(
@@ -1254,7 +1255,9 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                               CircularProgressIndicator(
                                 value: progress,
                                 strokeWidth: 8,
-                                backgroundColor: Colors.white.withOpacity(0.2),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.2,
+                                ),
                                 valueColor: const AlwaysStoppedAnimation<Color>(
                                   Colors.white,
                                 ),
@@ -1291,7 +1294,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                                 '/ ${currencyFormat.format(goal.targetAmount)}',
                                 style: TextStyle(
                                   fontSize: 15,
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1317,9 +1320,11 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
+              color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.success.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.success.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1422,12 +1427,12 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
-              border: Border.all(color: color.withOpacity(0.1)),
+              border: Border.all(color: color.withValues(alpha: 0.1)),
             ),
             child: Icon(icon, color: color, size: 28),
           ),
@@ -1511,21 +1516,21 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  themeColor.withOpacity(0.1),
-                  themeColor.withOpacity(0.05),
+                  themeColor.withValues(alpha: 0.1),
+                  themeColor.withValues(alpha: 0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: themeColor.withOpacity(0.2)),
+              border: Border.all(color: themeColor.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: themeColor.withOpacity(0.15),
+                    color: themeColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -1580,7 +1585,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1633,7 +1638,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -1665,7 +1670,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -1713,7 +1718,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -1733,7 +1738,7 @@ class _SavingsDetailContentState extends State<SavingsDetailContent> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: (isDeposit ? AppColors.success : AppColors.warning)
-                        .withOpacity(0.1),
+                        .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(

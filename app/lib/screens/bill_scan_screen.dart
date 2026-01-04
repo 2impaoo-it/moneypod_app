@@ -96,7 +96,7 @@ class _BillScanContent extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.2),
+                  color: AppColors.primary.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -144,7 +144,7 @@ class _BillScanContent extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -433,7 +433,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -540,14 +540,17 @@ class _EditableBillCardState extends State<_EditableBillCard> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.success.withOpacity(0.1),
-            AppColors.success.withOpacity(0.05),
+            AppColors.success.withValues(alpha: 0.1),
+            AppColors.success.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.success.withOpacity(0.2), width: 1),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -646,7 +649,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             suffixText: suffixText,
@@ -668,7 +671,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -721,7 +724,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               color: AppColors.background,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -795,7 +798,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -833,7 +836,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shadowColor: AppColors.primary.withOpacity(0.3),
+              shadowColor: AppColors.primary.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -879,7 +882,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               side: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.3),
+                color: AppColors.textMuted.withValues(alpha: 0.3),
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(
