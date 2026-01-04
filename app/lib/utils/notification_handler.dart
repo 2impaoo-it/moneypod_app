@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/notification.dart';
-import '../screens/debt_payment_screen.dart';
 
 class NotificationHandler {
   /// Handle navigation when user taps on a notification
@@ -88,18 +87,17 @@ class NotificationHandler {
     final groupName = data['group_name']?.toString() ?? 'Nhóm';
 
     if (debtId != null && debtId.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DebtPaymentScreen(
-            debtId: debtId,
-            creditorName: creditorName,
-            creditorAvatar: creditorAvatar,
-            amount: amount,
-            description: description,
-            groupName: groupName,
-          ),
-        ),
+      // Use GoRouter push for consistency
+      context.push(
+        '/full-screen/debt/pay',
+        extra: {
+          'debtId': debtId,
+          'creditorName': creditorName,
+          'creditorAvatar': creditorAvatar,
+          'amount': amount,
+          'description': description,
+          'groupName': groupName,
+        },
       );
     } else {
       // Fallback to groups screen
@@ -113,8 +111,8 @@ class NotificationHandler {
   ) {
     final groupId = data['group_id'];
     if (groupId != null) {
-      // Navigate to group detail
-      context.push('/groups/$groupId');
+      // Navigate to group detail (ShellRoute -> use go)
+      context.go('/groups/$groupId');
     } else {
       // If no group_id, go to groups list
       context.go('/groups');
@@ -124,11 +122,11 @@ class NotificationHandler {
   static void _handleSavings(BuildContext context, Map<String, dynamic> data) {
     final savingsId = data['savings_id'];
     if (savingsId != null) {
-      // Navigate to savings detail
-      context.push('/savings-detail', extra: savingsId);
+      // Navigate to savings detail (ShellRoute -> use go)
+      context.go('/savings/$savingsId');
     } else {
       // If no savings_id, go to dashboard (savings tab)
-      context.go('/');
+      context.go('/savings'); // Changed to go to savings tab
     }
   }
 
@@ -227,7 +225,7 @@ class NotificationHandler {
       case 'group_deleted':
         final groupId = data['group_id'];
         if (groupId != null) {
-          context.push('/groups/$groupId');
+          context.go('/groups/$groupId');
         } else {
           context.go('/groups');
         }
@@ -237,9 +235,9 @@ class NotificationHandler {
       case 'savings_reminder':
         final savingsId = data['savings_id'];
         if (savingsId != null) {
-          context.push('/savings-detail', extra: savingsId);
+          context.go('/savings/$savingsId');
         } else {
-          context.go('/');
+          context.go('/savings');
         }
         break;
       default:

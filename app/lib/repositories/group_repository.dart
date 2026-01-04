@@ -412,7 +412,7 @@ class GroupRepository {
       final token = await _authService.getToken();
 
       // Nếu có hình ảnh, upload trước
-      String? proofImageUrl;
+      // String? proofImageUrl;
       if (proofImagePath != null && proofImagePath.isNotEmpty) {
         // TODO: Upload image và lấy URL
         // proofImageUrl = await _uploadImage(proofImagePath);

@@ -471,7 +471,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
               valueColor: isExpense ? AppColors.danger : AppColors.success,
             ),
-            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.title.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Ghi chú',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              Text(
+                tx.title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
 
             // Proof Image
@@ -527,12 +548,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               color: AppColors.textSecondary,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? AppColors.textPrimary,
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
             ),
           ),
         ],

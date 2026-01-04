@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../models/profile.dart';
+import '../services/profile_service.dart';
+import '../services/auth_service.dart';
 import '../repositories/group_repository.dart';
 import 'debt_payment_screen.dart';
 import 'confirm_receive_payment_screen.dart';
@@ -37,11 +40,14 @@ class _GroupsScreenState extends State<GroupsScreen>
   List<Map<String, dynamic>> _pendingSettlements = []; // Tôi nợ người khác
   List<Map<String, dynamic>> _peopleOweMe = []; // Người nợ tôi
   bool _isLoadingDebts = true;
+  String _sortBy = 'default'; // default, group
+  Profile? _currentUser; // Added to store current user info
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadUserProfile();
     _fetchGroups();
     _fetchDebtData();
   }
@@ -226,7 +232,10 @@ class _GroupsScreenState extends State<GroupsScreen>
     print('=================================\n');
 
     return {
-      'from': {'name': 'Bạn', 'avatar': 'B'},
+      'from': {
+        'name': _currentUser?.fullName ?? _currentUser?.email ?? 'Bạn',
+        'avatar': _currentUser?.avatarUrl ?? '',
+      },
       'to': userInfo[maxCreditorId],
       'amount': maxDebt.round(),
       'debt_id': debtId,
@@ -1023,25 +1032,35 @@ class _GroupsScreenState extends State<GroupsScreen>
               // Row: From -> To + Amount
               Row(
                 children: [
-                  _buildAvatarCircle(
-                    debt['from']['avatar'],
-                    debt['from']['name'],
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Icon(
-                      Icons.arrow_forward,
-                      color: AppColors.amber500,
-                      size: 18,
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildOptimizationUser(
+                          debt['from']['avatar'],
+                          debt['from']['name'],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: AppColors.amber500,
+                            size: 24,
+                          ),
+                        ),
+                        _buildOptimizationUser(
+                          debt['to']['avatar'],
+                          debt['to']['name'],
+                        ),
+                      ],
                     ),
                   ),
-                  _buildAvatarCircle(debt['to']['avatar'], debt['to']['name']),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Text(
                     formatCurrency(debt['amount']),
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.slate900,
                     ),
                   ),
@@ -1076,15 +1095,17 @@ class _GroupsScreenState extends State<GroupsScreen>
   }
 
   // Helper cho Avatar trong Debt Card
-  Widget _buildAvatarCircle(String? avatarUrl, String name) {
+  // Helper cho User trong Optimization Card
+  Widget _buildOptimizationUser(String? avatarUrl, String name) {
     // Lấy chữ cái đầu để làm fallback
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         CircleAvatar(
-          radius: 18,
-          backgroundColor: AppColors.slate200,
+          radius: 20, // Bigger avatar
+          backgroundColor: Colors.white,
           backgroundImage:
               (avatarUrl != null &&
                   avatarUrl.isNotEmpty &&
@@ -1098,21 +1119,23 @@ class _GroupsScreenState extends State<GroupsScreen>
               ? Text(
                   initial,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     color: AppColors.slate700,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 )
               : null,
         ),
-        const SizedBox(width: 6),
+        const SizedBox(height: 4),
         Text(
           name,
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.slate700,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.slate900,
           ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       ],
     );
@@ -1129,16 +1152,87 @@ class _GroupsScreenState extends State<GroupsScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
-        const Text(
-          "Chờ thanh toán",
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.slate700,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Chờ thanh toán",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.slate700,
+              ),
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) => setState(() => _sortBy = value),
+              itemBuilder: (context) {
+                // Collect unique group names
+                final groupNames = _pendingSettlements
+                    .map((e) => e['group_name'] as String?)
+                    .where((e) => e != null && e.isNotEmpty)
+                    .toSet()
+                    .toList();
+
+                return [
+                  const PopupMenuItem(
+                    value: 'default',
+                    child: Text('Mặc định (Tất cả)'),
+                  ),
+                  if (groupNames.isNotEmpty) ...[
+                    const PopupMenuDivider(),
+                    ...groupNames.map(
+                      (name) => PopupMenuItem(value: name, child: Text(name!)),
+                    ),
+                  ],
+                ];
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.filter_list,
+                    size: 16,
+                    color: _sortBy == 'default'
+                        ? AppColors.slate400
+                        : AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: Text(
+                      _sortBy == 'default' ? 'Lọc theo nhóm' : _sortBy,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _sortBy == 'default'
+                            ? AppColors.slate500
+                            : AppColors.primary,
+                        fontWeight: _sortBy == 'default'
+                            ? FontWeight.normal
+                            : FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        ..._pendingSettlements.map(
+        // Sorting/Filtering logic
+        ...(() {
+          var filteredList = List<Map<String, dynamic>>.from(
+            _pendingSettlements,
+          );
+
+          // Filter by group if selected
+          if (_sortBy != 'default') {
+            filteredList = filteredList
+                .where((item) => item['group_name'] == _sortBy)
+                .toList();
+          }
+
+          return filteredList;
+        })().map(
           (item) => GestureDetector(
             onTap: () async {
               // "Chờ thanh toán" là TÔI NỢ người khác -> Navigate đến màn hình trả nợ
@@ -1245,7 +1339,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                       ],
                     ),
                   ),
-                  // Amount
+                  // Amount and Status
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -1258,11 +1352,236 @@ class _GroupsScreenState extends State<GroupsScreen>
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: AppColors.slate400,
+                      if (item['payment_wallet_id'] != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '⏳ Chờ xác nhận',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.amber700,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: AppColors.slate400,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 5. People Owe Me Section (Người nợ tôi - chờ họ trả)
+  Widget _buildPeopleOweMeSection() {
+    // Nếu đang loading hoặc không có người nợ tôi, không hiển thị
+    if (_isLoadingDebts || _peopleOweMe.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text(
+          "Đang chờ thu",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.slate700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._peopleOweMe.map(
+          (item) => GestureDetector(
+            onTap: () async {
+              // Người nợ TÔI -> Navigate tới màn hình xác nhận nhận tiền
+              // Chỉ navigate nếu đã có payment request
+              if (item['has_payment_request'] == true ||
+                  item['is_paid'] == true) {
+                final result = await context.push(
+                  '/full-screen/debt/confirm',
+                  extra: {
+                    'debtId': item['debt_id'] ?? '',
+                    'debtorName': item['name'] ?? 'Unknown',
+                    'debtorAvatar': item['avatar'] ?? '',
+                    'amount': item['amount'] ?? 0,
+                    'description': item['description'] ?? '',
+                    'groupName': item['group_name'] ?? 'Nhóm',
+                    'proofImageUrl': item['expense_image_url'],
+                    'paymentDate': item['payment_date'],
+                    'paymentNote': item['payment_note'],
+                    'isPaid': item['is_paid'] ?? false,
+                    'receivedWalletId': item['received_wallet_id'],
+                    'hasPaymentRequest': item['has_payment_request'] ?? false,
+                  },
+                );
+
+                // Refresh if confirmed
+                if (result == true) {
+                  _fetchDebtData();
+                }
+              } else {
+                // Chưa có payment request
+                PopupNotification.showInfo(
+                  context,
+                  'Chờ ${item['name']} gửi yêu cầu thanh toán để bạn xác nhận.',
+                );
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.slate100),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.slate200,
+                    backgroundImage:
+                        (item['avatar'] != null &&
+                            item['avatar'].toString().isNotEmpty &&
+                            item['avatar'].toString().startsWith('http'))
+                        ? NetworkImage(item['avatar'])
+                        : null,
+                    child:
+                        (item['avatar'] == null ||
+                            item['avatar'].toString().isEmpty ||
+                            !item['avatar'].toString().startsWith('http'))
+                        ? Text(
+                            item['name']
+                                    ?.toString()
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.slate700,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Name & Desc & Group
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.slate900,
+                          ),
+                        ),
+                        Text(
+                          item['description'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.group,
+                              size: 11,
+                              color: AppColors.slate400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item['group_name'] ?? 'Nhóm',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.slate400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Amount & Status
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatCurrency(item['amount']),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.green500,
+                        ),
                       ),
+                      const SizedBox(height: 4),
+                      // Badge cho payment status
+                      if (item['is_paid'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.green100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã nhận',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.green600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else if (item['has_payment_request'] == true)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Đã gửi',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.amber700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: AppColors.slate400,
+                        ),
                     ],
                   ),
                 ],
