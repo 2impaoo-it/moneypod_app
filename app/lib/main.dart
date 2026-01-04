@@ -518,7 +518,7 @@ class _MainWrapperState extends State<MainWrapper> {
 
     // Explicitly allow for groups list and group detail
     if (location == '/groups' || location.startsWith('/groups/')) return true;
-    if (location == '/report') return true; // Show FAB on Report screen
+    if (location == '/report') return false; // Hide FAB on Report screen
 
     return true;
   }

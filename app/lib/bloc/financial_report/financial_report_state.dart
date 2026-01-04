@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../models/transaction.dart';
+import 'financial_report_event.dart'; // For ReportType
 
 class ReportData {
   final double totalIncome;
@@ -57,12 +58,14 @@ class ReportLoaded extends FinancialReportState {
   final bool isBarChart; // View mode preference
   final int currentMonth;
   final int currentYear;
+  final ReportType reportType;
 
   const ReportLoaded({
     required this.data,
     required this.currentMonth,
     required this.currentYear,
     this.isBarChart = true,
+    this.reportType = ReportType.month,
   });
 
   ReportLoaded copyWith({
@@ -70,17 +73,25 @@ class ReportLoaded extends FinancialReportState {
     int? currentMonth,
     int? currentYear,
     bool? isBarChart,
+    ReportType? reportType,
   }) {
     return ReportLoaded(
       data: data ?? this.data,
       currentMonth: currentMonth ?? this.currentMonth,
       currentYear: currentYear ?? this.currentYear,
       isBarChart: isBarChart ?? this.isBarChart,
+      reportType: reportType ?? this.reportType,
     );
   }
 
   @override
-  List<Object> get props => [data, isBarChart, currentMonth, currentYear];
+  List<Object> get props => [
+    data,
+    isBarChart,
+    currentMonth,
+    currentYear,
+    reportType,
+  ];
 }
 
 class ReportError extends FinancialReportState {

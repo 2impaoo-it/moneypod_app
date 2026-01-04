@@ -146,45 +146,6 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'edit') {
-                _showEditBudgetDialog();
-              } else if (value == 'delete') {
-                _confirmDelete();
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.pencil, size: 18),
-                      SizedBox(width: 8),
-                      Text('Chỉnh sửa'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        LucideIcons.trash2,
-                        size: 18,
-                        color: AppColors.danger,
-                      ),
-                      SizedBox(width: 8),
-                      Text('Xóa', style: TextStyle(color: AppColors.danger)),
-                    ],
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
       ),
       body: BlocListener<BudgetBloc, BudgetState>(
         listener: (context, state) {
@@ -285,9 +246,47 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const Icon(
-                          LucideIcons.moreVertical,
-                          color: AppColors.textSecondary,
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            color: AppColors.textSecondary,
+                          ),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _showEditBudgetDialog();
+                            } else if (value == 'delete') {
+                              _confirmDelete();
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => [
+                            const PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(LucideIcons.pencil, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Chỉnh sửa'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.trash2,
+                                    size: 18,
+                                    color: AppColors.danger,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Xóa',
+                                    style: TextStyle(color: AppColors.danger),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -371,6 +370,11 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
     required double remaining,
     required NumberFormat currencyFormat,
   }) {
+    final bool isOverBudget = remaining < 0;
+    final Color chartColor = isOverBudget
+        ? AppColors.danger
+        : AppColors.primary;
+
     return SizedBox(
       height: 150,
       child: Stack(
@@ -381,11 +385,11 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
             painter: HalfCirclePainter(
               spent: spent,
               total: total,
-              color: AppColors.primary,
+              color: chartColor,
             ),
           ),
           Positioned(
-            bottom: 20,
+            bottom: 10,
             child: Column(
               children: [
                 Text(
@@ -401,9 +405,29 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: chartColor,
                   ),
                 ),
+                if (isOverBudget)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.alertTriangle,
+                        color: AppColors.danger,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Vượt hạn mức!",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
