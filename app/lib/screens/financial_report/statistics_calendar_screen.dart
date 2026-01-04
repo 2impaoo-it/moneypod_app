@@ -117,10 +117,12 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
       body: BlocBuilder<FinancialReportBloc, FinancialReportState>(
         builder: (context, state) {
           if (state is ReportLoaded) return _buildContent(context, state);
-          if (state is ReportLoading)
+          if (state is ReportLoading) {
             return const Center(child: CircularProgressIndicator());
-          if (state is ReportError)
+          }
+          if (state is ReportError) {
             return Center(child: Text("Lỗi: ${state.message}"));
+          }
           return const SizedBox.shrink();
         },
       ),
@@ -156,6 +158,10 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
             ),
           ),
         ),
+
+        // Summary Row (for Month and Year tabs) - at the top
+        if (_currentTab == CalendarTab.month || _currentTab == CalendarTab.year)
+          SliverToBoxAdapter(child: _buildMonthSummary(state)),
 
         // Content
         if (_currentTab == CalendarTab.week)
@@ -250,10 +256,18 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
     double totalExpense = 0;
 
     for (var tx in state.data.transactions) {
-      // Must match focused month/year exactly
-      if (tx.date.month != _focusedDay.month ||
-          tx.date.year != _focusedDay.year) {
-        continue;
+      // For Year tab: filter by year only
+      // For Month tab: filter by month AND year
+      if (_currentTab == CalendarTab.year) {
+        if (tx.date.year != _focusedDay.year) {
+          continue;
+        }
+      } else {
+        // Month tab or Week tab
+        if (tx.date.month != _focusedDay.month ||
+            tx.date.year != _focusedDay.year) {
+          continue;
+        }
       }
 
       if (_selectedCategories.isNotEmpty &&
@@ -352,11 +366,11 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
       decoration: BoxDecoration(
         color: isSelected
             ? AppColors.primary.withOpacity(0.1)
-            : (isToday ? Colors.blue.withOpacity(0.05) : null),
+            : (isToday ? Colors.blue.withOpacity(0.08) : null),
         border: isSelected
             ? Border.all(color: AppColors.primary, width: 1.5)
             : (isToday
-                  ? Border.all(color: Colors.blue.withOpacity(0.5))
+                  ? Border.all(color: Colors.blue.withOpacity(0.5), width: 1.5)
                   : null),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -372,9 +386,22 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
               fontWeight: (isSelected || isToday)
                   ? FontWeight.bold
                   : FontWeight.normal,
-              color: isSelected ? AppColors.primary : Colors.black87,
+              color: isSelected
+                  ? AppColors.primary
+                  : (isToday ? Colors.blue : Colors.black87),
             ),
           ),
+          // Dot indicator for today
+          if (isToday)
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                color: Colors.blue,
+                shape: BoxShape.circle,
+              ),
+            ),
           const Spacer(),
           if (hasData) ...[
             if (dailyIncome > 0)
@@ -480,157 +507,119 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
     Transaction tx,
     NumberFormat currencyFormat,
   ) {
+    final isExpense = tx.isExpense;
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final isIncome = tx.type == 'income';
-        final color = CategoryHelper.getColor(tx.category);
-        final bgColor = CategoryHelper.getBackgroundColor(tx.category);
-
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Icon(
+                    CategoryHelper.getIcon(tx.category),
+                    color: categoryColor,
+                    size: 28,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-
-              // Icon
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  CategoryHelper.getIcon(tx.category),
-                  color: color,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Category Name
-              Text(
-                tx.category,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Amount
-              Text(
-                currencyFormat.format(tx.amount),
-                style: GoogleFonts.inter(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isIncome ? AppColors.success : AppColors.danger,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Details Container
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  children: [
-                    // Time
-                    Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.calendar,
-                          size: 18,
-                          color: Colors.grey,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
                         ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Thời gian",
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            Text(
-                              DateFormat(
-                                'EEEE, dd/MM/yyyy - HH:mm',
-                                'vi_VN',
-                              ).format(tx.date),
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    if (tx.title.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Divider(height: 1),
                       ),
-                      // Note
-                      Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.fileText,
-                            size: 18,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Ghi chú",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  tx.title,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                ),
+              ],
+            ),
+
+            const Divider(height: 32),
+
+            // Transaction Info
+            _buildDetailRow(
+              'Loại giao dịch',
+              isExpense ? 'Chi tiêu' : 'Thu nhập',
+            ),
+            _buildDetailRow('Danh mục', tx.category),
+            _buildDetailRow(
+              'Số tiền',
+              "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
+              valueColor: isExpense ? AppColors.danger : AppColors.success,
+            ),
+            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
           ),
-        );
-      },
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -672,107 +661,174 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
   Widget _buildMonthGrid(ReportLoaded state) {
     return SliverPadding(
       padding: const EdgeInsets.all(16.0),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 0.8,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        delegate: SliverChildBuilderDelegate((context, index) {
-          final month = index + 1;
-          // Find trend data for this month
-          // trends list usually matches [1..12] if reportType is year
-          // But we need to be safe.
-          final trend = state.data.trends.firstWhere(
-            (t) => t.month == month,
-            orElse: () => MonthlyTrend(
-              month: month,
-              year: _focusedDay.year,
-              income: 0,
-              expense: 0,
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          // Year Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DropdownButton<int>(
+                  value: _focusedDay.year,
+                  items:
+                      List.generate(
+                            11,
+                            (index) => DateTime.now().year - 5 + index,
+                          )
+                          .map(
+                            (year) => DropdownMenuItem(
+                              value: year,
+                              child: Text(
+                                "$year",
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (year) {
+                    if (year != null) {
+                      setState(() {
+                        _focusedDay = DateTime(year, _focusedDay.month, 1);
+                      });
+                      context.read<FinancialReportBloc>().add(
+                        LoadReport(
+                          month: _focusedDay.month,
+                          year: year,
+                          week: 1,
+                          reportType: ReportType.month,
+                        ),
+                      );
+                    }
+                  },
+                  underline: const SizedBox(),
+                  icon: const Icon(Icons.arrow_drop_down),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final month = index + 1;
+              final trend = state.data.trends.firstWhere(
+                (t) => t.month == month,
+                orElse: () => MonthlyTrend(
+                  month: month,
+                  year: _focusedDay.year,
+                  income: 0,
+                  expense: 0,
+                ),
+              );
 
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _focusedDay = DateTime(_focusedDay.year, month, 1);
-                // Switch to Month tab on selection?
-                // Or if we are already in Month tab (which shows grid),
-                // clicking it should maybe just select the month and update list?
-                // Previously: _onViewTypeChanged(ReportType.month);
-                // "ReportType.month" meant Standard Calendar.
-                // Currently "Month" tab IS the Grid.
-                // So if I click Jan, I stay in Grid view, but update _focusedDay.
-                // And List below updates.
-                // So just setState is enough?
-                // Or maybe we want to keep it simple.
-              });
+              final isSelected = _focusedDay.month == month;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _focusedDay = DateTime(_focusedDay.year, month, 1);
+                  });
+                  context.read<FinancialReportBloc>().add(
+                    LoadReport(
+                      month: month,
+                      year: _focusedDay.year,
+                      week: 1,
+                      reportType: ReportType.month,
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: isSelected
+                        ? Border.all(color: AppColors.primary, width: 2)
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (month == DateTime.now().month &&
+                          _focusedDay.year == DateTime.now().year)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      Text(
+                        "Tháng $month",
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (trend.income > 0)
+                        Text(
+                          NumberFormat.compact(
+                            locale: 'vi',
+                          ).format(trend.income),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      if (trend.expense > 0)
+                        Text(
+                          NumberFormat.compact(
+                            locale: 'vi',
+                          ).format(trend.expense),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.red,
+                          ),
+                        ),
+                      if (trend.income == 0 && trend.expense == 0)
+                        Text(
+                          "-",
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
             },
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: _focusedDay.month == month
-                    ? Border.all(color: AppColors.primary, width: 2)
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Indication of Selection
-                  if (_focusedDay.month == month)
-                    const Icon(
-                      LucideIcons.checkCircle,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
-
-                  Text(
-                    "Tháng $month",
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: _focusedDay.month == month
-                          ? AppColors.primary
-                          : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (trend.income > 0)
-                    Text(
-                      NumberFormat.compact(locale: 'vi').format(trend.income),
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  if (trend.expense > 0)
-                    Text(
-                      NumberFormat.compact(locale: 'vi').format(trend.expense),
-                      style: GoogleFonts.inter(fontSize: 12, color: Colors.red),
-                    ),
-                  if (trend.income == 0 && trend.expense == 0)
-                    Text(
-                      "-",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        }, childCount: 12),
+          ),
+        ]),
       ),
     );
   }
@@ -825,6 +881,8 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
   void _onTabChanged(CalendarTab tab) {
     setState(() {
       _currentTab = tab;
+      _focusedDay = DateTime.now(); // Reset to current date on tab switch
+      _selectedDay = _focusedDay;
     });
 
     final reportType = tab == CalendarTab.week
@@ -849,7 +907,7 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
           color: Colors.white,
           child: TableCalendar(
             firstDay: DateTime(2020),
-            lastDay: DateTime(2030),
+            lastDay: DateTime(2040),
             focusedDay: _focusedDay,
             currentDay: DateTime.now(),
             rowHeight: 80,
@@ -883,6 +941,11 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
+            ),
+            calendarStyle: const CalendarStyle(
+              // Hide default today decoration since we use custom todayBuilder
+              todayDecoration: BoxDecoration(),
+              todayTextStyle: TextStyle(),
             ),
             calendarBuilders: CalendarBuilders(
               defaultBuilder: (context, day, focusedDay) {
@@ -969,8 +1032,9 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
       // Filter for the selected Month (_focusedDay)
       filteredTransactions = allTransactions.where((t) {
         if (_selectedCategories.isNotEmpty &&
-            !_selectedCategories.contains(t.category))
+            !_selectedCategories.contains(t.category)) {
           return false;
+        }
         return t.date.month == _focusedDay.month &&
             t.date.year == _focusedDay.year;
       }).toList();
@@ -980,25 +1044,15 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
       // Filter for the selected Year (_focusedDay)
       filteredTransactions = allTransactions.where((t) {
         if (_selectedCategories.isNotEmpty &&
-            !_selectedCategories.contains(t.category))
+            !_selectedCategories.contains(t.category)) {
           return false;
+        }
         return t.date.year == _focusedDay.year;
       }).toList();
       headerTitle = "Giao dịch năm ${_focusedDay.year}";
     }
 
     filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
-
-    // Calculate Summary
-    double totalIncome = 0;
-    double totalExpense = 0;
-    for (var t in filteredTransactions) {
-      if (t.type == 'income') {
-        totalIncome += t.amount;
-      } else {
-        totalExpense += t.amount;
-      }
-    }
 
     return Container(
       color: Colors.white,
@@ -1009,43 +1063,6 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
           Text(
             headerTitle,
             style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          // Summary Row
-          Row(
-            children: [
-              Text(
-                "Tổng thu: ",
-                style: GoogleFonts.inter(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
-              ),
-              Text(
-                currencyFormat.format(totalIncome),
-                style: GoogleFonts.inter(
-                  color: Colors.blue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                "Tổng chi: ",
-                style: GoogleFonts.inter(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                ),
-              ),
-              Text(
-                currencyFormat.format(totalExpense),
-                style: GoogleFonts.inter(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-            ],
           ),
           const Divider(height: 24),
           if (filteredTransactions.isEmpty)

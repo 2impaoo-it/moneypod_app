@@ -27,7 +27,6 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
   late TabController _tabController;
   int _selectedSubTab =
       2; // Default to Difference (0: Income, 1: Expense, 2: Difference)
-  bool _compareWithSamePeriod = true;
   String? _selectedCategory; // For pie chart category highlight
   int _touchedBarIndex = -1; // For bar chart tooltip
 
@@ -73,10 +72,11 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
 
   void _loadReport() {
     ReportType type = ReportType.month;
-    if (_tabController.index == 0)
+    if (_tabController.index == 0) {
       type = ReportType.week;
-    else if (_tabController.index == 2)
+    } else if (_tabController.index == 2) {
       type = ReportType.year;
+    }
 
     context.read<FinancialReportBloc>().add(
       LoadReport(
@@ -414,28 +414,62 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: _selectedSubTab == 0
-                            ? Colors.blue
-                            : (_selectedSubTab == 1
-                                  ? Colors.red
-                                  : Colors.orange),
-                        borderRadius: BorderRadius.circular(2),
+                    if (_selectedSubTab == 2) ...[
+                      // Chênh lệch tab: show both legends
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _selectedSubTab == 0
-                          ? "Thu nhập"
-                          : (_selectedSubTab == 1 ? "Chi tiêu" : "Chênh lệch"),
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                      const SizedBox(width: 6),
+                      Text(
+                        "Thu nhập",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Chi tiêu",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ] else ...[
+                      // Thu nhập / Chi tiêu tab: show single legend
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: _selectedSubTab == 0
+                              ? Colors.green
+                              : Colors.red,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _selectedSubTab == 0 ? "Thu nhập" : "Chi tiêu",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -454,13 +488,19 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                       maxY: (() {
                         double m = 0;
                         for (int i = 0; i < state.data.trends.length; i++) {
-                          double val = _selectedSubTab == 0
-                              ? state.data.trends[i].income
-                              : (_selectedSubTab == 1
-                                    ? state.data.trends[i].expense
-                                    : (state.data.trends[i].income -
-                                              state.data.trends[i].expense)
-                                          .abs());
+                          double val;
+                          if (_selectedSubTab == 0) {
+                            val = state.data.trends[i].income;
+                          } else if (_selectedSubTab == 1) {
+                            val = state.data.trends[i].expense;
+                          } else {
+                            // Difference tab: get max of both income and expense
+                            val =
+                                state.data.trends[i].income >
+                                    state.data.trends[i].expense
+                                ? state.data.trends[i].income
+                                : state.data.trends[i].expense;
+                          }
                           if (val > m) m = val;
                         }
                         return m == 0 ? 10.0 : m * 1.2;
@@ -472,14 +512,45 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                           tooltipPadding: const EdgeInsets.all(8),
                           tooltipMargin: 8,
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                            if (groupIndex >= state.data.trends.length)
+                            if (groupIndex >= state.data.trends.length) {
                               return null;
+                            }
                             final item = state.data.trends[groupIndex];
                             final currencyFormat = NumberFormat.compact(
                               locale: 'vi_VN',
                             );
+
+                            // For Difference tab (2 bars): show only relevant value
+                            if (_selectedSubTab == 2) {
+                              if (rodIndex == 0) {
+                                // Green bar - Income only
+                                return BarTooltipItem(
+                                  'Thu: ${currencyFormat.format(item.income)}',
+                                  GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              } else {
+                                // Red bar - Expense only
+                                return BarTooltipItem(
+                                  'Chi: ${currencyFormat.format(item.expense)}',
+                                  GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                            }
+
+                            // For Income/Expense tabs: show single value
+                            final isIncome = _selectedSubTab == 0;
                             return BarTooltipItem(
-                              'Thu: ${currencyFormat.format(item.income)}\nChi: ${currencyFormat.format(item.expense)}',
+                              isIncome
+                                  ? 'Thu: ${currencyFormat.format(item.income)}'
+                                  : 'Chi: ${currencyFormat.format(item.expense)}',
                               GoogleFonts.inter(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -592,56 +663,69 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                           for (int i = 0; i < state.data.trends.length; i++)
                             BarChartGroupData(
                               x: i,
-                              barRods: [
-                                // Current Period Bar
-                                BarChartRodData(
-                                  toY: _selectedSubTab == 0
-                                      ? state.data.trends[i].income
-                                      : (_selectedSubTab == 1
-                                            ? state.data.trends[i].expense
-                                            : (state.data.trends[i].income -
-                                                      state
-                                                          .data
-                                                          .trends[i]
-                                                          .expense)
-                                                  .abs()),
-                                  color: i == _touchedBarIndex
-                                      ? (_selectedSubTab == 0
-                                            ? Colors.blue.shade900
-                                            : (_selectedSubTab == 1
-                                                  ? Colors.red.shade900
-                                                  : Colors
-                                                        .orange
-                                                        .shade900)) // Highlight with darker shade
-                                      : (_selectedSubTab == 0
-                                            ? (i == state.data.trends.length - 1
-                                                  ? Colors.blue
-                                                  : Colors.blue.shade200)
-                                            : (_selectedSubTab == 1
+                              barRods: _selectedSubTab == 2
+                                  // Tab Chênh lệch: Hiển thị 2 cột (Thu nhập + Chi tiêu)
+                                  ? [
+                                      // Cột Thu nhập (xanh lá)
+                                      BarChartRodData(
+                                        toY: state.data.trends[i].income,
+                                        color: i == _touchedBarIndex
+                                            ? Colors.green.shade900
+                                            : (i == state.data.trends.length - 1
+                                                  ? Colors.green
+                                                  : Colors.green.shade200),
+                                        width: state.data.trends.length < 7
+                                            ? 14
+                                            : 7,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      // Cột Chi tiêu (đỏ)
+                                      BarChartRodData(
+                                        toY: state.data.trends[i].expense,
+                                        color: i == _touchedBarIndex
+                                            ? Colors.red.shade900
+                                            : (i == state.data.trends.length - 1
+                                                  ? Colors.red
+                                                  : Colors.red.shade200),
+                                        width: state.data.trends.length < 7
+                                            ? 14
+                                            : 7,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ]
+                                  // Tab Thu nhập / Chi tiêu: Hiển thị 1 cột
+                                  : [
+                                      BarChartRodData(
+                                        toY: _selectedSubTab == 0
+                                            ? state.data.trends[i].income
+                                            : state.data.trends[i].expense,
+                                        color: i == _touchedBarIndex
+                                            ? (_selectedSubTab == 0
+                                                  ? Colors.green.shade900
+                                                  : Colors.red.shade900)
+                                            : (_selectedSubTab == 0
                                                   ? (i ==
                                                             state
                                                                     .data
                                                                     .trends
                                                                     .length -
                                                                 1
-                                                        ? Colors.red
-                                                        : Colors.red.shade200)
+                                                        ? Colors.green
+                                                        : Colors.green.shade200)
                                                   : (i ==
                                                             state
                                                                     .data
                                                                     .trends
                                                                     .length -
                                                                 1
-                                                        ? Colors.orange
-                                                        : Colors
-                                                              .orange
-                                                              .shade200))),
-                                  width: state.data.trends.length < 7
-                                      ? 32
-                                      : 16, // Wider bars for year view
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ],
+                                                        ? Colors.red
+                                                        : Colors.red.shade200)),
+                                        width: state.data.trends.length < 7
+                                            ? 32
+                                            : 16,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ],
                               barsSpace: 4,
                             ),
                       ],
@@ -854,7 +938,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -921,6 +1005,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
             );
 
             return ListTile(
+              onTap: () => _showTransactionDetail(t),
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -1021,6 +1106,129 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
           IconButton(
             icon: const Icon(LucideIcons.chevronRight),
             onPressed: () => _changePeriod(1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hiển thị chi tiết transaction
+  void _showTransactionDetail(Transaction tx) {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
+    final isExpense = tx.isExpense;
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Icon(
+                    CategoryHelper.getIcon(tx.category),
+                    color: categoryColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                ),
+              ],
+            ),
+
+            const Divider(height: 32),
+
+            // Transaction Info
+            _buildDetailRow(
+              'Loại giao dịch',
+              isExpense ? 'Chi tiêu' : 'Thu nhập',
+            ),
+            _buildDetailRow('Danh mục', tx.category),
+            _buildDetailRow(
+              'Số tiền',
+              "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
+              valueColor: isExpense ? AppColors.danger : AppColors.success,
+            ),
+            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
+            ),
           ),
         ],
       ),

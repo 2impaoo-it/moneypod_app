@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
 class ConfirmReceivePaymentScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? proofImageUrl;
   final bool isPaid;
   final String? receivedWalletId;
+  final bool hasPaymentRequest;
 
   const ConfirmReceivePaymentScreen({
     super.key,
@@ -32,6 +34,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.proofImageUrl,
     this.isPaid = false,
     this.receivedWalletId,
+    this.hasPaymentRequest = false,
   });
 
   @override
@@ -64,17 +67,22 @@ class _ConfirmReceivePaymentScreenState
 
         // Nếu đã paid, chọn ví đã nhận tiền
         if (widget.isPaid && widget.receivedWalletId != null) {
-          _selectedWallet = _wallets.firstWhere(
-            (w) => w.id == widget.receivedWalletId,
-            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
-          );
+          try {
+            _selectedWallet = _wallets.firstWhere(
+              (w) => w.id == widget.receivedWalletId,
+            );
+          } catch (_) {
+            if (_wallets.isNotEmpty) _selectedWallet = _wallets.first;
+          }
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
       });
     } catch (e) {
-      setState(() => _isLoadingWallets = false);
-      PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
+        PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      }
     }
   }
 
@@ -98,7 +106,7 @@ class _ConfirmReceivePaymentScreenState
       setState(() => _isLoading = false);
 
       // Pop trước khi show notification
-      Navigator.pop(context, true);
+      context.pop(true);
 
       // Show notification sau khi pop
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -135,7 +143,7 @@ class _ConfirmReceivePaymentScreenState
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.slate900),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: const Text(
           'Xác nhận nhận tiền',
@@ -390,65 +398,70 @@ class _ConfirmReceivePaymentScreenState
             // Chỉ hiển thị ví đã chọn khi đã paid
             ..._wallets.where((w) => w.id == _selectedWallet?.id).map((wallet) {
               final isSelected = _selectedWallet?.id == wallet.id;
-              return GestureDetector(
-                onTap: widget.isPaid
-                    ? null
-                    : () => setState(() => _selectedWallet = wallet),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primary.withOpacity(0.1)
-                        : AppColors.slate50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.slate200,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.slate400,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              wallet.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.slate900,
-                              ),
-                            ),
-                            Text(
-                              _formatCurrency(wallet.balance.toInt()),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.slate600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
+              return _buildWalletOption(wallet, isSelected, disabled: true);
+            })
+          else
+            // Hiển thị tất cả ví khi chưa paid
+            ..._wallets.map((wallet) {
+              final isSelected = _selectedWallet?.id == wallet.id;
+              return _buildWalletOption(wallet, isSelected, disabled: false);
             }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWalletOption(
+    Wallet wallet,
+    bool isSelected, {
+    required bool disabled,
+  }) {
+    return GestureDetector(
+      onTap: disabled ? null : () => setState(() => _selectedWallet = wallet),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withOpacity(0.1)
+              : AppColors.slate50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.slate200,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isSelected ? AppColors.primary : AppColors.slate400,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    wallet.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.slate900,
+                    ),
+                  ),
+                  Text(
+                    _formatCurrency(wallet.balance.toInt()),
+                    style: TextStyle(fontSize: 12, color: AppColors.slate600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -561,9 +574,8 @@ class _ConfirmReceivePaymentScreenState
       );
     }
 
-    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có paymentDate)
-    final bool canConfirm =
-        widget.paymentDate != null && widget.paymentDate!.isNotEmpty;
+    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có payment_wallet_id)
+    final bool canConfirm = widget.hasPaymentRequest;
 
     return Column(
       children: [

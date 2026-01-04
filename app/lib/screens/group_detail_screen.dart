@@ -112,22 +112,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     }
   }
 
-  Future<void> _markPaid(String debtId) async {
-    try {
-      await _groupRepo.markDebtPaid(debtId);
-      if (mounted) {
-        PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
-        _loadAllData(); // Reload
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
   Future<void> _deleteGroup() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -291,9 +275,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-        );
+        PopupNotification.showError(context, 'Lỗi: $e');
         setState(() => _isLoading = false);
       }
     }
@@ -692,6 +674,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     final groupName = _groupData['name'] ?? 'Nhóm';
     final debtId = debt['id']?.toString() ?? '';
 
+    // Check payment status
+    // Assuming backend returns 'payment_wallet_id' when payment is made but not confirmed
+    final paymentWalletId = debt['payment_wallet_id'];
+    final isPending = paymentWalletId != null;
+
     // Lấy hình ảnh minh chứng từ expense
     final expenseImageUrl = (debt['expense'] is Map)
         ? (debt['expense']['image_url'] as String?)
@@ -700,6 +687,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return GestureDetector(
       onTap: () async {
         if (isMyDebt) {
+          if (isPending) {
+            // Pending confirmation - Do nothing or show toast
+            PopupNotification.showInfo(
+              context,
+              'Bạn đã xác nhận trả khoản này rồi. Vui lòng chờ xác nhận!',
+            );
+            return;
+          }
           // Tôi nợ người khác - Navigate to debt payment screen
           print("🚀 Navigating to /full-screen/debt/pay");
           final result = await context.push(
@@ -736,6 +731,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               'paymentDate': paymentDate,
               'paymentNote': paymentNote,
               'proofImageUrl': expenseImageUrl,
+              'hasPaymentRequest': isPending, // Pass pending status
             },
           );
 
@@ -820,13 +816,30 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               ),
             ),
             // Amount
-            Text(
-              currencyFormat.format(amount),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: isMyDebt ? AppColors.red500 : AppColors.teal500,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  currencyFormat.format(amount),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isMyDebt ? AppColors.red500 : AppColors.teal500,
+                  ),
+                ),
+                if (isPending)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      isMyDebt ? "Chờ xác nhận" : "Yêu cầu xác nhận",
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -1075,18 +1088,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return InkWell(
       onTap: () => _showTransactionDetail(tx),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.slate100),
         ),
         child: Row(
           children: [
-            // Avatar (Show Payer's avatar)
+            // Avatar
             CircleAvatar(
-              radius: 22,
-              backgroundColor: AppColors.primary.withOpacity(0.1),
+              radius: 18,
+              backgroundColor: AppColors.slate200,
               backgroundImage:
                   (payerAvatar != null && payerAvatar.toString().isNotEmpty)
                   ? NetworkImage(payerAvatar)
@@ -1095,14 +1109,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                   ? Text(
                       payerName.isNotEmpty ? payerName[0].toUpperCase() : '?',
                       style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppColors.slate700,
+                        fontWeight: FontWeight.w600,
                       ),
                     )
                   : null,
             ),
             const SizedBox(width: 12),
-            // Middle: Description & Time
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1112,11 +1127,62 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: AppColors.slate900,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isPayer || statusText.contains('đã trả')
+                              ? AppColors.teal500
+                              : AppColors.danger,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (createdAt != null) ...[
+                        const SizedBox(width: 4),
+                        const Text(
+                          '•',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.slate400,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM HH:mm').format(createdAt),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.slate500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Amount
+            Text(
+              amountText,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: amountColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  /*
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -1165,16 +1231,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         ),
       ),
     );
-  }
+  } */
 
   void _showTransactionDetail(Map<String, dynamic> tx) {
-    final payer = tx['payer'] ?? tx['user'] ?? tx['created_by'];
-    final payerName =
-        payer?['full_name'] ??
-        payer?['name'] ??
-        payer?['username'] ??
-        'Unknown';
-    final payerAvatar = payer?['avatar_url'];
+    // final payer = tx['payer'] ?? tx['user'] ?? tx['created_by'];
+    // final payerName =
+    //     payer?['full_name'] ??
+    //     payer?['name'] ??
+    //     payer?['username'] ??
+    //     'Unknown';
+    // final payerAvatar = payer?['avatar_url'];
     final amount = (tx['amount'] as num).toDouble();
     final description = tx['description'] ?? 'Chi tiêu nhóm';
     final imageUrl = tx['image_url'];
@@ -1250,22 +1316,26 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
             if (imageUrl != null && imageUrl.toString().isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  imageUrl,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Không thể tải hình ảnh',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textMuted,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    fit: BoxFit
+                        .contain, // Changed to contain to show full image, or cover with limit
+                    errorBuilder: (_, __, ___) => Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Không thể tải hình ảnh',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       ),
                     ),
@@ -1306,15 +1376,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               color: AppColors.textSecondary,
             ),
           ),
-          Flexible(
+          Expanded(
             child: Text(
               value,
+              textAlign: TextAlign.end,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: valueColor ?? AppColors.textPrimary,
               ),
-              textAlign: TextAlign.right,
             ),
           ),
         ],

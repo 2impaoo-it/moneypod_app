@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -328,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -513,7 +514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -746,7 +747,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -800,11 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     double total = stats.values.fold(0, (sum, item) => sum + item);
     if (total == 0) return [];
-    final fmt = NumberFormat.currency(
-      locale: 'vi',
-      symbol: '',
-      decimalDigits: 0,
-    );
+    if (total == 0) return [];
 
     return stats.entries.map((entry) {
       final percentage = (entry.value / total) * 100;
@@ -841,25 +838,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-      );
-    }).toList();
-  }
-
-  List<Widget> _generateLegends(
-    Map<String, double> stats, {
-    bool isIncome = false,
-  }) {
-    double total = stats.values.fold(0, (sum, item) => sum + item);
-    if (total == 0) return [];
-
-    return stats.entries.map((entry) {
-      final percentage = (entry.value / total) * 100;
-      return _ChartLegend(
-        color: isIncome
-            ? _getIncomeColor(entry.key)
-            : _getColorForCategory(entry.key),
-        label: entry.key,
-        percent: "${percentage.toStringAsFixed(1)}%",
       );
     }).toList();
   }
@@ -1126,48 +1104,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         PopupNotification.showError(context, 'Lỗi: $e');
       }
     }
-  }
-}
-
-class _ChartLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  final String percent;
-
-  const _ChartLegend({
-    required this.color,
-    required this.label,
-    required this.percent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          Text(
-            percent,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
   }
 }
 

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
 	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
@@ -418,6 +419,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		WalletID: receiverWalletID,
 		Type:     "income",
 		Amount:   debt.Amount,
+		Date:     time.Now(),
 		Note:     fmt.Sprintf("Nhận tiền trả nợ từ %s: %s", debt.FromUser.FullName, debt.Expense.Description),
 	}
 	if err := tx.Create(&creditorTrans).Error; err != nil {
@@ -438,6 +440,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		WalletID: *debt.PaymentWalletID,
 		Type:     "expense",
 		Amount:   debt.Amount,
+		Date:     time.Now(),
 		Note:     fmt.Sprintf("Trả nợ cho %s: %s", debt.ToUser.FullName, debt.Expense.Description),
 	}
 	if err := tx.Create(&debtorTrans).Error; err != nil {

@@ -202,6 +202,9 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               description: extra?['description'] ?? '',
               groupName: extra?['groupName'] ?? '',
               existingProofImageUrl: extra?['existingProofImageUrl'],
+              isPaid: extra?['isPaid'] ?? false,
+              paymentWalletId: extra?['paymentWalletId'],
+              paymentNote: extra?['paymentNote'],
             );
           },
         ),
@@ -222,6 +225,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               proofImageUrl: extra?['proofImageUrl'],
               isPaid: extra?['isPaid'] ?? false,
               receivedWalletId: extra?['receivedWalletId'],
+              hasPaymentRequest: extra?['hasPaymentRequest'] ?? false,
             );
           },
         ),
@@ -266,41 +270,48 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
             GoRoute(
               path: '/groups',
               builder: (context, state) => const GroupsScreen(),
-            ),
-
-            GoRoute(
-              path: '/groups/create',
-              builder: (context, state) => const CreateGroupScreen(),
-            ),
-            GoRoute(
-              path: '/groups/:id',
-              builder: (context, state) {
-                final groupId = state.pathParameters['id'] ?? '';
-                final extra = state.extra as Map<String, dynamic>?;
-                return GroupDetailScreen(
-                  groupId: groupId,
-                  groupName: extra?['groupName'],
-                  inviteCode: extra?['inviteCode'],
-                );
-              },
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => const CreateGroupScreen(),
+                ),
+                GoRoute(
+                  path: ':id',
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) {
+                    final groupId = state.pathParameters['id'] ?? '';
+                    final extra = state.extra as Map<String, dynamic>?;
+                    return GroupDetailScreen(
+                      groupId: groupId,
+                      groupName: extra?['groupName'],
+                      inviteCode: extra?['inviteCode'],
+                    );
+                  },
+                ),
+              ],
             ),
             GoRoute(
               path: '/savings',
               builder: (context, state) => const SavingsScreen(),
-            ),
-            GoRoute(
-              path: '/savings/create',
-              builder: (context, state) {
-                final goal = state.extra as SavingsGoal?;
-                return CreateSavingsGoalScreen(editingGoal: goal);
-              },
-            ),
-            GoRoute(
-              path: '/savings/:id',
-              builder: (context, state) {
-                final goalId = state.pathParameters['id'] ?? '';
-                return SavingsDetailScreen(goalId: goalId);
-              },
+              routes: [
+                GoRoute(
+                  path: 'create',
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) {
+                    final goal = state.extra as SavingsGoal?;
+                    return CreateSavingsGoalScreen(editingGoal: goal);
+                  },
+                ),
+                GoRoute(
+                  path: ':id',
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) {
+                    final goalId = state.pathParameters['id'] ?? '';
+                    return SavingsDetailScreen(goalId: goalId);
+                  },
+                ),
+              ],
             ),
             GoRoute(
               path: '/profile',
@@ -512,8 +523,9 @@ class _MainWrapperState extends State<MainWrapper> {
     if (location.startsWith('/savings/') && location != '/savings') {
       return false;
     }
-    if (location.startsWith('/budget'))
+    if (location.startsWith('/budget')) {
       return false; // Hide FAB on budget screens
+    }
     if (location.startsWith('/calendar')) return false; // Hide FAB on calendar
     if (location.startsWith('/profile')) return false;
     if (location.startsWith('/change-password')) return false;
@@ -521,6 +533,10 @@ class _MainWrapperState extends State<MainWrapper> {
     // Explicitly allow for groups list and group detail
     if (location == '/groups' || location.startsWith('/groups/')) return true;
     if (location == '/report') return false; // Hide FAB on Report screen
+    if (location.startsWith('/debt-payment'))
+      return false; // Hide FAB on Debt Payment
+    if (location.startsWith('/confirm-receive-payment'))
+      return false; // Hide FAB on Confirm Receive Payment
 
     return true;
   }
@@ -571,114 +587,148 @@ class _MainWrapperState extends State<MainWrapper> {
     }
   }
 
+  DateTime? _lastPressedAt;
+
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = _calculateSelectedIndex(context);
     // Hide FAB when keyboard is visible
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final showFAB = _shouldShowFAB(context) && !keyboardVisible;
 
-    return Scaffold(
-      body: widget.child,
+    // Get current location using GoRouter
+    final String location = GoRouterState.of(context).uri.toString();
 
-      // --- FLOATING ACTION BUTTON (GRADIENT) ---
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: showFAB
-          ? Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [
-                    AppColors.primary,
-                    AppColors.primaryDark,
-                  ], // Teal Gradient
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.4),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    // Define root paths for tabs where we want to intercept Back button
+    final bool isRootTab =
+        location == '/' ||
+        location == '/transactions' ||
+        location == '/groups' ||
+        location == '/savings';
+
+    // If NOT at a root tab (e.g. /profile, /groups/123), allow native pop (Swipe Back works)
+    // If AT a root tab, block pop to handle Exit/Tab switching manually
+    final bool canPop = !isRootTab;
+
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        // Code below only runs when canPop is FALSE (i.e., we are at a Root Tab)
+
+        // 2. Nếu đang ở tab khác Home -> Về Home
+        final currentIndex = _calculateSelectedIndex(context);
+        if (currentIndex != 0) {
+          _onItemTapped(0, context);
+          return;
+        }
+
+        // 3. Nếu đang ở Home và không pop được -> Double Back để thoát
+        final now = DateTime.now();
+        if (_lastPressedAt == null ||
+            now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
+          _lastPressedAt = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Nhấn lần nữa để thoát',
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.black87,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+          );
+          return;
+        }
+
+        await SystemNavigator.pop();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Stack(children: [widget.child]),
+
+        // --- FLOATING ACTION BUTTON (GRADIENT) ---
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: showFAB
+            ? Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primaryDark,
+                    ], // Teal Gradient
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: FloatingActionButton(
-                onPressed: () => _handleFABPressed(context),
-                backgroundColor: Colors.transparent, // Để lộ Gradient bên dưới
-                elevation: 0,
-                shape: const CircleBorder(),
-                child: const Icon(
-                  LucideIcons.plus,
-                  color: Colors.white,
-                  size: 28,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ),
-            )
-          : null,
+                child: FloatingActionButton(
+                  onPressed: () => _handleFABPressed(context),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  shape: const CircleBorder(),
+                  child: const Icon(LucideIcons.plus, color: Colors.white),
+                ),
+              )
+            : null,
 
-      // --- BOTTOM APP BAR ---
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        color: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 10,
-        shadowColor: Colors.black.withOpacity(0.1),
-        padding: const EdgeInsets.symmetric(horizontal: 0),
-        height: 65,
+        bottomNavigationBar: showFAB
+            ? _buildConfiguredBottomBar(context)
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildConfiguredBottomBar(BuildContext context) {
+    final selectedIndex = _calculateSelectedIndex(context);
+    return BottomAppBar(
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8.0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: SizedBox(
+        height: 60,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // Left Side
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavItem(
-                    context,
-                    0,
-                    LucideIcons.layoutDashboard,
-                    "Tổng quan",
-                    selectedIndex,
-                  ),
-                  _buildNavItem(
-                    context,
-                    1,
-                    LucideIcons.receipt,
-                    "Giao dịch",
-                    selectedIndex,
-                  ),
-                ],
-              ),
+            _buildNavItem(
+              context,
+              0,
+              LucideIcons.home,
+              "Tổng quan",
+              selectedIndex,
             ),
-
-            // Spacer for FAB
-            const SizedBox(width: 48),
-
-            // Right Side
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavItem(
-                    context,
-                    2,
-                    LucideIcons.users,
-                    "Nhóm",
-                    selectedIndex,
-                  ),
-                  _buildNavItem(
-                    context,
-                    3,
-                    LucideIcons.piggyBank,
-                    "Tiết kiệm",
-                    selectedIndex,
-                  ),
-                ],
-              ),
+            _buildNavItem(
+              context,
+              1,
+              LucideIcons.arrowRightLeft,
+              "Giao dịch",
+              selectedIndex,
+            ),
+            const SizedBox(width: 40), // Spacer for FAB
+            _buildNavItem(context, 2, LucideIcons.users, "Nhóm", selectedIndex),
+            _buildNavItem(
+              context,
+              3,
+              LucideIcons.piggyBank,
+              "Tiết kiệm",
+              selectedIndex,
             ),
           ],
         ),

@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
 class DebtPaymentScreen extends StatefulWidget {
@@ -64,17 +65,22 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
 
         // Nếu đã paid, chọn ví đã dùng thanh toán
         if (widget.isPaid && widget.paymentWalletId != null) {
-          _selectedWallet = _wallets.firstWhere(
-            (w) => w.id == widget.paymentWalletId,
-            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
-          );
+          try {
+            _selectedWallet = _wallets.firstWhere(
+              (w) => w.id == widget.paymentWalletId,
+            );
+          } catch (_) {
+            if (_wallets.isNotEmpty) _selectedWallet = _wallets.first;
+          }
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
       });
     } catch (e) {
-      setState(() => _isLoadingWallets = false);
-      PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
+        PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      }
     }
   }
 
@@ -110,7 +116,7 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
       setState(() => _isLoading = false);
 
       // Pop trước khi show notification
-      Navigator.pop(context, true);
+      context.pop(true);
 
       // Show notification sau khi pop
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -147,7 +153,7 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.slate900),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: const Text(
           'Thanh toán nợ',
