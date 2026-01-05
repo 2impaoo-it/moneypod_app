@@ -408,18 +408,124 @@ class _ConfirmReceivePaymentScreenState
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.slate900,
+                          : AppColors.slate200,
+                      width: 1.5,
                     ),
                   ),
-                  Text(
-                    _formatCurrency(wallet.balance.toInt()),
-                    style: TextStyle(fontSize: 12, color: AppColors.slate600),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.slate400,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wallet.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.slate900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatCurrency(wallet.balance.toInt()),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
+                ),
+              );
+            }).toList()
+          else
+            // Hiển thị tất cả ví để chọn
+            ..._wallets.map((wallet) {
+              final isSelected = _selectedWallet?.id == wallet.id;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedWallet = wallet),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withOpacity(0.1)
+                        : AppColors.slate50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.slate200,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.slate400,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wallet.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.slate900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatCurrency(wallet.balance.toInt()),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+        ],
       ),
     );
   }
