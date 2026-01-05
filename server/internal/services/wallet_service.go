@@ -3,8 +3,8 @@ package services
 import (
 	"errors"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
 	"github.com/google/uuid"
 )
 

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +19,19 @@ func NewUploadHandler(storageService *services.StorageService) *UploadHandler {
 // API: Upload ảnh lên Cloudinary
 // Method: POST /api/v1/upload
 // Body: Form-Data (key = "file")
+
+// UploadImage godoc
+// @Summary      Upload ảnh lên Cloudinary
+// @Description  Upload file ảnh lên Cloudinary và trả về URL
+// @Tags         Upload
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file  formData  file  true  "File ảnh cần upload"
+// @Success      200  {object}  map[string]interface{} "Upload thành công, trả về URL"
+// @Failure      400  {object}  map[string]interface{} "Không nhận được file"
+// @Failure      500  {object}  map[string]interface{} "Lỗi upload"
+// @Router       /upload [post]
 func (h *UploadHandler) UploadImage(c *gin.Context) {
 	// 1. Nhận file từ request (Form Data)
 	// Lưu ý: Key gửi lên phải là "file" (hoặc bạn đổi thành "image" tùy ý, nhưng phải thống nhất với Flutter)

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -27,7 +27,18 @@ type CreateBudgetRequest struct {
 	Year     int     `json:"year" binding:"required,min=2020"`
 }
 
-// Create handles POST /api/budgets
+// Create godoc
+// @Summary      Tạo ngân sách mới
+// @Description  Tạo ngân sách cho một danh mục trong tháng/năm cụ thể
+// @Tags         Budget
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body CreateBudgetRequest true "Thông tin ngân sách"
+// @Success      201  {object}  map[string]interface{} "Tạo ngân sách thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /budgets [post]
 func (h *BudgetHandler) Create(c *gin.Context) {
 	// Get user ID from token
 	idVal, _ := c.Get("userID")
@@ -55,7 +66,19 @@ func (h *BudgetHandler) Create(c *gin.Context) {
 	})
 }
 
-// GetList handles GET /api/budgets?month=X&year=Y
+// GetList godoc
+// @Summary      Lấy danh sách ngân sách
+// @Description  Lấy danh sách ngân sách theo tháng và năm (query params)
+// @Tags         Budget
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        month  query  int  false  "Tháng (1-12)"
+// @Param        year   query  int  false  "Năm"
+// @Success      200  {object}  map[string]interface{} "Danh sách ngân sách"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /budgets [get]
 func (h *BudgetHandler) GetList(c *gin.Context) {
 	// Get user ID from token
 	idVal, _ := c.Get("userID")
@@ -78,7 +101,19 @@ func (h *BudgetHandler) GetList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": budgets})
 }
 
-// GetByID handles GET /api/budgets/:id
+// GetByID godoc
+// @Summary      Lấy chi tiết ngân sách
+// @Description  Lấy thông tin chi tiết của một ngân sách theo ID
+// @Tags         Budget
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID ngân sách"
+// @Success      200  {object}  map[string]interface{} "Chi tiết ngân sách"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      404  {object}  map[string]interface{} "Không tìm thấy ngân sách"
+// @Router       /budgets/{id} [get]
 func (h *BudgetHandler) GetByID(c *gin.Context) {
 	// Get user ID from token
 	idVal, _ := c.Get("userID")
@@ -109,7 +144,19 @@ type UpdateBudgetRequest struct {
 	Category string  `json:"category"`
 }
 
-// Update handles PUT /api/budgets/:id
+// Update godoc
+// @Summary      Cập nhật ngân sách
+// @Description  Cập nhật thông tin ngân sách (số tiền và danh mục)
+// @Tags         Budget
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID ngân sách"
+// @Param        request body UpdateBudgetRequest true "Thông tin cần cập nhật"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /budgets/{id} [put]
 func (h *BudgetHandler) Update(c *gin.Context) {
 	// Get user ID from token
 	idVal, _ := c.Get("userID")
@@ -140,7 +187,18 @@ func (h *BudgetHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật ngân sách thành công!"})
 }
 
-// Delete handles DELETE /api/budgets/:id
+// Delete godoc
+// @Summary      Xóa ngân sách
+// @Description  Xóa một ngân sách theo ID
+// @Tags         Budget
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID ngân sách"
+// @Success      200  {object}  map[string]interface{} "Xóa thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ hoặc lỗi xóa"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /budgets/{id} [delete]
 func (h *BudgetHandler) Delete(c *gin.Context) {
 	// Get user ID from token
 	idVal, _ := c.Get("userID")

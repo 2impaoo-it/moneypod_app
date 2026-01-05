@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/internal/config"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -23,6 +23,16 @@ type RegisterRequest struct {
 	FullName string `json:"full_name" binding:"required"`
 }
 
+// Register godoc
+// @Summary      Đăng ký tài khoản mới
+// @Description  Tạo tài khoản người dùng mới với email, mật khẩu và tên đầy đủ
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body RegisterRequest true "Thông tin đăng ký"
+// @Success      201  {object}  map[string]interface{} "Đăng ký thành công"
+// @Failure      400  {object}  map[string]interface{} "Lỗi dữ liệu đầu vào hoặc email đã tồn tại"
+// @Router       /register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 
@@ -48,6 +58,17 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Login godoc
+// @Summary      Đăng nhập hệ thống
+// @Description  Xác thực email/password và trả về JWT Token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body LoginRequest true "Thông tin đăng nhập"
+// @Success      200  {object}  map[string]interface{} "Đăng nhập thành công, trả về Token"
+// @Failure      400  {object}  map[string]interface{} "Lỗi dữ liệu đầu vào"
+// @Failure      401  {object}  map[string]interface{} "Sai mật khẩu hoặc email"
+// @Router       /login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 
@@ -71,6 +92,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// GetProfile godoc
+// @Summary      Lấy thông tin profile người dùng
+// @Description  Trả về thông tin chi tiết của người dùng hiện tại
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Thông tin người dùng"
+// @Failure      401  {object}  map[string]interface{} "Không có quyền truy cập"
+// @Failure      404  {object}  map[string]interface{} "Người dùng không tồn tại"
+// @Router       /profile [get]
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	// 1. Lấy UserID từ context (được Middleware Auth gán vào dưới dạng string)
 	idVal, exists := c.Get("userID")
@@ -101,6 +133,17 @@ type LinkPhoneReq struct {
 	Phone string `json:"phone" binding:"required"`
 }
 
+// LinkPhone godoc
+// @Summary      Liên kết số điện thoại
+// @Description  Liên kết số điện thoại với tài khoản người dùng
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body LinkPhoneReq true "Số điện thoại cần liên kết"
+// @Success      200  {object}  map[string]interface{} "Liên kết thành công"
+// @Failure      400  {object}  map[string]interface{} "Lỗi dữ liệu đầu vào hoặc số điện thoại đã tồn tại"
+// @Router       /link-phone [post]
 func (h *AuthHandler) LinkPhone(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -124,7 +167,18 @@ type UpdateProfileReq struct {
 	FullName string `json:"full_name" binding:"required"`
 }
 
-// PUT /api/v1/profile
+// UpdateProfile godoc
+// @Summary      Cập nhật thông tin profile
+// @Description  Cập nhật tên đầy đủ của người dùng
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body UpdateProfileReq true "Thông tin cần cập nhật"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /profile [put]
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	// 1. Lấy ID user từ Token
 	idVal, _ := c.Get("userID")
@@ -152,7 +206,18 @@ type UpdateAvatarReq struct {
 	AvatarURL string `json:"avatar_url" binding:"required"`
 }
 
-// PUT /api/v1/profile/avatar
+// UpdateAvatar godoc
+// @Summary      Cập nhật ảnh đại diện
+// @Description  Cập nhật URL ảnh đại diện của người dùng
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body UpdateAvatarReq true "URL ảnh đại diện"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /profile/avatar [put]
 func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	// 1. Lấy ID user
 	idVal, _ := c.Get("userID")
@@ -181,6 +246,17 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
+// ChangePassword godoc
+// @Summary      Đổi mật khẩu
+// @Description  Thay đổi mật khẩu của người dùng (yêu cầu mật khẩu cũ)
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body ChangePasswordRequest true "Mật khẩu cũ và mật khẩu mới"
+// @Success      200  {object}  map[string]interface{} "Đổi mật khẩu thành công"
+// @Failure      400  {object}  map[string]interface{} "Mật khẩu cũ sai hoặc dữ liệu không hợp lệ"
+// @Router       /change-password [put]
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	// 1. Lấy ID user
 	idVal, _ := c.Get("userID")
@@ -208,6 +284,17 @@ type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
+// ForgotPassword godoc
+// @Summary      Quên mật khẩu
+// @Description  Gửi mật khẩu tạm thời qua email khi quên mật khẩu
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body ForgotPasswordRequest true "Email đăng ký"
+// @Success      200  {object}  map[string]interface{} "Gửi mật khẩu tạm thời thành công"
+// @Failure      400  {object}  map[string]interface{} "Email không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi hệ thống"
+// @Router       /forgot-password [post]
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	// 1. Parse dữ liệu
 	var req ForgotPasswordRequest
@@ -232,7 +319,19 @@ type UpdateFCMTokenRequest struct {
 	FCMToken string `json:"fcm_token" binding:"required"`
 }
 
-// UpdateFCMToken cập nhật FCM token cho user
+// UpdateFCMToken godoc
+// @Summary      Cập nhật FCM Token
+// @Description  Cập nhật Firebase Cloud Messaging token cho người dùng để nhận thông báo push
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body UpdateFCMTokenRequest true "FCM Token từ Firebase"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /fcm-token [put]
 func (h *AuthHandler) UpdateFCMToken(c *gin.Context) {
 	// 1. Lấy UserID từ context
 	idVal, exists := c.Get("userID")

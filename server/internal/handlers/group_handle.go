@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid" // <--- Import
 )
@@ -22,6 +22,19 @@ type CreateGroupRequest struct {
 	Members     []services.CreateMemberInput `json:"members" binding:"required,min=1"`
 }
 
+// Create godoc
+// @Summary      Tạo nhóm mới
+// @Description  Tạo nhóm chia tiền với danh sách thành viên ban đầu
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body CreateGroupRequest true "Thông tin nhóm và danh sách thành viên"
+// @Success      201  {object}  map[string]interface{} "Tạo nhóm thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups [post]
 func (h *GroupHandler) Create(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, err := uuid.Parse(idVal.(string))
@@ -45,6 +58,16 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Tạo nhóm thành công", "data": group})
 }
 
+// GetList godoc
+// @Summary      Lấy danh sách nhóm
+// @Description  Lấy tất cả các nhóm mà người dùng tham gia
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Danh sách nhóm"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups [get]
 func (h *GroupHandler) GetList(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -61,6 +84,17 @@ type JoinGroupRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
+// Join godoc
+// @Summary      Tham gia nhóm bằng mã mời
+// @Description  Tham gia vào một nhóm sử dụng mã mời nhận được
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body JoinGroupRequest true "Mã mời nhóm"
+// @Success      200  {object}  map[string]interface{} "Tham gia nhóm thành công"
+// @Failure      400  {object}  map[string]interface{} "Mã không hợp lệ hoặc đã tham gia"
+// @Router       /groups/join [post]
 func (h *GroupHandler) Join(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -90,6 +124,18 @@ type AddExpenseRequest struct {
 	SplitDetails []services.SplitItem `json:"split_details"`
 }
 
+// AddExpense godoc
+// @Summary      Thêm hóa đơn chia tiền
+// @Description  Thêm một khoản chi tiêu và tự động chia nợ cho các thành viên
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body AddExpenseRequest true "Thông tin hóa đơn và cách chia"
+// @Success      201  {object}  map[string]interface{} "Thêm hóa đơn thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups/expenses [post]
 func (h *GroupHandler) AddExpense(c *gin.Context) {
 	var req AddExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -189,7 +235,18 @@ func (h *GroupHandler) ConfirmReceivePayment(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Đã xác nhận nhận tiền thành công!"})
 }
 
-// API: Xem nợ của tôi
+// GetMyDebts godoc
+// @Summary      Xem các khoản nợ của tôi
+// @Description  Lấy danh sách các khoản nợ mà tôi đang nợ người khác trong nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Danh sách nợ"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups/{id}/debts/my-debts [get]
 func (h *GroupHandler) GetMyDebts(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -209,7 +266,18 @@ func (h *GroupHandler) GetMyDebts(c *gin.Context) {
 	c.JSON(200, gin.H{"data": debts})
 }
 
-// API: Xem ai nợ tôi
+// GetDebtsToMe godoc
+// @Summary      Xem ai nợ tôi
+// @Description  Lấy danh sách các khoản nợ mà người khác nợ tôi trong nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Danh sách nợ"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups/{id}/debts/debts-to-me [get]
 func (h *GroupHandler) GetDebtsToMe(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -229,7 +297,18 @@ func (h *GroupHandler) GetDebtsToMe(c *gin.Context) {
 	c.JSON(200, gin.H{"data": debts})
 }
 
-// API: Xem lịch sử chi tiêu của nhóm
+// GetGroupExpenses godoc
+// @Summary      Xem lịch sử chi tiêu nhóm
+// @Description  Lấy danh sách tất cả các hóa đơn chi tiêu của nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Danh sách hóa đơn"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups/{id}/expenses [get]
 func (h *GroupHandler) GetGroupExpenses(c *gin.Context) {
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -246,7 +325,18 @@ func (h *GroupHandler) GetGroupExpenses(c *gin.Context) {
 	c.JSON(200, gin.H{"data": expenses})
 }
 
-// GET /api/v1/groups/:id
+// GetDetail godoc
+// @Summary      Lấy chi tiết nhóm
+// @Description  Lấy thông tin chi tiết của một nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Thông tin nhóm"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      404  {object}  map[string]interface{} "Không tìm thấy nhóm"
+// @Router       /groups/{id} [get]
 func (h *GroupHandler) GetDetail(c *gin.Context) {
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -268,7 +358,18 @@ type AddMemberReq struct {
 	Phone string `json:"phone" binding:"required"`
 }
 
-// POST /api/v1/groups/:id/members
+// AddMember godoc
+// @Summary      Thêm thành viên mới
+// @Description  Thêm thành viên mới vào nhóm bằng số điện thoại (chỉ Leader)
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Param        request body AddMemberReq true "Số điện thoại thành viên"
+// @Success      200  {object}  map[string]interface{} "Thêm thành viên thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ hoặc số điện thoại chưa đăng ký"
+// @Router       /groups/{id}/members [post]
 func (h *GroupHandler) AddMember(c *gin.Context) {
 	// 1. Lấy ID người đang thao tác
 	idVal, _ := c.Get("userID")
@@ -298,7 +399,18 @@ func (h *GroupHandler) AddMember(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Đã thêm thành viên mới thành công!"})
 }
 
-// DELETE /api/v1/groups/:id
+// DeleteGroup godoc
+// @Summary      Xóa nhóm
+// @Description  Xóa nhóm (chỉ Trưởng nhóm mới có quyền)
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Xóa nhóm thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      403  {object}  map[string]interface{} "Không đủ quyền"
+// @Router       /groups/{id} [delete]
 func (h *GroupHandler) DeleteGroup(c *gin.Context) {
 	// 1. Lấy ID người dùng (Requester)
 	idVal, _ := c.Get("userID")
@@ -332,6 +444,19 @@ type UpdateGroupRequest struct {
 	Description string `json:"description"`
 }
 
+// UpdateGroup godoc
+// @Summary      Cập nhật thông tin nhóm
+// @Description  Cập nhật tên và mô tả nhóm (chỉ Trưởng nhóm)
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Param        request body UpdateGroupRequest true "Thông tin cần cập nhật"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      403  {object}  map[string]interface{} "Không đủ quyền"
+// @Router       /groups/{id} [put]
 func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	requesterID, _ := uuid.Parse(idVal.(string))
@@ -361,7 +486,19 @@ func (h *GroupHandler) UpdateGroup(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Cập nhật nhóm thành công!"})
 }
 
-// KickMember: Leader xóa thành viên
+// KickMember godoc
+// @Summary      Xóa thành viên khỏi nhóm
+// @Description  Leader xóa một thành viên ra khỏi nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id      path  string  true  "ID nhóm"
+// @Param        user_id path  string  true  "ID thành viên cần xóa"
+// @Success      200  {object}  map[string]interface{} "Xóa thành viên thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      403  {object}  map[string]interface{} "Không đủ quyền"
+// @Router       /groups/{id}/members/{user_id} [delete]
 func (h *GroupHandler) KickMember(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	requesterID, _ := uuid.Parse(idVal.(string))
@@ -391,7 +528,17 @@ func (h *GroupHandler) KickMember(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Đã xóa thành viên khỏi nhóm!"})
 }
 
-// LeaveGroup: Thành viên tự rời nhóm
+// LeaveGroup godoc
+// @Summary      Rời nhóm
+// @Description  Thành viên tự rời khỏi nhóm
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID nhóm"
+// @Success      200  {object}  map[string]interface{} "Rời nhóm thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ hoặc lỗi khác"
+// @Router       /groups/{id}/leave [post]
 func (h *GroupHandler) LeaveGroup(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -411,7 +558,18 @@ func (h *GroupHandler) LeaveGroup(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Bạn đã rời nhóm thành công!"})
 }
 
-// GetExpenseDetail: Xem chi tiết một hóa đơn
+// GetExpenseDetail godoc
+// @Summary      Xem chi tiết hóa đơn
+// @Description  Lấy thông tin chi tiết của một hóa đơn
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        expense_id  path  string  true  "ID hóa đơn"
+// @Success      200  {object}  map[string]interface{} "Chi tiết hóa đơn"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      404  {object}  map[string]interface{} "Không tìm thấy hóa đơn"
+// @Router       /groups/expenses/{expense_id} [get]
 func (h *GroupHandler) GetExpenseDetail(c *gin.Context) {
 	expenseID, err := uuid.Parse(c.Param("expense_id"))
 	if err != nil {
@@ -428,7 +586,18 @@ func (h *GroupHandler) GetExpenseDetail(c *gin.Context) {
 	c.JSON(200, gin.H{"data": expense})
 }
 
-// DeleteExpense: Xóa hóa đơn
+// DeleteExpense godoc
+// @Summary      Xóa hóa đơn
+// @Description  Xóa hóa đơn (chỉ người trả tiền hoặc Leader)
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        expense_id  path  string  true  "ID hóa đơn"
+// @Success      200  {object}  map[string]interface{} "Xóa thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      403  {object}  map[string]interface{} "Không đủ quyền"
+// @Router       /groups/expenses/{expense_id} [delete]
 func (h *GroupHandler) DeleteExpense(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	requesterID, _ := uuid.Parse(idVal.(string))
@@ -460,6 +629,19 @@ type UpdateExpenseRequest struct {
 	SplitDetails []services.SplitItem `json:"split_details"`
 }
 
+// UpdateExpense godoc
+// @Summary      Cập nhật hóa đơn
+// @Description  Cập nhật thông tin hóa đơn (chỉ người trả tiền hoặc Leader)
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        expense_id  path  string  true  "ID hóa đơn"
+// @Param        request body UpdateExpenseRequest true "Thông tin cần cập nhật"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      403  {object}  map[string]interface{} "Không đủ quyền"
+// @Router       /groups/expenses/{expense_id} [put]
 func (h *GroupHandler) UpdateExpense(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	requesterID, _ := uuid.Parse(idVal.(string))
@@ -495,6 +677,18 @@ type RequestDebtPaymentRequest struct {
 	Note            string    `json:"note"`
 }
 
+// RequestDebtPayment godoc
+// @Summary      Gửi yêu cầu thanh toán nợ
+// @Description  Người nợ gửi yêu cầu đã trả nợ cho chủ nợ
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        debt_id  path  string  true  "ID khoản nợ"
+// @Param        request body RequestDebtPaymentRequest true "Thông tin thanh toán"
+// @Success      200  {object}  map[string]interface{} "Gửi yêu cầu thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Router       /groups/debts/{debt_id}/request-payment [post]
 func (h *GroupHandler) RequestDebtPayment(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -520,7 +714,16 @@ func (h *GroupHandler) RequestDebtPayment(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Đã gửi yêu cầu xác nhận thanh toán!"})
 }
 
-// GetPendingPaymentRequests: Lấy danh sách request trả nợ chờ xác nhận
+// GetPendingPaymentRequests godoc
+// @Summary      Lấy danh sách yêu cầu trả nợ chờ xác nhận
+// @Description  Chủ nợ xem các yêu cầu trả nợ đang chờ xác nhận
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Danh sách yêu cầu chờ xác nhận"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /groups/debts/pending-requests [get]
 func (h *GroupHandler) GetPendingPaymentRequests(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -539,6 +742,18 @@ type ConfirmDebtPaymentRequest struct {
 	ReceiveWalletID uuid.UUID `json:"receive_wallet_id" binding:"required"`
 }
 
+// ConfirmDebtPayment godoc
+// @Summary      Xác nhận đã nhận tiền trả nợ
+// @Description  Chủ nợ xác nhận đã nhận tiền từ người nợ
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request_id  path  string  true  "ID yêu cầu thanh toán"
+// @Param        request body ConfirmDebtPaymentRequest true "Ví nhận tiền"
+// @Success      200  {object}  map[string]interface{} "Xác nhận thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Router       /groups/debts/requests/{request_id}/confirm [post]
 func (h *GroupHandler) ConfirmDebtPayment(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -569,6 +784,18 @@ type RejectDebtPaymentRequest struct {
 	Reason string `json:"reason"`
 }
 
+// RejectDebtPayment godoc
+// @Summary      Từ chối yêu cầu trả nợ
+// @Description  Chủ nợ từ chối yêu cầu thanh toán nợ
+// @Tags         Group
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request_id  path  string  true  "ID yêu cầu thanh toán"
+// @Param        request body RejectDebtPaymentRequest true "Lý do từ chối"
+// @Success      200  {object}  map[string]interface{} "Từ chối thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Router       /groups/debts/requests/{request_id}/reject [post]
 func (h *GroupHandler) RejectDebtPayment(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))

@@ -3,7 +3,7 @@ package repositories
 import (
 	"time"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

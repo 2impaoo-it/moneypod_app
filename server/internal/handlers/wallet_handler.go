@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid" // <--- Import thêm
 )
@@ -21,6 +21,19 @@ type CreateWalletRequest struct {
 	Balance float64 `json:"balance"`
 }
 
+// CreateWallet godoc
+// @Summary      Tạo ví mới
+// @Description  Tạo một ví mới với tên và số dư ban đầu
+// @Tags         Wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body CreateWalletRequest true "Thông tin ví"
+// @Success      201  {object}  map[string]interface{} "Tạo ví thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /wallets [post]
 func (h *WalletHandler) CreateWallet(c *gin.Context) {
 	// 1. Lấy UserID từ Token (Đã chuyển sang UUID)
 	idVal, exists := c.Get("userID")
@@ -51,6 +64,17 @@ func (h *WalletHandler) CreateWallet(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Tạo ví thành công!"})
 }
 
+// GetList godoc
+// @Summary      Lấy danh sách ví
+// @Description  Lấy tất cả các ví của người dùng
+// @Tags         Wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Danh sách ví"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /wallets [get]
 func (h *WalletHandler) GetList(c *gin.Context) {
 	// 1. Lấy UserID (Logic giống hệt ở trên)
 	idVal, _ := c.Get("userID")
@@ -74,7 +98,19 @@ type UpdateWalletRequest struct {
 	Currency string `json:"currency"`
 }
 
-// UpdateWallet cập nhật tên ví, loại tiền tệ
+// UpdateWallet godoc
+// @Summary      Cập nhật ví
+// @Description  Cập nhật tên ví và loại tiền tệ
+// @Tags         Wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID ví"
+// @Param        request body UpdateWalletRequest true "Thông tin cần cập nhật"
+// @Success      200  {object}  map[string]interface{} "Cập nhật thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /wallets/{id} [put]
 func (h *WalletHandler) UpdateWallet(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, err := uuid.Parse(idVal.(string))
@@ -104,7 +140,18 @@ func (h *WalletHandler) UpdateWallet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Cập nhật ví thành công!"})
 }
 
-// DeleteWallet xóa ví (chỉ khi số dư = 0)
+// DeleteWallet godoc
+// @Summary      Xóa ví
+// @Description  Xóa một ví (chỉ khi số dư = 0)
+// @Tags         Wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID ví"
+// @Success      200  {object}  map[string]interface{} "Xóa thành công"
+// @Failure      400  {object}  map[string]interface{} "Không thể xóa ví còn tiền"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /wallets/{id} [delete]
 func (h *WalletHandler) DeleteWallet(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, err := uuid.Parse(idVal.(string))
@@ -135,7 +182,18 @@ type TransferRequest struct {
 	Note         string  `json:"note"`
 }
 
-// TransferBetweenWallets - Handler chuyển tiền giữa các ví
+// TransferBetweenWallets godoc
+// @Summary      Chuyển tiền giữa các ví
+// @Description  Chuyển tiền từ ví này sang ví khác của cùng người dùng
+// @Tags         Wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body TransferRequest true "Thông tin chuyển tiền"
+// @Success      200  {object}  map[string]interface{} "Chuyển tiền thành công"
+// @Failure      400  {object}  map[string]interface{} "Dữ liệu không hợp lệ hoặc số dư không đủ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Router       /wallets/transfer [post]
 func (h *WalletHandler) TransferBetweenWallets(c *gin.Context) {
 	// 1. Lấy UserID từ token
 	idVal, _ := c.Get("userID")

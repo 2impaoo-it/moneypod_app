@@ -1,0 +1,2367 @@
+basePath: /api/v1
+definitions:
+  handlers.AddExpenseRequest:
+    properties:
+      amount:
+        type: number
+      description:
+        type: string
+      group_id:
+        type: string
+      image_url:
+        type: string
+      payer_id:
+        type: string
+      split_details:
+        items:
+          $ref: '#/definitions/services.SplitItem'
+        type: array
+    required:
+    - amount
+    - group_id
+    - payer_id
+    type: object
+  handlers.AddMemberReq:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  handlers.ChangePasswordRequest:
+    properties:
+      new_password:
+        minLength: 6
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  handlers.ConfirmDebtPaymentRequest:
+    properties:
+      receive_wallet_id:
+        type: string
+    required:
+    - receive_wallet_id
+    type: object
+  handlers.CreateBudgetRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      month:
+        maximum: 12
+        minimum: 1
+        type: integer
+      year:
+        minimum: 2020
+        type: integer
+    required:
+    - amount
+    - category
+    - month
+    - year
+    type: object
+  handlers.CreateGroupRequest:
+    properties:
+      description:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/services.CreateMemberInput'
+        minItems: 1
+        type: array
+      name:
+        type: string
+    required:
+    - members
+    - name
+    type: object
+  handlers.CreateTransactionRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      note:
+        type: string
+      type:
+        enum:
+        - income
+        - expense
+        type: string
+      wallet_id:
+        description: 'SỬA: uint -> uuid.UUID'
+        type: string
+    required:
+    - amount
+    - type
+    - wallet_id
+    type: object
+  handlers.CreateWalletRequest:
+    properties:
+      balance:
+        type: number
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  handlers.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  handlers.JoinGroupRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  handlers.LinkPhoneReq:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    type: object
+  handlers.RejectDebtPaymentRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  handlers.RequestDebtPaymentRequest:
+    properties:
+      note:
+        type: string
+      payment_wallet_id:
+        type: string
+    required:
+    - payment_wallet_id
+    type: object
+  handlers.SavingsActionReq:
+    properties:
+      amount:
+        type: number
+      wallet_id:
+        type: string
+    required:
+    - amount
+    - wallet_id
+    type: object
+  handlers.TransferRequest:
+    properties:
+      amount:
+        type: number
+      from_wallet_id:
+        type: string
+      note:
+        type: string
+      to_wallet_id:
+        type: string
+    required:
+    - amount
+    - from_wallet_id
+    - to_wallet_id
+    type: object
+  handlers.UpdateAvatarReq:
+    properties:
+      avatar_url:
+        type: string
+    required:
+    - avatar_url
+    type: object
+  handlers.UpdateBudgetRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+    type: object
+  handlers.UpdateExpenseRequest:
+    properties:
+      amount:
+        type: number
+      description:
+        type: string
+      image_url:
+        type: string
+      split_details:
+        items:
+          $ref: '#/definitions/services.SplitItem'
+        type: array
+    type: object
+  handlers.UpdateFCMTokenRequest:
+    properties:
+      fcm_token:
+        type: string
+    required:
+    - fcm_token
+    type: object
+  handlers.UpdateGoalRequest:
+    properties:
+      color:
+        type: string
+      deadline:
+        description: ISO format string
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+      target_amount:
+        type: number
+    type: object
+  handlers.UpdateGroupRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  handlers.UpdateProfileReq:
+    properties:
+      full_name:
+        type: string
+    required:
+    - full_name
+    type: object
+  handlers.UpdateTransactionRequest:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      note:
+        type: string
+      type:
+        type: string
+    type: object
+  handlers.UpdateWalletRequest:
+    properties:
+      currency:
+        type: string
+      name:
+        type: string
+    type: object
+  models.SavingsGoal:
+    properties:
+      color:
+        description: Màu hiển thị (Hex code)
+        type: string
+      created_at:
+        type: string
+      current_amount:
+        description: Hiện có
+        type: number
+      deadline:
+        description: Ngày hết hạn (Optional)
+        type: string
+      icon:
+        type: string
+      id:
+        description: ID là UUID, tự động sinh ngẫu nhiên khi tạo mới
+        type: string
+      is_overdue:
+        description: "\U0001F525 TRƯỜNG ẢO (Virtual Field): Không lưu vào DB, chỉ
+          dùng để trả về JSON"
+        type: boolean
+      name:
+        type: string
+      status:
+        description: IN_PROGRESS, COMPLETED
+        type: string
+      target_amount:
+        description: 'Mục tiêu (VD: 50tr)'
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  services.CreateMemberInput:
+    properties:
+      user_id:
+        description: Có thể là UUID hoặc Số điện thoại
+        type: string
+    type: object
+  services.SplitItem:
+    properties:
+      amount:
+        type: number
+      user_id:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@moneypod.com
+    name: Tiger Nau (Project Manager)
+  description: API Server for MoneyPod Application (Expense Tracker & Savings).
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: MoneyPod API
+  version: "1.0"
+paths:
+  /budgets:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách ngân sách theo tháng và năm (query params)
+      parameters:
+      - description: Tháng (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Năm
+        in: query
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách ngân sách
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách ngân sách
+      tags:
+      - Budget
+    post:
+      consumes:
+      - application/json
+      description: Tạo ngân sách cho một danh mục trong tháng/năm cụ thể
+      parameters:
+      - description: Thông tin ngân sách
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBudgetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo ngân sách thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo ngân sách mới
+      tags:
+      - Budget
+  /budgets/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa một ngân sách theo ID
+      parameters:
+      - description: ID ngân sách
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ hoặc lỗi xóa
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa ngân sách
+      tags:
+      - Budget
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin chi tiết của một ngân sách theo ID
+      parameters:
+      - description: ID ngân sách
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Chi tiết ngân sách
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Không tìm thấy ngân sách
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy chi tiết ngân sách
+      tags:
+      - Budget
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin ngân sách (số tiền và danh mục)
+      parameters:
+      - description: ID ngân sách
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateBudgetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật ngân sách
+      tags:
+      - Budget
+  /change-password:
+    put:
+      consumes:
+      - application/json
+      description: Thay đổi mật khẩu của người dùng (yêu cầu mật khẩu cũ)
+      parameters:
+      - description: Mật khẩu cũ và mật khẩu mới
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Đổi mật khẩu thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Mật khẩu cũ sai hoặc dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Đổi mật khẩu
+      tags:
+      - Auth
+  /dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Trả về toàn bộ dữ liệu tổng quan của trang chủ (số dư, giao dịch
+        gần đây, thống kê...)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dữ liệu Dashboard
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy dữ liệu tổng quan Dashboard
+      tags:
+      - Dashboard
+  /fcm-token:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật Firebase Cloud Messaging token cho người dùng để nhận
+        thông báo push
+      parameters:
+      - description: FCM Token từ Firebase
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateFCMTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật FCM Token
+      tags:
+      - Auth
+  /forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Gửi mật khẩu tạm thời qua email khi quên mật khẩu
+      parameters:
+      - description: Email đăng ký
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gửi mật khẩu tạm thời thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Email không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi hệ thống
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Quên mật khẩu
+      tags:
+      - Auth
+  /groups:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả các nhóm mà người dùng tham gia
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách nhóm
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách nhóm
+      tags:
+      - Group
+    post:
+      consumes:
+      - application/json
+      description: Tạo nhóm chia tiền với danh sách thành viên ban đầu
+      parameters:
+      - description: Thông tin nhóm và danh sách thành viên
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo nhóm thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo nhóm mới
+      tags:
+      - Group
+  /groups/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa nhóm (chỉ Trưởng nhóm mới có quyền)
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa nhóm thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Không đủ quyền
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa nhóm
+      tags:
+      - Group
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin chi tiết của một nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thông tin nhóm
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Không tìm thấy nhóm
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy chi tiết nhóm
+      tags:
+      - Group
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật tên và mô tả nhóm (chỉ Trưởng nhóm)
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Không đủ quyền
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật thông tin nhóm
+      tags:
+      - Group
+  /groups/{id}/debts/debts-to-me:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách các khoản nợ mà người khác nợ tôi trong nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách nợ
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xem ai nợ tôi
+      tags:
+      - Group
+  /groups/{id}/debts/my-debts:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách các khoản nợ mà tôi đang nợ người khác trong nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách nợ
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xem các khoản nợ của tôi
+      tags:
+      - Group
+  /groups/{id}/expenses:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách tất cả các hóa đơn chi tiêu của nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách hóa đơn
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xem lịch sử chi tiêu nhóm
+      tags:
+      - Group
+  /groups/{id}/leave:
+    post:
+      consumes:
+      - application/json
+      description: Thành viên tự rời khỏi nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rời nhóm thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ hoặc lỗi khác
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rời nhóm
+      tags:
+      - Group
+  /groups/{id}/members:
+    post:
+      consumes:
+      - application/json
+      description: Thêm thành viên mới vào nhóm bằng số điện thoại (chỉ Leader)
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Số điện thoại thành viên
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddMemberReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thêm thành viên thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ hoặc số điện thoại chưa đăng ký
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Thêm thành viên mới
+      tags:
+      - Group
+  /groups/{id}/members/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Leader xóa một thành viên ra khỏi nhóm
+      parameters:
+      - description: ID nhóm
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID thành viên cần xóa
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành viên thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Không đủ quyền
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa thành viên khỏi nhóm
+      tags:
+      - Group
+  /groups/debts/{debt_id}/request-payment:
+    post:
+      consumes:
+      - application/json
+      description: Người nợ gửi yêu cầu đã trả nợ cho chủ nợ
+      parameters:
+      - description: ID khoản nợ
+        in: path
+        name: debt_id
+        required: true
+        type: string
+      - description: Thông tin thanh toán
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RequestDebtPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Gửi yêu cầu thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Gửi yêu cầu thanh toán nợ
+      tags:
+      - Group
+  /groups/debts/pending-requests:
+    get:
+      consumes:
+      - application/json
+      description: Chủ nợ xem các yêu cầu trả nợ đang chờ xác nhận
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách yêu cầu chờ xác nhận
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách yêu cầu trả nợ chờ xác nhận
+      tags:
+      - Group
+  /groups/debts/requests/{request_id}/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Chủ nợ xác nhận đã nhận tiền từ người nợ
+      parameters:
+      - description: ID yêu cầu thanh toán
+        in: path
+        name: request_id
+        required: true
+        type: string
+      - description: Ví nhận tiền
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ConfirmDebtPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xác nhận thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xác nhận đã nhận tiền trả nợ
+      tags:
+      - Group
+  /groups/debts/requests/{request_id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: Chủ nợ từ chối yêu cầu thanh toán nợ
+      parameters:
+      - description: ID yêu cầu thanh toán
+        in: path
+        name: request_id
+        required: true
+        type: string
+      - description: Lý do từ chối
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RejectDebtPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Từ chối thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Từ chối yêu cầu trả nợ
+      tags:
+      - Group
+  /groups/expenses:
+    post:
+      consumes:
+      - application/json
+      description: Thêm một khoản chi tiêu và tự động chia nợ cho các thành viên
+      parameters:
+      - description: Thông tin hóa đơn và cách chia
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Thêm hóa đơn thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Thêm hóa đơn chia tiền
+      tags:
+      - Group
+  /groups/expenses/{expense_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa hóa đơn (chỉ người trả tiền hoặc Leader)
+      parameters:
+      - description: ID hóa đơn
+        in: path
+        name: expense_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Không đủ quyền
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa hóa đơn
+      tags:
+      - Group
+    get:
+      consumes:
+      - application/json
+      description: Lấy thông tin chi tiết của một hóa đơn
+      parameters:
+      - description: ID hóa đơn
+        in: path
+        name: expense_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Chi tiết hóa đơn
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Không tìm thấy hóa đơn
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xem chi tiết hóa đơn
+      tags:
+      - Group
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin hóa đơn (chỉ người trả tiền hoặc Leader)
+      parameters:
+      - description: ID hóa đơn
+        in: path
+        name: expense_id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateExpenseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Không đủ quyền
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật hóa đơn
+      tags:
+      - Group
+  /groups/join:
+    post:
+      consumes:
+      - application/json
+      description: Tham gia vào một nhóm sử dụng mã mời nhận được
+      parameters:
+      - description: Mã mời nhóm
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.JoinGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tham gia nhóm thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Mã không hợp lệ hoặc đã tham gia
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tham gia nhóm bằng mã mời
+      tags:
+      - Group
+  /insights/monthly:
+    get:
+      consumes:
+      - application/json
+      description: Phân tích chi tiêu và đưa ra lời khuyên thông minh sử dụng Gemini
+        AI
+      parameters:
+      - description: Tháng (1-12)
+        in: query
+        name: month
+        required: true
+        type: integer
+      - description: Năm
+        in: query
+        name: year
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Insight thông minh
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Tháng hoặc năm không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi tạo insight
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Dịch vụ không khả dụng
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy Insight thông minh theo tháng
+      tags:
+      - Insight
+  /link-phone:
+    post:
+      consumes:
+      - application/json
+      description: Liên kết số điện thoại với tài khoản người dùng
+      parameters:
+      - description: Số điện thoại cần liên kết
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LinkPhoneReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Liên kết thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Lỗi dữ liệu đầu vào hoặc số điện thoại đã tồn tại
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Liên kết số điện thoại
+      tags:
+      - Auth
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Xác thực email/password và trả về JWT Token
+      parameters:
+      - description: Thông tin đăng nhập
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Đăng nhập thành công, trả về Token
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Lỗi dữ liệu đầu vào
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Sai mật khẩu hoặc email
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Đăng nhập hệ thống
+      tags:
+      - Auth
+  /notifications:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách thông báo của người dùng với phân trang
+      parameters:
+      - description: 'Số lượng (mặc định: 20)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Vị trí bắt đầu (mặc định: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách thông báo
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách thông báo
+      tags:
+      - Notification
+  /notifications/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa một thông báo theo ID
+      parameters:
+      - description: ID thông báo
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa thông báo
+      tags:
+      - Notification
+  /notifications/{id}/read:
+    put:
+      consumes:
+      - application/json
+      description: Đánh dấu một thông báo là đã đọc
+      parameters:
+      - description: ID thông báo
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Đánh dấu thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu đã đọc
+      tags:
+      - Notification
+  /notifications/all:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa tất cả thông báo của người dùng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa tất cả thông báo
+      tags:
+      - Notification
+  /notifications/read-all:
+    put:
+      consumes:
+      - application/json
+      description: Đánh dấu tất cả thông báo là đã đọc
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Đánh dấu thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu tất cả đã đọc
+      tags:
+      - Notification
+  /notifications/unread-count:
+    get:
+      consumes:
+      - application/json
+      description: Trả về số lượng thông báo chưa đọc của người dùng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Số lượng thông báo chưa đọc
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Đếm số thông báo chưa đọc
+      tags:
+      - Notification
+  /profile:
+    get:
+      consumes:
+      - application/json
+      description: Trả về thông tin chi tiết của người dùng hiện tại
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Thông tin người dùng
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Không có quyền truy cập
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Người dùng không tồn tại
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy thông tin profile người dùng
+      tags:
+      - Auth
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật tên đầy đủ của người dùng
+      parameters:
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateProfileReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật thông tin profile
+      tags:
+      - Auth
+  /profile/avatar:
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật URL ảnh đại diện của người dùng
+      parameters:
+      - description: URL ảnh đại diện
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateAvatarReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật ảnh đại diện
+      tags:
+      - Auth
+  /receipts/scan:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload ảnh hóa đơn và sử dụng Gemini AI để trích xuất thông tin
+        (số tiền, danh mục...)
+      parameters:
+      - description: 'File ảnh hóa đơn (key: images hoặc image)'
+        in: formData
+        name: images
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Quét thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Không nhận được file
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi xử lý AI
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Quét hóa đơn bằng AI
+      tags:
+      - Receipt
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Tạo tài khoản người dùng mới với email, mật khẩu và tên đầy đủ
+      parameters:
+      - description: Thông tin đăng ký
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Đăng ký thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Lỗi dữ liệu đầu vào hoặc email đã tồn tại
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Đăng ký tài khoản mới
+      tags:
+      - Auth
+  /savings:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả mục tiêu tiết kiệm của người dùng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách mục tiêu
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách mục tiêu tiết kiệm
+      tags:
+      - Savings
+    post:
+      consumes:
+      - application/json
+      description: Tạo mục tiêu tiết kiệm mới với tên, số tiền mục tiêu, deadline...
+      parameters:
+      - description: Thông tin mục tiêu
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.SavingsGoal'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo mục tiêu tiết kiệm
+      tags:
+      - Savings
+  /savings/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa một mục tiêu tiết kiệm
+      parameters:
+      - description: ID mục tiêu
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Lỗi xóa
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa mục tiêu tiết kiệm
+      tags:
+      - Savings
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin mục tiêu (tên, màu, icon, số tiền mục tiêu,
+        deadline)
+      parameters:
+      - description: ID mục tiêu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateGoalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật mục tiêu tiết kiệm
+      tags:
+      - Savings
+  /savings/{id}/deposit:
+    post:
+      consumes:
+      - application/json
+      description: Nạp tiền từ ví vào mục tiêu tiết kiệm
+      parameters:
+      - description: ID mục tiêu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID ví và số tiền
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SavingsActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Nạp tiền thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Nạp tiền vào mục tiêu
+      tags:
+      - Savings
+  /savings/{id}/transactions:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách các giao dịch nạp/rút tiền của một mục tiêu tiết
+        kiệm
+      parameters:
+      - description: ID mục tiêu
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách giao dịch
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Lỗi truy vấn
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy lịch sử giao dịch của mục tiêu
+      tags:
+      - Savings
+  /savings/{id}/withdraw:
+    post:
+      consumes:
+      - application/json
+      description: Rút tiền từ mục tiêu tiết kiệm về ví
+      parameters:
+      - description: ID mục tiêu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID ví và số tiền
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SavingsActionReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rút tiền thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ hoặc số dư không đủ
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rút tiền từ mục tiêu
+      tags:
+      - Savings
+  /transactions:
+    get:
+      consumes:
+      - application/json
+      description: Lấy danh sách giao dịch với filter theo category, type, wallet_id,
+        month, year và phân trang
+      parameters:
+      - description: Danh mục
+        in: query
+        name: category
+        type: string
+      - description: Loại giao dịch (income/expense)
+        in: query
+        name: type
+        type: string
+      - description: ID ví
+        in: query
+        name: wallet_id
+        type: string
+      - description: Tháng
+        in: query
+        name: month
+        type: integer
+      - description: Năm
+        in: query
+        name: year
+        type: integer
+      - description: 'Trang (mặc định: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Số bản ghi/trang (mặc định: 20)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách giao dịch
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách giao dịch
+      tags:
+      - Transaction
+    post:
+      consumes:
+      - application/json
+      description: Thêm giao dịch thu/chi vào ví
+      parameters:
+      - description: Thông tin giao dịch
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo giao dịch thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo giao dịch mới
+      tags:
+      - Transaction
+  /transactions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa một giao dịch theo ID
+      parameters:
+      - description: ID giao dịch
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: ID không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa giao dịch
+      tags:
+      - Transaction
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật thông tin giao dịch (số tiền, danh mục, loại, ghi chú)
+      parameters:
+      - description: ID giao dịch
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật giao dịch
+      tags:
+      - Transaction
+  /upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload file ảnh lên Cloudinary và trả về URL
+      parameters:
+      - description: File ảnh cần upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Upload thành công, trả về URL
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Không nhận được file
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi upload
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload ảnh lên Cloudinary
+      tags:
+      - Upload
+  /wallets:
+    get:
+      consumes:
+      - application/json
+      description: Lấy tất cả các ví của người dùng
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Danh sách ví
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lấy danh sách ví
+      tags:
+      - Wallet
+    post:
+      consumes:
+      - application/json
+      description: Tạo một ví mới với tên và số dư ban đầu
+      parameters:
+      - description: Thông tin ví
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateWalletRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo ví thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Lỗi server
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Tạo ví mới
+      tags:
+      - Wallet
+  /wallets/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Xóa một ví (chỉ khi số dư = 0)
+      parameters:
+      - description: ID ví
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Không thể xóa ví còn tiền
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Xóa ví
+      tags:
+      - Wallet
+    put:
+      consumes:
+      - application/json
+      description: Cập nhật tên ví và loại tiền tệ
+      parameters:
+      - description: ID ví
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin cần cập nhật
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateWalletRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cập nhật ví
+      tags:
+      - Wallet
+  /wallets/transfer:
+    post:
+      consumes:
+      - application/json
+      description: Chuyển tiền từ ví này sang ví khác của cùng người dùng
+      parameters:
+      - description: Thông tin chuyển tiền
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Chuyển tiền thành công
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Dữ liệu không hợp lệ hoặc số dư không đủ
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Chưa xác thực
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Chuyển tiền giữa các ví
+      tags:
+      - Wallet
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

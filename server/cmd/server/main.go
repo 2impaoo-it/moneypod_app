@@ -3,14 +3,35 @@ package main
 import (
 	"log"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/handlers"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/middleware"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
-	"github.com/2impaoo-it/moneypod_app/backend/pkg/db"
+	_ "github.com/2impaoo-it/moneypod_app/server/docs"
+	"github.com/2impaoo-it/moneypod_app/server/internal/config"
+	"github.com/2impaoo-it/moneypod_app/server/internal/handlers"
+	"github.com/2impaoo-it/moneypod_app/server/internal/middleware"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/pkg/db"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title           MoneyPod API
+// @version         1.0
+// @description     API Server for MoneyPod Application (Expense Tracker & Savings).
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name    Tiger Nau (Project Manager)
+// @contact.email   support@moneypod.com
+
+// @license.name    Apache 2.0
+// @license.url     http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host            localhost:8080
+// @BasePath        /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func main() {
 	// 1. Load config từ file .env
@@ -162,6 +183,7 @@ func main() {
 		public.POST("/register", authHandler.Register)
 		public.POST("/login", authHandler.Login)
 		public.POST("/forgot-password", authHandler.ForgotPassword) // Quên mật khẩu
+		public.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
 	// --- PROTECTED API ---

@@ -10,8 +10,8 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
 	"github.com/google/uuid"
 	"google.golang.org/api/option"
 	"gorm.io/gorm"

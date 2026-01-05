@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 	"gorm.io/gorm"

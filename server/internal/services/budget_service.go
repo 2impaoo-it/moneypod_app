@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -45,7 +45,7 @@ func (s *BudgetService) CreateBudget(userID uuid.UUID, category string, amount f
 // GetBudgets returns all budgets for a user in a specific month/year
 func (s *BudgetService) GetBudgets(userID uuid.UUID, month, year int) ([]BudgetWithSpent, error) {
 	var budgets []models.Budget
-	
+
 	query := s.db.Where("user_id = ?", userID)
 	if month > 0 {
 		query = query.Where("month = ?", month)
@@ -53,7 +53,7 @@ func (s *BudgetService) GetBudgets(userID uuid.UUID, month, year int) ([]BudgetW
 	if year > 0 {
 		query = query.Where("year = ?", year)
 	}
-	
+
 	if err := query.Find(&budgets).Error; err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (s *BudgetService) DeleteBudget(budgetID, userID uuid.UUID) error {
 // calculateSpent calculates total expense for a category in a month/year
 func (s *BudgetService) calculateSpent(userID uuid.UUID, category string, month, year int) float64 {
 	var total float64
-	
+
 	s.db.Model(&models.Transaction{}).
 		Select("COALESCE(SUM(amount), 0)").
 		Where("user_id = ? AND category = ? AND type = ? AND EXTRACT(MONTH FROM date) = ? AND EXTRACT(YEAR FROM date) = ?",

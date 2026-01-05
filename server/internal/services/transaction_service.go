@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
-	"github.com/2impaoo-it/moneypod_app/backend/pkg/constants"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/pkg/constants"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -144,16 +144,16 @@ func (s *TransactionService) CreateTransaction(userID uuid.UUID, req models.Tran
 			if totalSpent > budget.Amount {
 				// Gửi thông báo
 				log.Printf("⚠️ OVER BUDGET DETECTED! Category '%s' exceeded limit.", category)
-				
+
 				var user models.User
 				if err := s.db.First(&user, "id = ?", userID).Error; err == nil && user.FCMToken != "" && s.notifService != nil {
 					title := "⚠️ Cảnh báo vượt ngân sách"
 					body := fmt.Sprintf("Bạn đã chi tiêu vượt quá ngân sách cho mục '%s'. (Đã chi: %.0f đ / Hạn mức: %.0f đ)", category, totalSpent, budget.Amount)
 					data := map[string]interface{}{
-						"type":      "over_budget",
-						"category":  category,
-						"spent":     totalSpent,
-						"limit":     budget.Amount,
+						"type":     "over_budget",
+						"category": category,
+						"spent":    totalSpent,
+						"limit":    budget.Amount,
 					}
 					s.notifService.CreateAndSendNotification(userID, "over_budget", title, body, data, user.FCMToken)
 				}

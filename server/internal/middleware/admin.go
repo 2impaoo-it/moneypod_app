@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
+	"github.com/2impaoo-it/moneypod_app/server/internal/config"
 	"github.com/gin-gonic/gin"
 )
 

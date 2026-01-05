@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/config"
-	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
+	"github.com/2impaoo-it/moneypod_app/server/internal/config"
+	"github.com/2impaoo-it/moneypod_app/server/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

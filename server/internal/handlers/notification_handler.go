@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/repositories"
+	"github.com/2impaoo-it/moneypod_app/server/internal/repositories"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -17,7 +17,18 @@ func NewNotificationHandler(repo *repositories.NotificationRepository) *Notifica
 	return &NotificationHandler{repo: repo}
 }
 
-// GET /api/v1/notifications
+// GetList godoc
+// @Summary      Lấy danh sách thông báo
+// @Description  Lấy danh sách thông báo của người dùng với phân trang
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit   query  int  false  "Số lượng (mặc định: 20)"
+// @Param        offset  query  int  false  "Vị trí bắt đầu (mặc định: 0)"
+// @Success      200  {object}  map[string]interface{} "Danh sách thông báo"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications [get]
 func (h *NotificationHandler) GetList(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -42,7 +53,16 @@ func (h *NotificationHandler) GetList(c *gin.Context) {
 	})
 }
 
-// GET /api/v1/notifications/unread-count
+// GetUnreadCount godoc
+// @Summary      Đếm số thông báo chưa đọc
+// @Description  Trả về số lượng thông báo chưa đọc của người dùng
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Số lượng thông báo chưa đọc"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications/unread-count [get]
 func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -56,7 +76,18 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"unread_count": count})
 }
 
-// PUT /api/v1/notifications/:id/read
+// MarkAsRead godoc
+// @Summary      Đánh dấu đã đọc
+// @Description  Đánh dấu một thông báo là đã đọc
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID thông báo"
+// @Success      200  {object}  map[string]interface{} "Đánh dấu thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications/{id}/read [put]
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -75,7 +106,16 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Đã đánh dấu đã đọc"})
 }
 
-// PUT /api/v1/notifications/read-all
+// MarkAllAsRead godoc
+// @Summary      Đánh dấu tất cả đã đọc
+// @Description  Đánh dấu tất cả thông báo là đã đọc
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Đánh dấu thành công"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications/read-all [put]
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -88,7 +128,18 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Đã đánh dấu tất cả đã đọc"})
 }
 
-// DELETE /api/v1/notifications/:id
+// Delete godoc
+// @Summary      Xóa thông báo
+// @Description  Xóa một thông báo theo ID
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  string  true  "ID thông báo"
+// @Success      200  {object}  map[string]interface{} "Xóa thành công"
+// @Failure      400  {object}  map[string]interface{} "ID không hợp lệ"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications/{id} [delete]
 func (h *NotificationHandler) Delete(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))
@@ -107,7 +158,16 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Đã xóa thông báo"})
 }
 
-// DELETE /api/v1/notifications/all
+// DeleteAll godoc
+// @Summary      Xóa tất cả thông báo
+// @Description  Xóa tất cả thông báo của người dùng
+// @Tags         Notification
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]interface{} "Xóa thành công"
+// @Failure      500  {object}  map[string]interface{} "Lỗi server"
+// @Router       /notifications/all [delete]
 func (h *NotificationHandler) DeleteAll(c *gin.Context) {
 	idVal, _ := c.Get("userID")
 	userID, _ := uuid.Parse(idVal.(string))

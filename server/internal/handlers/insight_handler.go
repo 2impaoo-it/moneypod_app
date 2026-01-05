@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/2impaoo-it/moneypod_app/backend/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +16,21 @@ func NewInsightHandler(service *services.InsightService) *InsightHandler {
 	return &InsightHandler{service: service}
 }
 
-// GetMonthlyInsight - API endpoint để lấy insight thông minh cho tháng
+// GetMonthlyInsight godoc
+// @Summary      Lấy Insight thông minh theo tháng
+// @Description  Phân tích chi tiêu và đưa ra lời khuyên thông minh sử dụng Gemini AI
+// @Tags         Insight
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        month  query  int  true  "Tháng (1-12)"
+// @Param        year   query  int  true  "Năm"
+// @Success      200  {object}  map[string]interface{} "Insight thông minh"
+// @Failure      400  {object}  map[string]interface{} "Tháng hoặc năm không hợp lệ"
+// @Failure      401  {object}  map[string]interface{} "Chưa xác thực"
+// @Failure      500  {object}  map[string]interface{} "Lỗi tạo insight"
+// @Failure      503  {object}  map[string]interface{} "Dịch vụ không khả dụng"
+// @Router       /insights/monthly [get]
 func (h *InsightHandler) GetMonthlyInsight(c *gin.Context) {
 	// Kiểm tra service có khả dụng không
 	if h.service == nil {
