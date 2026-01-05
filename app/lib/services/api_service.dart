@@ -8,13 +8,23 @@ import '../utils/dio_client.dart';
 class ApiService {
   static const String baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-  static final Dio _dio = DioClient.getDio(null);
+  static final Dio _defaultDio = DioClient.getDio(null);
 
-  /// Kiểm tra server có hoạt động không
+  final Dio _dio;
+
+  /// Constructor với dependency injection cho testing
+  ApiService({Dio? dio}) : _dio = dio ?? _defaultDio;
+
+  /// Kiểm tra server có hoạt động không (static method - backward compatible)
+  static Future<Map<String, dynamic>> checkServerHealth() async {
+    return ApiService().checkHealth();
+  }
+
+  /// Kiểm tra server có hoạt động không (instance method - testable)
   ///
   /// Returns: Map với keys 'isHealthy' (bool) và 'errorType' (String?)
   /// errorType có thể là: 'maintenance' (503), 'no_internet' (mất mạng), null (nếu OK)
-  static Future<Map<String, dynamic>> checkServerHealth() async {
+  Future<Map<String, dynamic>> checkHealth() async {
     try {
       debugPrint('🔵 [ApiService] Kiểm tra server health...');
 

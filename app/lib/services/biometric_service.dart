@@ -6,13 +6,18 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class BiometricService {
-  final LocalAuthentication _auth = LocalAuthentication();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final LocalAuthentication _auth;
+  final FlutterSecureStorage _storage;
 
   static const String _savedAccountsKey =
       'biometric_saved_accounts'; // Key cho SharedPreferences
   static const String _passPrefix =
       'biometric_pass_'; // Prefix cho SecureStorage
+
+  /// Constructor với dependency injection cho testing
+  BiometricService({LocalAuthentication? auth, FlutterSecureStorage? storage})
+    : _auth = auth ?? LocalAuthentication(),
+      _storage = storage ?? const FlutterSecureStorage();
 
   /// Kiểm tra xem thiết bị có hỗ trợ sinh trắc học không
   Future<bool> isBiometricAvailable() async {
