@@ -279,7 +279,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
                 ),
                 GoRoute(
                   path: ':id',
-                  parentNavigatorKey: rootNavigatorKey,
+                  // Keep inside ShellRoute to show global FAB
                   builder: (context, state) {
                     final groupId = state.pathParameters['id'] ?? '';
                     final extra = state.extra as Map<String, dynamic>?;
@@ -728,9 +728,7 @@ class _MainWrapperState extends State<MainWrapper> {
                   )
                 : null,
 
-            bottomNavigationBar: showFAB
-                ? _buildConfiguredBottomBar(context)
-                : null,
+            bottomNavigationBar: _buildConfiguredBottomBar(context),
           ),
         );
       },

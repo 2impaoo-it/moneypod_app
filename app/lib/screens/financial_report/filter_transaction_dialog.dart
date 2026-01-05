@@ -28,10 +28,12 @@ class _FilterTransactionDialogState extends State<FilterTransactionDialog>
       'Từ thiện',
     ],
     'Chi phí cố định': ['Hóa đơn', 'Nhà cửa', 'Người thân'],
+    'Thanh toán nợ': ['Trả nợ'],
   };
 
   final Map<String, List<String>> _incomeGroups = {
     'Thu nhập': ['Lương', 'Thưởng', 'Khác'],
+    'Thu nợ': ['Thu nợ'],
   };
 
   @override

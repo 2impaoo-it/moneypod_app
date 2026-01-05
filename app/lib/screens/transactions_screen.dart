@@ -32,6 +32,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     "Hóa đơn",
     "Lương",
     "Sức khỏe",
+    "Thu nợ",
+    "Trả nợ",
     "Khác",
   ];
 

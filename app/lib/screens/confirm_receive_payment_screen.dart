@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
-import '../utils/app_global_state.dart';
+
 import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
@@ -56,8 +56,7 @@ class _ConfirmReceivePaymentScreenState
   @override
   void initState() {
     super.initState();
-    // Hide MainWrapper's FAB when this screen is active
-    AppGlobalState.hideMainFAB.value = true;
+    // FAB is hidden automatically by /full-screen/ route prefix in MainWrapper
     _groupRepository = GroupRepository();
     _walletRepository = WalletRepository();
     _loadWallets();
@@ -65,8 +64,6 @@ class _ConfirmReceivePaymentScreenState
 
   @override
   void dispose() {
-    // Restore FAB when leaving this screen
-    AppGlobalState.hideMainFAB.value = false;
     super.dispose();
   }
 
