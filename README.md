@@ -1,7 +1,7 @@
 # MoneyPod - Ứng dụng Quản lý Chi tiêu Nhóm
 
 <div align="center">
-  <img src="app/assets/icons/app_icon.png" alt="MoneyPod Logo" width="120" height="120" />
+  <img src="aapp/assets/icons/base_app_icon.png" alt="MoneyPod Logo" width="120" height="120" />
   
   [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
   [![Go](https://img.shields.io/badge/Go-1.x-00ADD8?logo=go)](https://golang.org)
