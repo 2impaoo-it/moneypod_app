@@ -225,6 +225,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               proofImageUrl: extra?['proofImageUrl'],
               isPaid: extra?['isPaid'] ?? false,
               receivedWalletId: extra?['receivedWalletId'],
+              hasPaymentRequest: extra?['hasPaymentRequest'] ?? false,
             );
           },
         ),

@@ -8,6 +8,7 @@ import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
+import 'add_expense_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
@@ -366,7 +367,25 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           ),
         ],
       ),
-      // bottomNavigationBar: _buildBottomActionBar(), // Removed per new requirements or kept minimal? Removed for now.
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Navigate to add expense screen với groupId được chọn sẵn
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  AddExpenseScreen(preSelectedGroupId: widget.groupId),
+            ),
+          );
+
+          // Nếu thêm expense thành công, refresh lại dữ liệu
+          if (result == true && mounted) {
+            _loadAllData();
+          }
+        },
+        backgroundColor: AppColors.teal500,
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
     );
   }
 

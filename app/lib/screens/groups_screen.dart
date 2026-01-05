@@ -4,8 +4,6 @@ import '../models/profile.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
 import '../repositories/group_repository.dart';
-import 'debt_payment_screen.dart';
-import 'confirm_receive_payment_screen.dart';
 
 // --- UTILS: Colors & Helpers (Copy-paste friendly) ---
 import '../theme/app_colors.dart';
@@ -64,25 +62,6 @@ class _GroupsScreenState extends State<GroupsScreen>
     // Auto-refresh khi app quay lại foreground
     if (state == AppLifecycleState.resumed) {
       _refreshData();
-    }
-  }
-
-  // Load user profile
-  Future<void> _loadUserProfile() async {
-    try {
-      final authService = AuthService();
-      final token = await authService.getToken();
-      if (token == null) return;
-
-      final profileService = ProfileService();
-      final profile = await profileService.getUserProfile(token);
-      if (mounted && profile != null) {
-        setState(() {
-          _currentUser = profile;
-        });
-      }
-    } catch (e) {
-      print('Error loading user profile: $e');
     }
   }
 
@@ -261,6 +240,23 @@ class _GroupsScreenState extends State<GroupsScreen>
     };
   }
 
+  Future<void> _loadUserProfile() async {
+    try {
+      final token = await AuthService().getToken();
+      if (token == null) return;
+      final profile = await ProfileService().getUserProfile(token);
+      if (mounted) {
+        setState(() {
+          _currentUser = profile;
+        });
+        // Recalculate if needed, but fetchDebtData calls calculate
+        _fetchDebtData();
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+    }
+  }
+
   // Map pending settlements từ myDebts (TÔI NỢ người khác)
   List<Map<String, dynamic>> _mapPendingSettlements(
     List<Map<String, dynamic>> myDebts,
@@ -283,6 +279,11 @@ class _GroupsScreenState extends State<GroupsScreen>
           expenseData?['image_url'] ?? ''; // Hình ảnh bill từ expense
       final groupName = debt['group_name'] ?? 'Nhóm';
 
+      // Payment confirmation info
+      final paymentConfirmedAt = debt['payment_confirmed_at'];
+      final paymentWalletId = debt['payment_wallet_id']?.toString();
+      final paymentNote = debt['payment_note'] as String?;
+
       return {
         'name': toUserName,
         'avatar': toUserAvatar,
@@ -291,6 +292,9 @@ class _GroupsScreenState extends State<GroupsScreen>
         'amount': amount.round(),
         'debt_id': debt['id']?.toString(),
         'expense_image_url': expenseImageUrl,
+        'payment_confirmed_at': paymentConfirmedAt,
+        'payment_wallet_id': paymentWalletId,
+        'payment_note': paymentNote,
       };
     }).toList();
   }
@@ -1255,23 +1259,20 @@ class _GroupsScreenState extends State<GroupsScreen>
           (item) => GestureDetector(
             onTap: () async {
               // "Chờ thanh toán" là TÔI NỢ người khác -> Navigate đến màn hình trả nợ
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  fullscreenDialog: true,
-                  builder: (context) => DebtPaymentScreen(
-                    debtId: item['debt_id'] ?? '',
-                    creditorName: item['name'] ?? 'Unknown',
-                    creditorAvatar: item['avatar'] ?? '',
-                    amount: item['amount'] ?? 0,
-                    description: item['description'] ?? '',
-                    groupName: item['group_name'] ?? 'Nhóm',
-                    existingProofImageUrl: item['expense_image_url'],
-                    isPaid: item['payment_confirmed_at'] != null,
-                    paymentWalletId: item['payment_wallet_id'],
-                    paymentNote: item['payment_note'],
-                  ),
-                ),
+              final result = await context.push(
+                '/full-screen/debt/pay',
+                extra: {
+                  'debtId': item['debt_id'] ?? '',
+                  'creditorName': item['name'] ?? 'Unknown',
+                  'creditorAvatar': item['avatar'] ?? '',
+                  'amount': item['amount'] ?? 0,
+                  'description': item['description'] ?? '',
+                  'groupName': item['group_name'] ?? 'Nhóm',
+                  'existingProofImageUrl': item['expense_image_url'],
+                  'isPaid': item['payment_wallet_id'] != null,
+                  'paymentWalletId': item['payment_wallet_id'],
+                  'paymentNote': item['payment_note'],
+                },
               );
 
               // Refresh if payment was made
