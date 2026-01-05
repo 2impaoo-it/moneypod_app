@@ -37,7 +37,9 @@ class _HeaderWidgetState extends State<HeaderWidget> {
       onTap: () {
         print('Avatar tapped - navigating to /profile');
         try {
-          context.go('/profile');
+          // Sử dụng push thay vì go để giữ lại lịch sử navigation,
+          // cho phép user back về màn hình trước đó (Dashboard)
+          context.push('/profile');
         } catch (e) {
           print('Navigation error: $e');
         }

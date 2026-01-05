@@ -184,9 +184,35 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          const Icon(
-                            LucideIcons.moreVertical,
-                            color: AppColors.textSecondary,
+                          PopupMenuButton<String>(
+                            icon: const Icon(
+                              LucideIcons.moreVertical,
+                              color: AppColors.textSecondary,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'delete') {
+                                _showDeleteAllDialog(context, budgets);
+                              }
+                            },
+                            itemBuilder: (BuildContext context) => [
+                              const PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.trash2,
+                                      size: 18,
+                                      color: AppColors.danger,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Xóa tất cả',
+                                      style: TextStyle(color: AppColors.danger),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -269,6 +295,40 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
     );
   }
 
+  void _showDeleteAllDialog(BuildContext context, List<Budget> budgets) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa tất cả ngân sách?'),
+        content: Text('Bạn có chắc muốn xóa ${budgets.length} ngân sách?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              for (var budget in budgets) {
+                context.read<BudgetBloc>().add(
+                  BudgetDeleteRequested(
+                    id: budget.id,
+                    month: budget.month,
+                    year: budget.year,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Xóa tất cả',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHalfCircleChart({required double spent, required double total}) {
     final currencyFormat = NumberFormat.currency(
       locale: 'vi_VN',
@@ -279,9 +339,13 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
     if (total == 0) total = 1;
 
     final remaining = total - spent;
+    final bool isOverBudget = remaining < 0;
+    final Color chartColor = isOverBudget
+        ? AppColors.danger
+        : AppColors.primary;
 
     return SizedBox(
-      height: 120,
+      height: 150,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -290,11 +354,11 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
             painter: HalfCirclePainter(
               spent: spent,
               total: total,
-              color: AppColors.primary,
+              color: chartColor,
             ),
           ),
           Positioned(
-            bottom: 10,
+            bottom: 5,
             child: Column(
               children: [
                 Text(
@@ -310,9 +374,29 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: chartColor,
                   ),
                 ),
+                if (isOverBudget)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.alertTriangle,
+                        color: AppColors.danger,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Vượt hạn mức!",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -471,6 +555,25 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
+                        if (isOverBudget)
+                          Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.alertTriangle,
+                                color: AppColors.danger,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Vượt hạn mức!",
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         const SizedBox(height: 4),
                         Text(
                           isOverBudget

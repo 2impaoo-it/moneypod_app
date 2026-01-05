@@ -146,45 +146,6 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'edit') {
-                _showEditBudgetDialog();
-              } else if (value == 'delete') {
-                _confirmDelete();
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.pencil, size: 18),
-                      SizedBox(width: 8),
-                      Text('Chỉnh sửa'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        LucideIcons.trash2,
-                        size: 18,
-                        color: AppColors.danger,
-                      ),
-                      SizedBox(width: 8),
-                      Text('Xóa', style: TextStyle(color: AppColors.danger)),
-                    ],
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
       ),
       body: BlocListener<BudgetBloc, BudgetState>(
         listener: (context, state) {
@@ -285,9 +246,47 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const Icon(
-                          LucideIcons.moreVertical,
-                          color: AppColors.textSecondary,
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            LucideIcons.moreVertical,
+                            color: AppColors.textSecondary,
+                          ),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _showEditBudgetDialog();
+                            } else if (value == 'delete') {
+                              _confirmDelete();
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => [
+                            const PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(LucideIcons.pencil, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Chỉnh sửa'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.trash2,
+                                    size: 18,
+                                    color: AppColors.danger,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Xóa',
+                                    style: TextStyle(color: AppColors.danger),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -371,6 +370,11 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
     required double remaining,
     required NumberFormat currencyFormat,
   }) {
+    final bool isOverBudget = remaining < 0;
+    final Color chartColor = isOverBudget
+        ? AppColors.danger
+        : AppColors.primary;
+
     return SizedBox(
       height: 150,
       child: Stack(
@@ -381,11 +385,11 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
             painter: HalfCirclePainter(
               spent: spent,
               total: total,
-              color: AppColors.primary,
+              color: chartColor,
             ),
           ),
           Positioned(
-            bottom: 20,
+            bottom: 10,
             child: Column(
               children: [
                 Text(
@@ -401,9 +405,29 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: chartColor,
                   ),
                 ),
+                if (isOverBudget)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.alertTriangle,
+                        color: AppColors.danger,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Vượt hạn mức!",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -497,58 +521,185 @@ class _BudgetDetailScreenState extends State<BudgetDetailScreen> {
       decimalDigits: 0,
     );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: () => _showTransactionDetail(transaction),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: CategoryHelper.getBackgroundColor(transaction.category),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                CategoryHelper.getIcon(transaction.category),
+                color: CategoryHelper.getColor(transaction.category),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transaction.title.isNotEmpty
+                        ? transaction.title
+                        : transaction.category,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('HH:mm - dd/MM/yyyy').format(transaction.date),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              "-${currencyFormat.format(transaction.amount)}",
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.danger,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: CategoryHelper.getBackgroundColor(transaction.category),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              CategoryHelper.getIcon(transaction.category),
-              color: CategoryHelper.getColor(transaction.category),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  // Hiển thị chi tiết transaction
+  void _showTransactionDetail(model.Transaction tx) {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
+    final isExpense = tx.isExpense;
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
               children: [
-                Text(
-                  transaction.title.isNotEmpty
-                      ? transaction.title
-                      : transaction.category,
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Icon(
+                    CategoryHelper.getIcon(tx.category),
+                    color: categoryColor,
+                    size: 28,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  DateFormat('HH:mm - dd/MM/yyyy').format(transaction.date),
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
                 ),
               ],
             ),
-          ),
+
+            const Divider(height: 32),
+
+            // Transaction Info
+            _buildDetailRow(
+              'Loại giao dịch',
+              isExpense ? 'Chi tiêu' : 'Thu nhập',
+            ),
+            _buildDetailRow('Danh mục', tx.category),
+            _buildDetailRow(
+              'Số tiền',
+              "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
+              valueColor: isExpense ? AppColors.danger : AppColors.success,
+            ),
+            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           Text(
-            "-${currencyFormat.format(transaction.amount)}",
-            style: GoogleFonts.inter(
+            label,
+            style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.danger,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
             ),
           ),
         ],

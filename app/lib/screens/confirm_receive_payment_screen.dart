@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
 class ConfirmReceivePaymentScreen extends StatefulWidget {
@@ -73,8 +74,10 @@ class _ConfirmReceivePaymentScreenState
         }
       });
     } catch (e) {
-      setState(() => _isLoadingWallets = false);
-      PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
+        PopupNotification.showError(context, 'Lỗi tải ví: $e');
+      }
     }
   }
 
@@ -135,7 +138,7 @@ class _ConfirmReceivePaymentScreenState
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.slate900),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: const Text(
           'Xác nhận nhận tiền',
@@ -405,50 +408,18 @@ class _ConfirmReceivePaymentScreenState
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.slate200,
-                      width: isSelected ? 2 : 1,
+                          : AppColors.slate900,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.slate400,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              wallet.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.slate900,
-                              ),
-                            ),
-                            Text(
-                              _formatCurrency(wallet.balance.toInt()),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.slate600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Text(
+                    _formatCurrency(wallet.balance.toInt()),
+                    style: TextStyle(fontSize: 12, color: AppColors.slate600),
                   ),
-                ),
-              );
-            }),
-        ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

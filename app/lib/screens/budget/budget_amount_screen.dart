@@ -13,11 +13,13 @@ import '../../models/transaction.dart';
 import '../../bloc/budget/budget_bloc.dart'; // Import BudgetBloc
 import '../../bloc/budget/budget_event.dart';
 import '../../bloc/budget/budget_state.dart';
+import '../../bloc/transaction/transaction_bloc.dart';
+import '../../bloc/transaction/transaction_state.dart';
 
 class BudgetAmountScreen extends StatefulWidget {
   final String categoryName;
   final bool isTotal;
-  final List<Transaction>? transactions;
+  final List<Transaction>? transactions; // Keep for backwards compatibility
 
   const BudgetAmountScreen({
     super.key,
@@ -41,7 +43,22 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
   void initState() {
     super.initState();
     _amountController.addListener(_validateForm);
-    _calculateRealData();
+    _generateMockData(); // Initialize with mock data first
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTransactionsFromBloc();
+  }
+
+  void _loadTransactionsFromBloc() {
+    final transactionState = context.read<TransactionBloc>().state;
+    if (transactionState is TransactionLoaded) {
+      _calculateRealDataFromList(transactionState.transactions);
+    } else if (widget.transactions != null && widget.transactions!.isNotEmpty) {
+      _calculateRealDataFromList(widget.transactions!);
+    }
   }
 
   void _validateForm() {
@@ -56,8 +73,8 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
     super.dispose();
   }
 
-  void _calculateRealData() {
-    if (widget.transactions == null || widget.transactions!.isEmpty) {
+  void _calculateRealDataFromList(List<Transaction> transactions) {
+    if (transactions.isEmpty) {
       _generateMockData();
       return;
     }
@@ -65,7 +82,7 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
     final now = DateTime.now();
     final Map<int, double> monthlySpending = {};
 
-    final releventTxs = widget.transactions!.where((t) {
+    final releventTxs = transactions.where((t) {
       if (t.type != 'expense') return false;
       if (widget.isTotal) return true;
       return t.category == widget.categoryName;

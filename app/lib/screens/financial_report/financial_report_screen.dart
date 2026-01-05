@@ -22,15 +22,19 @@ class FinancialReportScreen extends StatefulWidget {
 class _FinancialReportScreenState extends State<FinancialReportScreen>
     with SingleTickerProviderStateMixin {
   late DateTime _selectedDate;
-  final bool _areAmountsVisible = true;
+  int _selectedWeek = 1; // Week 1-4/5
+  bool _hideAmounts = false; // Toggle for hiding amounts
   late TabController _tabController;
-  int _selectedSubTab = 0; // 0: Income, 1: Expense, 2: Difference
-  bool _compareWithSamePeriod = true;
+  int _selectedSubTab =
+      2; // Default to Difference (0: Income, 1: Expense, 2: Difference)
+  String? _selectedCategory; // For pie chart category highlight
+  int _touchedBarIndex = -1; // For bar chart tooltip
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _selectedWeek = _getWeekOfMonth(_selectedDate);
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -38,6 +42,18 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
     );
     _tabController.addListener(_onTabChanged);
     _loadReport(); // Load default (Month)
+  }
+
+  int _getWeekOfMonth(DateTime date) {
+    final firstDayOfMonth = DateTime(date.year, date.month, 1);
+    final dayOfMonth = date.day;
+    return ((dayOfMonth + firstDayOfMonth.weekday - 2) ~/ 7) + 1;
+  }
+
+  int _getWeeksInMonth(int year, int month) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final firstDayWeekday = DateTime(year, month, 1).weekday;
+    return ((lastDay + firstDayWeekday - 2) ~/ 7) + 1;
   }
 
   void _onTabChanged() {
@@ -56,26 +72,54 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
 
   void _loadReport() {
     ReportType type = ReportType.month;
-    if (_tabController.index == 0)
+    if (_tabController.index == 0) {
       type = ReportType.week;
-    else if (_tabController.index == 2)
+    } else if (_tabController.index == 2) {
       type = ReportType.year;
+    }
 
     context.read<FinancialReportBloc>().add(
       LoadReport(
         month: _selectedDate.month,
         year: _selectedDate.year,
+        week: _selectedWeek,
         reportType: type,
       ),
     );
   }
 
-  void _changeMonth(int offset) {
+  void _changePeriod(int offset) {
     setState(() {
-      _selectedDate = DateTime(
-        _selectedDate.year,
-        _selectedDate.month + offset,
-      );
+      if (_tabController.index == 0) {
+        // Week navigation
+        final maxWeeks = _getWeeksInMonth(
+          _selectedDate.year,
+          _selectedDate.month,
+        );
+        _selectedWeek += offset;
+        if (_selectedWeek > maxWeeks) {
+          _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + 1);
+          _selectedWeek = 1;
+        } else if (_selectedWeek < 1) {
+          _selectedDate = DateTime(_selectedDate.year, _selectedDate.month - 1);
+          _selectedWeek = _getWeeksInMonth(
+            _selectedDate.year,
+            _selectedDate.month,
+          );
+        }
+      } else if (_tabController.index == 2) {
+        // Year navigation
+        _selectedDate = DateTime(
+          _selectedDate.year + offset,
+          _selectedDate.month,
+        );
+      } else {
+        // Month navigation
+        _selectedDate = DateTime(
+          _selectedDate.year,
+          _selectedDate.month + offset,
+        );
+      }
     });
     _loadReport();
   }
@@ -195,16 +239,13 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
               fontWeight: FontWeight.w600,
               color: isSelected
                   ? (_selectedSubTab == 1
-                        ? AppColors.danger
+                        ? Colors
+                              .red // Expense - Red
                         : (_selectedSubTab == 0
-                              ? Colors.pink
-                              : AppColors.success))
+                              ? Colors
+                                    .blue // Income - Blue
+                              : Colors.orange)) // Difference - Orange
                   : AppColors.textSecondary,
-              // Note: Logic adjustment - Income usually Green/Pink, Expense Red/Blue depending on theme.
-              // Based on image: Income = Pink/Redish tab text? Let's stick to Pink for Income, Red for Expense not ideal.
-              // Image 0 (Thu nhap) has Pink text.
-              // Image 1 (Chi tieu) has Pink text.
-              // Let's use Pink (Color(0xFFE91E63)) for active tab text logic if that matches theme, or AppColors.primary
             ),
           ),
         ),
@@ -216,24 +257,38 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
     double currentAmount = 0;
     double prevAmount = 0;
     String title = "";
+    String periodLabel = "";
+    String prevPeriodLabel = "";
+
+    // Determine labels based on report type
+    if (state.reportType == ReportType.year) {
+      periodLabel = "năm nay";
+      prevPeriodLabel = "năm trước";
+    } else if (state.reportType == ReportType.week) {
+      periodLabel = "tuần này";
+      prevPeriodLabel = "tuần trước";
+    } else {
+      periodLabel = "tháng này";
+      prevPeriodLabel = "tháng trước";
+    }
 
     // Data selection
     if (_selectedSubTab == 0) {
       // Salary / Income
       currentAmount = state.data.totalIncome;
       prevAmount = state.data.previousMonthIncome;
-      title = "Tổng thu tháng này";
+      title = "Tổng thu $periodLabel";
     } else if (_selectedSubTab == 1) {
       // Expense
       currentAmount = state.data.totalExpense;
       prevAmount = state.data.previousMonthExpense;
-      title = "Tổng chi tháng này";
+      title = "Tổng chi $periodLabel";
     } else {
       // Difference
       currentAmount = state.data.totalIncome - state.data.totalExpense;
       prevAmount =
           state.data.previousMonthIncome - state.data.previousMonthExpense;
-      title = "Tổng chênh lệch tháng này";
+      title = "Tổng chênh lệch $periodLabel";
     }
 
     final diff = currentAmount - prevAmount;
@@ -254,292 +309,678 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
     }
     if (maxY == 0) maxY = 100000; // Default min height
 
-    return Column(
-      children: [
-        // Total Amount
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            color: AppColors.textSecondary,
-            fontSize: 14,
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Total Amount
+          Text(
+            title, // Restore title usage
+            style: GoogleFonts.inter(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _areAmountsVisible ? currencyFormat.format(currentAmount) : '******',
-          style: GoogleFonts.inter(
-            fontSize: 32,
-            fontWeight: FontWeight.normal,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
-        // Banner
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          decoration: BoxDecoration(
-            color: isIncrease
-                ? Colors.green.withOpacity(0.1)
-                : Colors.orange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          // Total Amount with Eye Button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                isIncrease ? LucideIcons.trendingUp : LucideIcons.trendingDown,
-                size: 16,
-                color: isIncrease ? Colors.green : Colors.orange,
-              ),
-              const SizedBox(width: 8),
               Text(
-                "${isIncrease ? 'Tăng' : 'Giảm'} ${currencyFormat.format(diff.abs())} so với cùng kỳ tháng trước",
+                !_hideAmounts ? currencyFormat.format(currentAmount) : '******',
                 style: GoogleFonts.inter(
-                  color: isIncrease
-                      ? Colors.green
-                      : Colors.orange, // Text matches icon
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 32,
+                  fontWeight: FontWeight.normal,
+                  color: _selectedSubTab == 1
+                      ? Colors.red
+                      : (_selectedSubTab == 2
+                            ? Colors.orange
+                            : AppColors.primary),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                LucideIcons.info,
-                size: 14,
-                color: isIncrease ? Colors.green : Colors.orange,
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(
+                  _hideAmounts ? LucideIcons.eyeOff : LucideIcons.eye,
+                  size: 20,
+                ),
+                color: AppColors.textSecondary,
+                onPressed: () {
+                  setState(() {
+                    _hideAmounts = !_hideAmounts;
+                  });
+                },
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
 
-        const SizedBox(height: 24),
-
-        // Chart Section
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Banner (Hide if future)
+          if (_selectedDate.isBefore(DateTime.now()) ||
+              (_selectedDate.month == DateTime.now().month &&
+                  _selectedDate.year == DateTime.now().year))
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: isIncrease
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    "Biến động",
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  Icon(
+                    isIncrease
+                        ? LucideIcons.trendingUp
+                        : LucideIcons.trendingDown,
+                    size: 16,
+                    color: isIncrease ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    // Ensure text wraps if needed
+                    child: Text(
+                      "${isIncrease ? 'Tăng' : 'Giảm'} ${currencyFormat.format(diff.abs())} so với cùng kỳ $prevPeriodLabel",
+                      style: GoogleFonts.inter(
+                        color: isIncrease
+                            ? Colors.green
+                            : Colors.red, // Text matches icon
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                  Row(
-                    children: [
+                  const SizedBox(width: 4),
+                  Icon(
+                    LucideIcons.info,
+                    size: 14,
+                    color: isIncrease ? Colors.green : Colors.red,
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // Chart Section
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Chart Legend
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_selectedSubTab == 2) ...[
+                      // Chênh lệch tab: show both legends
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        "So với cùng kỳ",
+                        "Thu nhập",
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Transform.scale(
-                        scale: 0.8,
-                        child: Switch(
-                          value: _compareWithSamePeriod,
-                          activeThumbColor: Colors.white,
-                          activeTrackColor: Colors.green,
-                          onChanged: (val) {
-                            setState(() {
-                              _compareWithSamePeriod = val;
-                            });
-                          },
+                      const SizedBox(width: 16),
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Chi tiêu",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ] else ...[
+                      // Thu nhập / Chi tiêu tab: show single legend
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: _selectedSubTab == 0
+                              ? Colors.green
+                              : Colors.red,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _selectedSubTab == 0 ? "Thu nhập" : "Chi tiêu",
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              Container(
-                height: 300,
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  ],
                 ),
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: (() {
-                      if (state.data.trends.length < 7) return 1000000.0;
-                      double m = 0;
-                      for (int i = 1; i < state.data.trends.length; i++) {
-                        double val = _selectedSubTab == 0
-                            ? state.data.trends[i].income
-                            : state.data.trends[i].expense;
-                        if (val > m) m = val;
-                        if (_compareWithSamePeriod) {
-                          double prev = _selectedSubTab == 0
-                              ? state.data.trends[i - 1].income
-                              : state.data.trends[i - 1].expense;
-                          if (prev > m) m = prev;
+                const SizedBox(height: 24),
+
+                Container(
+                  height: 300,
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: (() {
+                        double m = 0;
+                        for (int i = 0; i < state.data.trends.length; i++) {
+                          double val;
+                          if (_selectedSubTab == 0) {
+                            val = state.data.trends[i].income;
+                          } else if (_selectedSubTab == 1) {
+                            val = state.data.trends[i].expense;
+                          } else {
+                            // Difference tab: get max of both income and expense
+                            val =
+                                state.data.trends[i].income >
+                                    state.data.trends[i].expense
+                                ? state.data.trends[i].income
+                                : state.data.trends[i].expense;
+                          }
+                          if (val > m) m = val;
                         }
-                      }
-                      return m == 0 ? 10.0 : m * 1.2;
-                    })(),
-                    barTouchData: BarTouchData(
-                      enabled: true,
-                      touchTooltipData: BarTouchTooltipData(
-                        tooltipBgColor: Colors.blueGrey,
-                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                          return BarTooltipItem(
-                            NumberFormat.currency(
+                        return m == 0 ? 10.0 : m * 1.2;
+                      })(),
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          tooltipBgColor: Colors.blueGrey,
+                          tooltipPadding: const EdgeInsets.all(8),
+                          tooltipMargin: 8,
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            if (groupIndex >= state.data.trends.length) {
+                              return null;
+                            }
+                            final item = state.data.trends[groupIndex];
+                            final currencyFormat = NumberFormat.compact(
                               locale: 'vi_VN',
-                              symbol: 'đ',
-                            ).format(rod.toY),
-                            const TextStyle(color: Colors.white),
-                          );
+                            );
+
+                            // For Difference tab (2 bars): show only relevant value
+                            if (_selectedSubTab == 2) {
+                              if (rodIndex == 0) {
+                                // Green bar - Income only
+                                return BarTooltipItem(
+                                  'Thu: ${currencyFormat.format(item.income)}',
+                                  GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              } else {
+                                // Red bar - Expense only
+                                return BarTooltipItem(
+                                  'Chi: ${currencyFormat.format(item.expense)}',
+                                  GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                            }
+
+                            // For Income/Expense tabs: show single value
+                            final isIncome = _selectedSubTab == 0;
+                            return BarTooltipItem(
+                              isIncome
+                                  ? 'Thu: ${currencyFormat.format(item.income)}'
+                                  : 'Chi: ${currencyFormat.format(item.expense)}',
+                              GoogleFonts.inter(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                        touchCallback: (FlTouchEvent event, barTouchResponse) {
+                          setState(() {
+                            if (!event.isInterestedForInteractions ||
+                                barTouchResponse == null ||
+                                barTouchResponse.spot == null) {
+                              _touchedBarIndex = -1;
+                              return;
+                            }
+                            _touchedBarIndex =
+                                barTouchResponse.spot!.touchedBarGroupIndex;
+                          });
                         },
                       ),
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            if (value == 0) return const SizedBox.shrink();
-                            return Text(
-                              NumberFormat.compact(
-                                locale: 'en_US',
-                              ).format(value),
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 10,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (val, meta) {
-                            final index = val.toInt();
-                            if (index < 1 ||
-                                index >= state.data.trends.length) {
-                              return const SizedBox.shrink();
-                            }
-                            final item = state.data.trends[index];
-                            final isCurrent =
-                                index == state.data.trends.length - 1;
-
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                isCurrent ? "Tháng này" : "T${item.month}",
-                                style: TextStyle(
+                      titlesData: FlTitlesData(
+                        show: true,
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 40,
+                            getTitlesWidget: (value, meta) {
+                              if (value == 0) return const SizedBox.shrink();
+                              return Text(
+                                NumberFormat.compact(
+                                  locale: 'en_US',
+                                ).format(value),
+                                style: const TextStyle(
+                                  color: Colors.grey,
                                   fontSize: 10,
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: isCurrent ? Colors.blue : Colors.grey,
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 30,
+                            getTitlesWidget: (val, meta) {
+                              final index = val.toInt();
+                              if (index < 0 ||
+                                  index >= state.data.trends.length) {
+                                return const SizedBox.shrink();
+                              }
+                              final item = state.data.trends[index];
+                              final isCurrent =
+                                  index == state.data.trends.length - 1;
+
+                              String label;
+                              if (state.reportType == ReportType.year) {
+                                // Year view: Show year labels (2020, 2021, 2022...)
+                                // item.month stores the year in year view
+                                label = "${item.month}";
+                              } else if (state.reportType == ReportType.week) {
+                                // Week view: Show week number or "Tuần này"
+                                label = isCurrent
+                                    ? "Tuần này"
+                                    : "T${item.month}";
+                              } else {
+                                // Month view: Show past 6 months
+                                label = isCurrent
+                                    ? "Tháng này"
+                                    : "T${item.month}";
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: isCurrent
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isCurrent
+                                        ? Colors.blue
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      getDrawingHorizontalLine: (value) => FlLine(
-                        color: Colors.grey.withOpacity(0.2),
-                        strokeWidth: 1,
-                        dashArray: [5, 5],
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: Colors.grey.withOpacity(0.2),
+                          strokeWidth: 1,
+                          dashArray: [5, 5],
+                        ),
                       ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: [
+                        if (state.data.trends.isNotEmpty)
+                          for (int i = 0; i < state.data.trends.length; i++)
+                            BarChartGroupData(
+                              x: i,
+                              barRods: _selectedSubTab == 2
+                                  // Tab Chênh lệch: Hiển thị 2 cột (Thu nhập + Chi tiêu)
+                                  ? [
+                                      // Cột Thu nhập (xanh lá)
+                                      BarChartRodData(
+                                        toY: state.data.trends[i].income,
+                                        color: i == _touchedBarIndex
+                                            ? Colors.green.shade900
+                                            : (i == state.data.trends.length - 1
+                                                  ? Colors.green
+                                                  : Colors.green.shade200),
+                                        width: state.data.trends.length < 7
+                                            ? 14
+                                            : 7,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      // Cột Chi tiêu (đỏ)
+                                      BarChartRodData(
+                                        toY: state.data.trends[i].expense,
+                                        color: i == _touchedBarIndex
+                                            ? Colors.red.shade900
+                                            : (i == state.data.trends.length - 1
+                                                  ? Colors.red
+                                                  : Colors.red.shade200),
+                                        width: state.data.trends.length < 7
+                                            ? 14
+                                            : 7,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ]
+                                  // Tab Thu nhập / Chi tiêu: Hiển thị 1 cột
+                                  : [
+                                      BarChartRodData(
+                                        toY: _selectedSubTab == 0
+                                            ? state.data.trends[i].income
+                                            : state.data.trends[i].expense,
+                                        color: i == _touchedBarIndex
+                                            ? (_selectedSubTab == 0
+                                                  ? Colors.green.shade900
+                                                  : Colors.red.shade900)
+                                            : (_selectedSubTab == 0
+                                                  ? (i ==
+                                                            state
+                                                                    .data
+                                                                    .trends
+                                                                    .length -
+                                                                1
+                                                        ? Colors.green
+                                                        : Colors.green.shade200)
+                                                  : (i ==
+                                                            state
+                                                                    .data
+                                                                    .trends
+                                                                    .length -
+                                                                1
+                                                        ? Colors.red
+                                                        : Colors.red.shade200)),
+                                        width: state.data.trends.length < 7
+                                            ? 32
+                                            : 16,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ],
+                              barsSpace: 4,
+                            ),
+                      ],
                     ),
-                    borderData: FlBorderData(show: false),
-                    barGroups: [
-                      if (state.data.trends.length >= 7)
-                        for (int i = 1; i < state.data.trends.length; i++)
-                          BarChartGroupData(
-                            x: i,
-                            barRods: [
-                              if (_compareWithSamePeriod)
-                                BarChartRodData(
-                                  toY: _selectedSubTab == 0
-                                      ? state.data.trends[i - 1].income
-                                      : state.data.trends[i - 1].expense,
-                                  color: Colors.blue.withOpacity(0.4),
-                                  width: 12,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              BarChartRodData(
-                                toY: _selectedSubTab == 0
-                                    ? state.data.trends[i].income
-                                    : state.data.trends[i].expense,
-                                color: i == state.data.trends.length - 1
-                                    ? Colors.blue
-                                    : Colors.blue.shade200,
-                                width: 12,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ],
-                            barsSpace: 4,
-                          ),
-                    ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Recent Transactions List
-              _buildTransactionList(state.data.transactions),
-
-              const SizedBox(height: 24),
-
-              // Breakdown List - Removed as per user request (duplicate info)
-              // _buildBreakdownSection(state),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+
+          const SizedBox(height: 16),
+
+          // Pie Chart Section
+          _buildPieChartSection(state),
+
+          const SizedBox(height: 24),
+
+          // Recent Transactions List
+          _buildTransactionList(state.data.transactions),
+
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 
-  Widget _buildBreakdownSection(ReportLoaded state) {
-    if (_selectedSubTab == 2) return const SizedBox.shrink();
+  Widget _buildPieChartSection(ReportLoaded state) {
+    if (_selectedSubTab == 2) {
+      // For Difference tab, we show Expense breakdown by default (or user preference if we had it)
+      // No early return
+    }
 
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: _buildCategoryListBreakdown(
-          state,
-          NumberFormat.currency(locale: 'vi_VN', symbol: 'đ'),
+    // 1. Prepare Data
+    // If Tab 0 (Income) -> Show Income
+    // If Tab 1 (Expense) -> Show Expense
+    // If Tab 2 (Difference) -> Show Expense (as requested/decided)
+    final isIncome = _selectedSubTab == 0;
+    final relevantTransactions = state.data.transactions.where((t) {
+      if (isIncome) return t.type == 'income';
+      return t.type == 'expense';
+    }).toList();
+
+    if (relevantTransactions.isEmpty) return const SizedBox.shrink();
+
+    // Group by category
+    final Map<String, double> categoryMap = {};
+    double totalAmount = 0;
+    for (var t in relevantTransactions) {
+      categoryMap[t.category] = (categoryMap[t.category] ?? 0) + t.amount;
+      totalAmount += t.amount;
+    }
+
+    final sortedEntries = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // 2. Build Pie Sections
+    List<PieChartSectionData> sections = [];
+    for (int i = 0; i < sortedEntries.length; i++) {
+      final entry = sortedEntries[i];
+      final isSelected = _selectedCategory == entry.key;
+
+      final radius = isSelected ? 75.0 : 60.0;
+      final color = CategoryHelper.getColor(entry.key);
+      final percentage = (entry.value / totalAmount * 100);
+
+      sections.add(
+        PieChartSectionData(
+          color: color,
+          value: entry.value,
+          title: '${percentage.toStringAsFixed(0)}%',
+          radius: radius,
+          titleStyle: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.black, // Dark color for external labels
+          ),
+          showTitle: true,
+          titlePositionPercentageOffset: 1.5, // Move Labels Outside
         ),
-      ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 300,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              PieChart(
+                PieChartData(
+                  sections: sections,
+                  centerSpaceRadius: 60,
+                  sectionsSpace: 2,
+                  pieTouchData: PieTouchData(
+                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                      setState(() {
+                        // Robust touch handling
+                        if (pieTouchResponse != null &&
+                            pieTouchResponse.touchedSection != null) {
+                          // If valid section touched
+                          final index = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+
+                          if (index >= 0 && index < sortedEntries.length) {
+                            // Only react to TapUp to avoid jitter, OR check for touch down if immediate response preferred.
+                            // Using TapUp is generally safer for "clicks".
+                            if (event is FlTapUpEvent) {
+                              if (_selectedCategory ==
+                                  sortedEntries[index].key) {
+                                _selectedCategory = null;
+                              } else {
+                                _selectedCategory = sortedEntries[index].key;
+                              }
+                            }
+                          }
+                        } else if (event is FlTapUpEvent) {
+                          // If tapped outside (valid response but nil section), deselect
+                          // But BEAM CAREFUL: center hole taps might trigger this.
+                          // If user wants to deselect, they usually tap the already selected slice or outside.
+                          // Tapping outside strictly causing deselect is standard behavior but can be annoying if accidentally triggered.
+                          // Given user complaint, I will DISABLE "tap outside deselect" to prioritize "tap slice selects".
+                          // _selectedCategory = null;
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ),
+              // Center Info
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isIncome ? "Tổng thu" : "Tổng chi",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: isIncome ? Colors.blue : Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    !_hideAmounts
+                        ? NumberFormat.compact(
+                            locale: 'vi_VN',
+                          ).format(totalAmount)
+                        : '******',
+                    style: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isIncome ? Colors.blue : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Category Legend List
+        ...sortedEntries.map((e) {
+          final isSelected = _selectedCategory == e.key;
+          final percentage = (e.value / totalAmount * 100).toStringAsFixed(1);
+          return InkWell(
+            onTap: () {
+              setState(() {
+                if (_selectedCategory == e.key) {
+                  _selectedCategory = null;
+                } else {
+                  _selectedCategory = e.key;
+                }
+              });
+            },
+            child: Container(
+              color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: CategoryHelper.getColor(e.key),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      e.key,
+                      style: GoogleFonts.inter(
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    !_hideAmounts
+                        ? '${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(e.value)} ($percentage%)'
+                        : '$percentage%',
+                    style: GoogleFonts.inter(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 
   Widget _buildTransactionList(List<Transaction> transactions) {
     if (transactions.isEmpty) return const SizedBox.shrink();
 
-    // Limit to 5 items to show "Recent"
-    final displayList = transactions.take(5).toList();
+    // Filter based on selected sub-tab
+    List<Transaction> filteredTransactions;
+    if (_selectedSubTab == 0) {
+      // Income only
+      filteredTransactions = transactions
+          .where((t) => t.type == 'income')
+          .toList();
+    } else if (_selectedSubTab == 1) {
+      // Expense only
+      filteredTransactions = transactions
+          .where((t) => t.type == 'expense')
+          .toList();
+    } else {
+      // Difference tab - show all
+      filteredTransactions = transactions;
+    }
+
+    // Filter by selected category from Pie Chart
+    if (_selectedCategory != null) {
+      filteredTransactions = filteredTransactions
+          .where((t) => t.category == _selectedCategory)
+          .toList();
+    }
+
+    if (filteredTransactions.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Center(child: Text("Không có giao dịch")),
+      );
+    }
+
+    // Limit to 5 items to show "Recent" unless filtered by category (then show all)
+    final displayList = _selectedCategory != null
+        ? filteredTransactions
+        : filteredTransactions.take(5).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,6 +1005,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
             );
 
             return ListTile(
+              onTap: () => _showTransactionDetail(t),
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -585,10 +1027,12 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                 style: const TextStyle(fontSize: 12),
               ),
               trailing: Text(
-                NumberFormat.currency(
-                  locale: 'vi_VN',
-                  symbol: 'đ',
-                ).format(t.amount),
+                !_hideAmounts
+                    ? NumberFormat.currency(
+                        locale: 'vi_VN',
+                        symbol: 'đ',
+                      ).format(t.amount)
+                    : '******',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: t.type == 'income'
@@ -604,7 +1048,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
               child: TextButton(
-                onPressed: () {},
+                onPressed: () => context.push('/transactions'),
                 child: const Text("Xem thêm"),
               ),
             ),
@@ -613,83 +1057,20 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
     );
   }
 
-  List<Widget> _buildCategoryListBreakdown(
-    ReportLoaded state,
-    NumberFormat fmt,
-  ) {
-    if (_selectedSubTab == 2) return [];
-
-    // We need to filter by Income vs Expense based on selectedSubTab
-    // But data.categoryAllocation includes BOTH mixed.
-    // We need to filter categories by type.
-
-    final Map<String, double> relevantCurrent = {};
-
-    // Scan transactions for correct type
-    final typeToCheck = _selectedSubTab == 0 ? 'income' : 'expense';
-
-    // Current
-    for (var t in state.data.transactions) {
-      if (t.type == typeToCheck) {
-        relevantCurrent[t.category] =
-            (relevantCurrent[t.category] ?? 0) + t.amount;
-      }
+  Widget _buildMonthPicker() {
+    String label;
+    if (_tabController.index == 0) {
+      // Week view
+      label =
+          "Tuần $_selectedWeek - Tháng ${_selectedDate.month}/${_selectedDate.year}";
+    } else if (_tabController.index == 2) {
+      // Year view
+      label = "Năm ${_selectedDate.year}";
+    } else {
+      // Month view
+      label = "Tháng ${_selectedDate.month}/${_selectedDate.year}";
     }
 
-    // So, iterate relevantCurrent keys.
-    final List<MapEntry<String, double>> sortedEntries =
-        relevantCurrent.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-
-    return sortedEntries.map((entry) {
-      final catName = entry.key;
-      final currentVal = entry.value;
-
-      final categoryColor = CategoryHelper.getColor(catName);
-      final backgroundColor = CategoryHelper.getBackgroundColor(catName);
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CategoryHelper.getIcon(catName),
-                color: categoryColor,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                catName,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Text(
-              _areAmountsVisible ? fmt.format(currentVal) : '******',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildMonthPicker() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
@@ -700,7 +1081,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
         children: [
           IconButton(
             icon: const Icon(LucideIcons.chevronLeft),
-            onPressed: () => _changeMonth(-1),
+            onPressed: () => _changePeriod(-1),
           ),
           Expanded(
             child: Row(
@@ -713,7 +1094,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "Tháng ${_selectedDate.month}/${_selectedDate.year}",
+                  label,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -724,7 +1105,130 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
           ),
           IconButton(
             icon: const Icon(LucideIcons.chevronRight),
-            onPressed: () => _changeMonth(1),
+            onPressed: () => _changePeriod(1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hiển thị chi tiết transaction
+  void _showTransactionDetail(Transaction tx) {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: '₫',
+      decimalDigits: 0,
+    );
+    final isExpense = tx.isExpense;
+    final categoryColor = CategoryHelper.getColor(tx.category);
+    final backgroundColor = CategoryHelper.getBackgroundColor(tx.category);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Icon(
+                    CategoryHelper.getIcon(tx.category),
+                    color: categoryColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tx.category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(tx.date),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(LucideIcons.x),
+                ),
+              ],
+            ),
+
+            const Divider(height: 32),
+
+            // Transaction Info
+            _buildDetailRow(
+              'Loại giao dịch',
+              isExpense ? 'Chi tiêu' : 'Thu nhập',
+            ),
+            _buildDetailRow('Danh mục', tx.category),
+            _buildDetailRow(
+              'Số tiền',
+              "${isExpense ? '-' : '+'}${currencyFormat.format(tx.amount.abs())}",
+              valueColor: isExpense ? AppColors.danger : AppColors.success,
+            ),
+            if (tx.title.isNotEmpty) _buildDetailRow('Ghi chú', tx.title),
+            if (tx.walletName != null) _buildDetailRow('Ví', tx.walletName!),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: valueColor ?? AppColors.textPrimary,
+              ),
+            ),
           ),
         ],
       ),

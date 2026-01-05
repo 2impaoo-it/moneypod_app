@@ -21,25 +21,48 @@ class FinancialReportBloc
       emit(ReportLoading());
 
       if (event.reportType == ReportType.year) {
-        // --- YEAR REPORT ---
-        // Fetch all transactions for the year (limit 2000 to be safe)
-        final transactions = await _repository.getTransactions(
-          year: event.year,
-          limit: 2000,
-        );
+        // --- YEAR REPORT: Aggregate by YEARS (not months) ---
+        // Fetch transactions for the last 5 years
+        final currentYear = event.year;
+        final List<Future<List<Transaction>>> futures = [];
 
-        // Fetch previous year for comparison
-        final prevTransactions = await _repository.getTransactions(
-          year: event.year - 1,
-          limit: 2000,
-        );
+        for (int y = currentYear - 4; y <= currentYear; y++) {
+          futures.add(_repository.getTransactions(year: y, limit: 2000));
+        }
 
-        // Calculate Totals
+        final results = await Future.wait(futures);
+
+        // Aggregate by year
+        final List<MonthlyTrend> trends = [];
+        List<Transaction> allTransactions = [];
+
+        for (int i = 0; i < 5; i++) {
+          final year = currentYear - 4 + i;
+          final yearTxs = results[i];
+          allTransactions.addAll(yearTxs);
+
+          double inc = 0;
+          double exp = 0;
+          for (var t in yearTxs) {
+            if (t.type == 'income') {
+              inc += t.amount;
+            } else {
+              exp += t.amount;
+            }
+          }
+          // Use month field to store year for display purposes
+          trends.add(
+            MonthlyTrend(month: year, year: year, income: inc, expense: exp),
+          );
+        }
+
+        // Calculate totals for current year
+        final currentYearTxs = results[4];
         double totalIncome = 0;
         double totalExpense = 0;
         final Map<String, double> allocation = {};
 
-        for (var t in transactions) {
+        for (var t in currentYearTxs) {
           if (t.type == 'income') {
             totalIncome += t.amount;
           } else {
@@ -48,39 +71,20 @@ class FinancialReportBloc
           }
         }
 
+        // Previous year for comparison
+        final prevYearTxs = results[3];
         double prevTotalIncome = 0;
         double prevTotalExpense = 0;
         final Map<String, double> prevAllocation = {};
 
-        for (var t in prevTransactions) {
+        for (var t in prevYearTxs) {
           if (t.type == 'income') {
             prevTotalIncome += t.amount;
-            prevAllocation[t.category] =
-                (prevAllocation[t.category] ?? 0) + t.amount;
           } else {
             prevTotalExpense += t.amount;
             prevAllocation[t.category] =
                 (prevAllocation[t.category] ?? 0) + t.amount;
           }
-        }
-
-        // Generate Trends (Jan-Dec)
-        final List<MonthlyTrend> trends = [];
-        for (int m = 1; m <= 12; m++) {
-          double inc = 0;
-          double exp = 0;
-          // Filter from loaded transactions
-          for (var t in transactions) {
-            if (t.date.month == m) {
-              if (t.type == 'income')
-                inc += t.amount;
-              else
-                exp += t.amount;
-            }
-          }
-          trends.add(
-            MonthlyTrend(month: m, year: event.year, income: inc, expense: exp),
-          );
         }
 
         emit(
@@ -92,13 +96,14 @@ class FinancialReportBloc
               previousMonthExpense: prevTotalExpense,
               categoryAllocation: allocation,
               trends: trends,
-              dailyIncome: {}, // Not used/needed for year view chart
+              dailyIncome: {},
               dailyExpense: {},
-              transactions: transactions,
+              transactions: currentYearTxs,
               previousCategoryAllocation: prevAllocation,
             ),
             currentMonth: event.month,
             currentYear: event.year,
+            reportType: ReportType.year,
           ),
         );
       } else {
@@ -162,20 +167,40 @@ class FinancialReportBloc
         List<Transaction> targetPrevTransactions = prevTransactions;
 
         if (event.reportType == ReportType.week) {
-          // Filter Current Month Txs to CURRENT WEEK (or selected week)
-          // Assumption: We show "Week containing today" or first week?
-          // Let's use "Week of the selectedDate" logic.
-          // Determine start/end of week for DateTime(event.year, event.month, currentDay?)
-          // Since we only have month/year, let's assume we want to show the week containing "Now" if within that month,
-          // or the first week of that month?
-          // Better: Use "Selected Date" from UI if passed? UI only passes month/year.
-          // Let's rely on UI to filter `dailyIncome` if needed,
-          // OR calculate Week totals here?
+          // Filter transactions by week number within the current month
+          final firstDayOfMonth = DateTime(event.year, event.month, 1);
+          final firstDayWeekday = firstDayOfMonth.weekday;
 
-          // Simplification: For Week View, just calculate Totals for the WHOLE MONTH for now (as "Week" tab might just mean 'Show Daily Chart').
-          // Screen "Theo tuần" usually shows specific week.
-          // Let's keep Month Data but Screen will render Day Chart.
-          // If we really want Week Totals, we need `day` in event.
+          // Calculate start and end day of the selected week
+          int startDay = 1 + (event.week - 1) * 7 - (firstDayWeekday - 1);
+          if (startDay < 1) startDay = 1;
+
+          final lastDayOfMonth = DateTime(event.year, event.month + 1, 0).day;
+          int endDay = startDay + 6;
+          if (endDay > lastDayOfMonth) endDay = lastDayOfMonth;
+
+          // Filter transactions within the selected week
+          targetTransactions = currentTransactions.where((t) {
+            return t.date.day >= startDay && t.date.day <= endDay;
+          }).toList();
+
+          // Previous week (last 7 days before this week or previous month)
+          if (event.week == 1) {
+            // Previous week is in the previous month
+            targetPrevTransactions = prevTransactions.where((t) {
+              // Last week of previous month
+              final prevLastDay = DateTime(event.year, event.month, 0).day;
+              return t.date.day > prevLastDay - 7;
+            }).toList();
+          } else {
+            // Previous week is in the same month
+            int prevStartDay = startDay - 7;
+            if (prevStartDay < 1) prevStartDay = 1;
+            int prevEndDay = startDay - 1;
+            targetPrevTransactions = currentTransactions.where((t) {
+              return t.date.day >= prevStartDay && t.date.day <= prevEndDay;
+            }).toList();
+          }
         }
 
         for (var t in targetTransactions) {
@@ -226,6 +251,7 @@ class FinancialReportBloc
             ),
             currentMonth: event.month,
             currentYear: event.year,
+            reportType: event.reportType,
           ),
         );
       }
