@@ -7,15 +7,18 @@ import '../config/app_config.dart';
 
 /// Service để lấy insight thông minh từ Gemini AI
 class InsightService {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
   // Cache key format: insight_YYYY_MM
   static const String _cacheKeyPrefix = 'insight_';
 
-  InsightService() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  InsightService({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Lấy insight thông minh cho tháng trước

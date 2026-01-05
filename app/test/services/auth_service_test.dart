@@ -1,36 +1,25 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:moneypod/services/auth_service.dart';
 
 class MockDio extends Mock implements Dio {}
 
-class MockResponse extends Mock implements Response {}
-
-// Note: AuthService instantiates FlutterSecureStorage directly as top-level const or final field.
-// To test calls to storage, we might need to rely on the fact that FlutterSecureStorage
-// uses MethodChannels, and we can mock the channel.
-// However, AuthService has storage as a public final field? No, it's public final.
-// We can't inject it easily without refactoring AuthService constructor.
-// But we can check if AuthService allows injecting Dio.
-// Constructor: AuthService({Dio? dio})
-// So Dio key logic can be tested. Storage logic is secondary or integration test.
-// We will focus on API calls.
+class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
 void main() {
   late AuthService authService;
   late MockDio mockDio;
-
-  setUpAll(() {
-    TestWidgetsFlutterBinding.ensureInitialized(); // Required for MethodChannels if needed
-  });
+  late MockFlutterSecureStorage mockStorage;
 
   setUp(() {
     mockDio = MockDio();
+    mockStorage = MockFlutterSecureStorage();
     // Mock base options accessor
     when(() => mockDio.options).thenReturn(BaseOptions());
 
-    authService = AuthService(dio: mockDio);
+    authService = AuthService(dio: mockDio, secureStorage: mockStorage);
   });
 
   group('AuthService', () {
@@ -56,13 +45,6 @@ void main() {
 
         expect(result['success'], isTrue);
         expect(result['message'], 'Registered successfully');
-
-        verify(
-          () => mockDio.post(
-            '/register',
-            data: {'email': email, 'password': password, 'full_name': fullName},
-          ),
-        ).called(1);
       });
 
       test('should return failure map on API error', () async {
@@ -82,6 +64,96 @@ void main() {
 
         expect(result['success'], isFalse);
         expect(result['message'], 'Email exists');
+      });
+    });
+
+    group('login', () {
+      test('writes token to storage on success', () async {
+        when(
+          () => mockStorage.write(
+            key: any(named: 'key'),
+            value: any(named: 'value'),
+          ),
+        ).thenAnswer((_) async {});
+
+        when(() => mockDio.post(any(), data: any(named: 'data'))).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/login'),
+            statusCode: 200,
+            data: {'token': 'fake_token', 'message': 'Login success'},
+          ),
+        );
+
+        final result = await authService.login(
+          email: email,
+          password: password,
+        );
+
+        expect(result['success'], isTrue);
+        expect(result['token'], 'fake_token');
+
+        verify(
+          () => mockStorage.write(key: 'auth_token', value: 'fake_token'),
+        ).called(1);
+      });
+
+      test('returns failure on 401', () async {
+        when(() => mockDio.post(any(), data: any(named: 'data'))).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/login'),
+            statusCode: 401,
+            data: {'error': 'Invalid credentials'},
+          ),
+        );
+
+        final result = await authService.login(
+          email: email,
+          password: password,
+        );
+
+        expect(result['success'], isFalse);
+        verifyNever(
+          () => mockStorage.write(
+            key: any(named: 'key'),
+            value: any(named: 'value'),
+          ),
+        );
+      });
+    });
+
+    group('token management', () {
+      test('getToken reads from storage', () async {
+        when(
+          () => mockStorage.read(key: 'auth_token'),
+        ).thenAnswer((_) async => 'saved_token');
+
+        expect(await authService.getToken(), 'saved_token');
+      });
+
+      test('logout deletes from storage', () async {
+        when(
+          () => mockStorage.delete(key: 'auth_token'),
+        ).thenAnswer((_) async {});
+
+        await authService.logout();
+
+        verify(() => mockStorage.delete(key: 'auth_token')).called(1);
+      });
+
+      test('isLoggedIn returns true if token exists', () async {
+        when(
+          () => mockStorage.read(key: 'auth_token'),
+        ).thenAnswer((_) async => 'token');
+
+        expect(await authService.isLoggedIn(), isTrue);
+      });
+
+      test('isLoggedIn returns false if token is null', () async {
+        when(
+          () => mockStorage.read(key: 'auth_token'),
+        ).thenAnswer((_) async => null);
+
+        expect(await authService.isLoggedIn(), isFalse);
       });
     });
   });

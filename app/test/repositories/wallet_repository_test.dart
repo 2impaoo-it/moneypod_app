@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:moneypod/repositories/wallet_repository.dart';
@@ -29,7 +29,7 @@ void main() {
       test('returns list of wallets on success', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.get('/wallets', options: any(named: 'options')),
         ).thenAnswer(
@@ -75,7 +75,7 @@ void main() {
       test('handles DioException', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.get('/wallets', options: any(named: 'options')),
         ).thenThrow(
@@ -97,7 +97,7 @@ void main() {
       test('creates wallet successfully', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.post(
             '/wallets',
@@ -145,18 +145,21 @@ void main() {
       test('throws exception on server error', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.post(
             '/wallets',
             data: any(named: 'data'),
             options: any(named: 'options'),
           ),
-        ).thenAnswer(
-          (_) async => Response(
+        ).thenThrow(
+          DioException(
             requestOptions: RequestOptions(path: '/wallets'),
-            statusCode: 400,
-            data: {'error': 'Invalid data'},
+            response: Response(
+              requestOptions: RequestOptions(path: '/wallets'),
+              statusCode: 400,
+              data: {'error': 'Invalid data'},
+            ),
           ),
         );
 
@@ -171,7 +174,7 @@ void main() {
       test('updates wallet successfully', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.put(
             '/wallets/1',
@@ -203,7 +206,7 @@ void main() {
       test('deletes wallet successfully', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.delete('/wallets/1', options: any(named: 'options')),
         ).thenAnswer(
@@ -227,7 +230,7 @@ void main() {
       test('transfers money successfully', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.post(
             '/wallets/transfer',
@@ -266,7 +269,7 @@ void main() {
       test('throws exception on transfer failure', () async {
         when(
           () => mockAuthService.getToken(),
-        ).thenAnswer((_) async => 'valid_token');
+        ).thenAnswer((_) async => 'valid_token_1234567890abcdef');
         when(
           () => mockDio.post(
             '/wallets/transfer',
@@ -296,3 +299,4 @@ void main() {
     });
   });
 }
+

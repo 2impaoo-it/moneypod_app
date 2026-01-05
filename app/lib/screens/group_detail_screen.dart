@@ -20,7 +20,14 @@ class GroupDetailScreen extends StatefulWidget {
     required this.groupId,
     this.groupName,
     this.inviteCode,
+    this.groupRepo,
+    this.profileRepo,
+    this.authService,
   });
+
+  final GroupRepository? groupRepo;
+  final ProfileRepository? profileRepo;
+  final AuthService? authService;
 
   @override
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -29,9 +36,9 @@ class GroupDetailScreen extends StatefulWidget {
 class _GroupDetailScreenState extends State<GroupDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final GroupRepository _groupRepo = GroupRepository();
-  final ProfileRepository _profileRepo = ProfileRepository();
-  final AuthService _authService = AuthService(); // Add service
+  late final GroupRepository _groupRepo;
+  late final ProfileRepository _profileRepo;
+  late final AuthService _authService;
 
   final currencyFormat = NumberFormat.currency(
     locale: 'vi_VN',
@@ -50,6 +57,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   @override
   void initState() {
     super.initState();
+    _groupRepo = widget.groupRepo ?? GroupRepository();
+    _profileRepo = widget.profileRepo ?? ProfileRepository();
+    _authService = widget.authService ?? AuthService();
     _tabController = TabController(length: 3, vsync: this);
     _loadAllData();
   }
