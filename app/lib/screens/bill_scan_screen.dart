@@ -8,6 +8,8 @@ import '../bloc/bill_scan/bill_scan_bloc.dart';
 import '../bloc/bill_scan/bill_scan_event.dart';
 import '../bloc/bill_scan/bill_scan_state.dart';
 import '../repositories/bill_scan_repository.dart';
+import '../repositories/wallet_repository.dart';
+import '../models/wallet.dart';
 
 class BillScanScreen extends StatelessWidget {
   const BillScanScreen({super.key});
@@ -96,7 +98,7 @@ class _BillScanContent extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.2),
+                  color: AppColors.primary.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -144,7 +146,7 @@ class _BillScanContent extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -286,6 +288,9 @@ class _EditableBillCardState extends State<_EditableBillCard> {
   late TextEditingController _noteController;
   late DateTime _selectedDate;
   late String _selectedCategory;
+  String? _selectedWalletId;
+  List<Wallet> _wallets = [];
+  bool _isLoadingWallets = true;
   bool _isSaving = false;
 
   final List<String> _categories = [
@@ -340,6 +345,28 @@ class _EditableBillCardState extends State<_EditableBillCard> {
     _selectedDate = widget.result.date;
     // Map category từ server sang tiếng Việt
     _selectedCategory = _mapCategoryToVietnamese(widget.result.category);
+    _fetchWallets();
+  }
+
+  Future<void> _fetchWallets() async {
+    try {
+      final repository = WalletRepository();
+      final wallets = await repository.getWallets();
+      if (mounted) {
+        setState(() {
+          _wallets = wallets;
+          if (wallets.isNotEmpty) {
+            _selectedWalletId = wallets.first.id;
+          }
+          _isLoadingWallets = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
+        PopupNotification.showError(context, 'Lỗi tải danh sách ví: $e');
+      }
+    }
   }
 
   @override
@@ -379,6 +406,11 @@ class _EditableBillCardState extends State<_EditableBillCard> {
       return;
     }
 
+    if (_selectedWalletId == null) {
+      PopupNotification.showError(context, 'Vui lòng chọn ví thanh toán');
+      return;
+    }
+
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
       PopupNotification.showError(context, 'Vui lòng nhập số tiền hợp lệ');
@@ -390,26 +422,25 @@ class _EditableBillCardState extends State<_EditableBillCard> {
     try {
       // Gửi data lên server
       final repository = BillScanRepository();
-      await repository.saveTransaction(
-        merchant: _merchantController.text.trim(),
-        amount: amount,
-        date: _selectedDate,
-        category: _selectedCategory,
-        note: _noteController.text.trim(),
-      );
+      await repository
+          .saveTransaction(
+            merchant: _merchantController.text.trim(),
+            amount: amount,
+            date: _selectedDate,
+            category: _selectedCategory,
+            walletId: _selectedWalletId!,
+            note: _noteController.text.trim(),
+          )
+          .timeout(const Duration(seconds: 40));
+
+      debugPrint('Transaction saved successfully');
 
       if (!mounted) return;
-
-      // Thành công
-      PopupNotification.showSuccess(context, 'Thêm giao dịch thành công!');
-
-      // Quay về màn hình trước
+      // PopupNotification.showSuccess(context, 'Thêm giao dịch thành công!');
       Navigator.pop(context, true);
     } catch (e) {
-      if (!mounted) return;
-      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
-    } finally {
       if (mounted) {
+        PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
         setState(() => _isSaving = false);
       }
     }
@@ -433,7 +464,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),
@@ -499,13 +530,44 @@ class _EditableBillCardState extends State<_EditableBillCard> {
                     label: 'Danh mục',
                     icon: LucideIcons.tag,
                     value: _selectedCategory,
-                    items: _categories,
+                    items: _categories
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
                     onChanged: (value) {
                       if (value != null) {
                         setState(() => _selectedCategory = value);
                       }
                     },
                   ),
+                  const SizedBox(height: 20),
+
+                  // Wallet Dropdown
+                  _isLoadingWallets
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildModernDropdown(
+                          label: 'Ví thanh toán',
+                          icon: LucideIcons.wallet,
+                          value: _selectedWalletId ?? '',
+                          items: _wallets.map((w) {
+                            final currencyFormat = NumberFormat.currency(
+                              locale: 'vi_VN',
+                              symbol: '₫',
+                              decimalDigits: 0,
+                            );
+                            return DropdownMenuItem(
+                              value: w.id,
+                              child: Text(
+                                '${w.name} - ${currencyFormat.format(w.balance)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _selectedWalletId = value);
+                            }
+                          },
+                        ),
                   const SizedBox(height: 24),
 
                   // Section: Ghi chú
@@ -540,14 +602,17 @@ class _EditableBillCardState extends State<_EditableBillCard> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.success.withOpacity(0.1),
-            AppColors.success.withOpacity(0.05),
+            AppColors.success.withValues(alpha: 0.1),
+            AppColors.success.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.success.withOpacity(0.2), width: 1),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -646,7 +711,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
-              color: AppColors.textMuted.withOpacity(0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.5),
               fontWeight: FontWeight.normal,
             ),
             suffixText: suffixText,
@@ -668,7 +733,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -721,7 +786,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               color: AppColors.background,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -754,7 +819,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
     required String label,
     required IconData icon,
     required String value,
-    required List<String> items,
+    required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
   }) {
     return Column(
@@ -776,10 +841,8 @@ class _EditableBillCardState extends State<_EditableBillCard> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: value,
-          items: items.map((category) {
-            return DropdownMenuItem(value: category, child: Text(category));
-          }).toList(),
+          initialValue: items.any((i) => i.value == value) ? value : null,
+          items: items,
           onChanged: onChanged,
           decoration: InputDecoration(
             filled: true,
@@ -795,7 +858,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.1),
+                color: AppColors.textMuted.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -833,7 +896,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shadowColor: AppColors.primary.withOpacity(0.3),
+              shadowColor: AppColors.primary.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -879,7 +942,7 @@ class _EditableBillCardState extends State<_EditableBillCard> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
               side: BorderSide(
-                color: AppColors.textMuted.withOpacity(0.3),
+                color: AppColors.textMuted.withValues(alpha: 0.3),
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(

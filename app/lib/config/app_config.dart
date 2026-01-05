@@ -1,11 +1,13 @@
-/// App Configuration
-///
-/// Quản lý các config quan trọng như server URL, API keys, etc.
-/// Support multiple environments: development, staging, production
-///
-/// Usage:
-/// - Development: flutter run
-/// - Production: flutter build apk --dart-define=ENVIRONMENT=production
+// App Configuration
+//
+// Quản lý các config quan trọng như server URL, API keys, etc.
+// Support multiple environments: development, staging, production
+//
+// Usage:
+// - Development: flutter run
+// - Production: flutter build apk --dart-define=ENVIRONMENT=production
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   // Lấy environment từ compile-time constant
   static const String environment = String.fromEnvironment(
@@ -62,13 +64,30 @@ class AppConfig {
 
   /// Print config info (for debugging)
   static void printConfig() {
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('📱 APP CONFIGURATION');
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('🌍 Environment: $environment');
-    print('🔗 Base URL: $baseUrl');
-    print('⚙️  Debug Features: $enableDebugFeatures');
-    print('⏱️  API Timeout: ${apiTimeout}ms');
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📱 APP CONFIGURATION');
+    void logConfig() {
+      debugPrint('🔧 App Config:');
+      debugPrint('  - Environment: ${environment.toString().split('.').last}');
+      debugPrint(
+        '  - Debug: $enableDebugFeatures',
+      ); // Using existing enableDebugFeatures
+      debugPrint('  - API Base URL: $baseUrl'); // Using existing baseUrl
+      debugPrint(
+        '  - Connect Timeout: ${connectTimeout}ms',
+      ); // Using existing connectTimeout
+      debugPrint(
+        '  - Receive Timeout: ${receiveTimeout}ms',
+      ); // Using existing receiveTimeout
+      debugPrint(
+        '  - Enable Logs: true',
+      ); // Placeholder, as enableLogs is not defined
+      debugPrint(
+        '  - Cache Enabled: true',
+      ); // Placeholder, as enableCache is not defined
+    }
+
+    logConfig(); // Call the new helper function
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }

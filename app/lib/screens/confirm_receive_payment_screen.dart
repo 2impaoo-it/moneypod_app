@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+
 import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
@@ -18,8 +19,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? paymentNote;
   final String? proofImageUrl;
   final bool isPaid;
+  final bool hasPaymentRequest; // TRUE when debtor has sent payment request
   final String? receivedWalletId;
-  final bool hasPaymentRequest;
 
   const ConfirmReceivePaymentScreen({
     super.key,
@@ -44,8 +45,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
 
 class _ConfirmReceivePaymentScreenState
     extends State<ConfirmReceivePaymentScreen> {
-  final GroupRepository _groupRepository = GroupRepository();
-  final WalletRepository _walletRepository = WalletRepository();
+  late final GroupRepository _groupRepository;
+  late final WalletRepository _walletRepository;
 
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
@@ -55,7 +56,15 @@ class _ConfirmReceivePaymentScreenState
   @override
   void initState() {
     super.initState();
+    // FAB is hidden automatically by /full-screen/ route prefix in MainWrapper
+    _groupRepository = GroupRepository();
+    _walletRepository = WalletRepository();
     _loadWallets();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadWallets() async {
@@ -96,6 +105,9 @@ class _ConfirmReceivePaymentScreenState
 
     try {
       // Gọi API xác nhận đã nhận tiền
+      debugPrint(
+        "🔍 [ConfirmPayment] debtId=${widget.debtId}, walletId=${_selectedWallet!.id}",
+      );
       await _groupRepository.confirmReceivePayment(
         widget.debtId,
         walletId: _selectedWallet!.id,
@@ -202,7 +214,7 @@ class _ConfirmReceivePaymentScreenState
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             backgroundImage:
                 (widget.debtorAvatar.isNotEmpty &&
                     widget.debtorAvatar.startsWith('http'))
@@ -276,7 +288,7 @@ class _ConfirmReceivePaymentScreenState
       decoration: BoxDecoration(
         color: AppColors.blue50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +435,7 @@ class _ConfirmReceivePaymentScreenState
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.1)
+              ? AppColors.primary.withValues(alpha: 0.1)
               : AppColors.slate50,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
@@ -450,16 +462,25 @@ class _ConfirmReceivePaymentScreenState
                       fontWeight: FontWeight.w600,
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.slate900,
+                          : AppColors.slate200,
                     ),
                   ),
                   Text(
                     _formatCurrency(wallet.balance.toInt()),
-                    style: TextStyle(fontSize: 12, color: AppColors.slate600),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.slate600,
+                    ),
                   ),
                 ],
               ),
             ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -496,7 +517,7 @@ class _ConfirmReceivePaymentScreenState
               widget.proofImageUrl!,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (context, error, stackTrace) => Container(
                 height: 200,
                 color: AppColors.slate100,
                 child: const Center(
@@ -584,9 +605,11 @@ class _ConfirmReceivePaymentScreenState
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.1),
+              color: AppColors.warning.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [

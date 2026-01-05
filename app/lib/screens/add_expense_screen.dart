@@ -15,16 +15,25 @@ import '../utils/popup_notification.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final String? preSelectedGroupId;
+  final GroupRepository? groupRepository;
+  final ProfileRepository? profileRepository;
+  final AuthService? authService;
 
-  const AddExpenseScreen({super.key, this.preSelectedGroupId});
+  const AddExpenseScreen({
+    super.key,
+    this.preSelectedGroupId,
+    this.groupRepository,
+    this.profileRepository,
+    this.authService,
+  });
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  final _groupRepo = GroupRepository();
-  final _profileRepo = ProfileRepository();
+  late final GroupRepository _groupRepo;
+  late final ProfileRepository _profileRepo;
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
 
@@ -48,13 +57,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
+    _groupRepo = widget.groupRepository ?? GroupRepository();
+    _profileRepo = widget.profileRepository ?? ProfileRepository();
     _selectedGroupId = widget.preSelectedGroupId;
-    _loadData();
+    _loadData(); // Will use widget.authService if available? No, need to store it or access widget.
   }
 
   Future<void> _loadData() async {
     try {
-      final token = await AuthService().getToken();
+      final token = await (widget.authService ?? AuthService()).getToken();
       if (token == null) {
         throw Exception('Chưa đăng nhập');
       }
@@ -117,7 +128,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      print('Error loading members: $e');
+      debugPrint('Error loading members: $e');
     }
   }
 
@@ -168,7 +179,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      PopupNotification.showError(context, 'Lỗi chụp ảnh: $e');
+      if (mounted) PopupNotification.showError(context, 'Lỗi chụp ảnh: $e');
     }
   }
 
@@ -181,7 +192,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     } catch (e) {
-      PopupNotification.showError(context, 'Lỗi chọn ảnh: $e');
+      if (mounted) PopupNotification.showError(context, 'Lỗi chọn ảnh: $e');
     }
   }
 
@@ -237,6 +248,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     if (_selectedGroupId == null) {
       PopupNotification.showError(context, 'Vui lòng chọn nhóm');
+      return;
+    }
+
+    if (_selectedPayerId == null && _currentUserId == null) {
+      PopupNotification.showError(context, 'Vui lòng chọn người trả tiền');
       return;
     }
 
@@ -524,23 +540,45 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text("Chia đều"),
-                      value: true,
-                      groupValue: _isSplitEqually,
-                      onChanged: (val) =>
-                          setState(() => _isSplitEqually = val!),
-                      contentPadding: EdgeInsets.zero,
+                    child: InkWell(
+                      onTap: () => setState(() => _isSplitEqually = true),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isSplitEqually
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: Colors.teal,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Chia đều"),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text("Chia cụ thể"),
-                      value: false,
-                      groupValue: _isSplitEqually,
-                      onChanged: (val) =>
-                          setState(() => _isSplitEqually = val!),
-                      contentPadding: EdgeInsets.zero,
+                    child: InkWell(
+                      onTap: () => setState(() => _isSplitEqually = false),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              !_isSplitEqually
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: Colors.teal,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Chia cụ thể"),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

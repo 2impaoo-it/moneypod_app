@@ -72,7 +72,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF14B8A6).withOpacity(0.1),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -181,7 +181,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                       disabledBackgroundColor: const Color(
                         0xFF14B8A6,
-                      ).withOpacity(0.5),
+                      ).withValues(alpha: 0.5),
                     ),
                     child: _isLoading
                         ? const SizedBox(

@@ -6,12 +6,15 @@ class AuthService {
   static const String baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
 
-  final storage = const FlutterSecureStorage();
+  final FlutterSecureStorage storage;
   late final Dio _dio;
 
-  AuthService() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = baseUrl;
+  AuthService({Dio? dio, FlutterSecureStorage? secureStorage})
+    : storage = secureStorage ?? const FlutterSecureStorage() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = baseUrl;
+    }
   }
 
   // Đăng ký tài khoản mới

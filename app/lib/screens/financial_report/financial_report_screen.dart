@@ -225,7 +225,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -364,8 +364,8 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
                 color: isIncrease
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.red.withOpacity(0.1),
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -652,7 +652,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
                         show: true,
                         drawVerticalLine: false,
                         getDrawingHorizontalLine: (value) => FlLine(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withValues(alpha: 0.2),
                           strokeWidth: 1,
                           dashArray: [5, 5],
                         ),
@@ -901,7 +901,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen>
               });
             },
             child: Container(
-              color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+              color: isSelected ? Colors.blue.withValues(alpha: 0.1) : null,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: Row(
                 children: [

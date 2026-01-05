@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,13 +10,20 @@ import '../utils/dio_client.dart';
 import '../config/app_config.dart';
 
 class BillScanRepository {
-  final ImagePicker _imagePicker = ImagePicker();
-  final AuthService _authService = AuthService();
+  final ImagePicker _imagePicker;
+  final AuthService _authService;
   late final Dio _dio;
 
-  BillScanRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  BillScanRepository({
+    ImagePicker? imagePicker,
+    AuthService? authService,
+    Dio? dio,
+  }) : _imagePicker = imagePicker ?? ImagePicker(),
+       _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Kiểm tra và yêu cầu quyền camera
@@ -93,6 +101,8 @@ class BillScanRepository {
             'Authorization': 'Bearer $token',
             'ngrok-skip-browser-warning': 'true',
           },
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
         ),
       );
 
@@ -138,6 +148,7 @@ class BillScanRepository {
     required double amount,
     required DateTime date,
     required String category,
+    required String walletId,
     String? note,
   }) async {
     try {
@@ -153,16 +164,23 @@ class BillScanRepository {
         'amount': amount,
         'date': date.toIso8601String(),
         'category': category,
+        'wallet_id': walletId,
         'note': note ?? '',
         'type': 'expense', // Mặc định là chi tiêu
       };
 
       // Gửi POST request
+      debugPrint('Saving transaction to ${AppConfig.baseUrl}/transactions');
       final response = await _dio.post(
         '/transactions',
         data: requestBody,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
+      debugPrint('Save transaction response: ${response.statusCode}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {

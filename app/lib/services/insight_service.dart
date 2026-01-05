@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
@@ -6,15 +7,18 @@ import '../config/app_config.dart';
 
 /// Service để lấy insight thông minh từ Gemini AI
 class InsightService {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
   // Cache key format: insight_YYYY_MM
   static const String _cacheKeyPrefix = 'insight_';
 
-  InsightService() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  InsightService({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Lấy insight thông minh cho tháng trước
@@ -30,12 +34,12 @@ class InsightService {
       // 1. Kiểm tra cache
       final cachedInsight = await _getCachedInsight(cacheKey);
       if (cachedInsight != null && cachedInsight.isNotEmpty) {
-        print('✅ [InsightService] Sử dụng insight từ cache');
+        debugPrint('✅ [InsightService] Sử dụng insight từ cache');
         return cachedInsight;
       }
 
       // 2. Không có cache -> gọi API
-      print('🔵 [InsightService] Gọi API để lấy insight mới...');
+      debugPrint('🔵 [InsightService] Gọi API để lấy insight mới...');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -62,7 +66,7 @@ class InsightService {
         // 3. Lưu vào cache
         await _cacheInsight(cacheKey, insight);
 
-        print('✅ [InsightService] Đã lấy và cache insight mới');
+        debugPrint('✅ [InsightService] Đã lấy và cache insight mới');
         return insight;
       } else if (response.statusCode == 503) {
         // Service unavailable
@@ -72,7 +76,7 @@ class InsightService {
         throw Exception('Không thể lấy insight từ server');
       }
     } on DioException catch (e) {
-      print(
+      debugPrint(
         '❌ [InsightService] DioException: ${e.response?.statusCode} - ${e.message}',
       );
 
@@ -91,7 +95,7 @@ class InsightService {
       // Lỗi khác
       return 'Không thể tải insight lúc này.';
     } catch (e) {
-      print('❌ [InsightService] Error: $e');
+      debugPrint('❌ [InsightService] Error: $e');
       return 'Insight tạm thời không khả dụng.';
     }
   }
@@ -102,7 +106,7 @@ class InsightService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(key);
     } catch (e) {
-      print('❌ [InsightService] Lỗi đọc cache: $e');
+      debugPrint('❌ [InsightService] Lỗi đọc cache: $e');
       return null;
     }
   }
@@ -113,7 +117,7 @@ class InsightService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, insight);
     } catch (e) {
-      print('❌ [InsightService] Lỗi lưu cache: $e');
+      debugPrint('❌ [InsightService] Lỗi lưu cache: $e');
     }
   }
 
@@ -134,11 +138,11 @@ class InsightService {
       for (var key in keys) {
         if (key.startsWith(_cacheKeyPrefix) && key != currentCacheKey) {
           await prefs.remove(key);
-          print('🗑️ [InsightService] Đã xóa cache cũ: $key');
+          debugPrint('🗑️ [InsightService] Đã xóa cache cũ: $key');
         }
       }
     } catch (e) {
-      print('❌ [InsightService] Lỗi xóa cache: $e');
+      debugPrint('❌ [InsightService] Lỗi xóa cache: $e');
     }
   }
 }

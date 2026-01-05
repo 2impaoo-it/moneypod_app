@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../models/profile.dart';
-import '../services/profile_service.dart';
+
 import '../services/auth_service.dart';
 import '../repositories/group_repository.dart';
 
@@ -20,7 +19,10 @@ String formatCurrency(int amount) {
 
 // --- MAIN SCREEN ---
 class GroupsScreen extends StatefulWidget {
-  const GroupsScreen({super.key});
+  final GroupRepository? groupRepository;
+  final AuthService? authService;
+
+  const GroupsScreen({super.key, this.groupRepository, this.authService});
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
@@ -31,20 +33,19 @@ class _GroupsScreenState extends State<GroupsScreen>
   // Data list
   List<Map<String, dynamic>> _groupsList = [];
   bool _isLoading = true;
-  final GroupRepository _groupRepository = GroupRepository();
+  late final GroupRepository _groupRepository;
 
   // Debt optimization and pending settlements
   List<Map<String, dynamic>> _pendingSettlements = []; // Tôi nợ người khác
   List<Map<String, dynamic>> _peopleOweMe = []; // Người nợ tôi
   bool _isLoadingDebts = true;
   String _sortBy = 'default'; // default, group
-  Profile? _currentUser; // Added to store current user info
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadUserProfile();
+    _groupRepository = widget.groupRepository ?? GroupRepository();
     _fetchGroups();
     _fetchDebtData();
   }
@@ -59,10 +60,16 @@ class _GroupsScreenState extends State<GroupsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     // Auto-refresh khi app quay lại foreground
+    // Chỉ refresh nếu đã cache đủ lâu hoặc các màn hình khác pop về
+    // Tuy nhiên ở đây chỉ đơn giản là check resumed.
+    // Để fix bug "kéo notif xuống bị reload", ta có thể bỏ qua refresh ở đây
+    // hoặc check thời gian pause. Nhưng đơn giản nhất là bỏ việc auto refresh quá aggressive.
     if (state == AppLifecycleState.resumed) {
-      _refreshData();
+      // _refreshData(); // Bỏ auto refresh khi resume để tránh reload khi kéo notification
     }
   }
+
+  // Load user profile để hiển thị trong optimization
 
   // Fetch tất cả dữ liệu về nợ
   Future<void> _fetchDebtData() async {
@@ -102,37 +109,22 @@ class _GroupsScreenState extends State<GroupsScreen>
       // Lấy danh sách người nợ tôi (người khác NỢ TÔI - chờ xác nhận)
       _peopleOweMe = _mapPeopleOweMe(allDebtsToMe);
 
-      print('DEBUG: Total debts to me: ${allDebtsToMe.length}');
-      print(
+      debugPrint('DEBUG: Total debts to me: ${allDebtsToMe.length}');
+      debugPrint(
         'DEBUG: Pending settlements after filter: ${_pendingSettlements.length}',
       );
+      debugPrint('DEBUG: People owe me after map: ${_peopleOweMe.length}');
+
       for (var debt in allDebtsToMe) {
-        print(
+        debugPrint(
           'DEBUG DEBT: ${debt['from_user']?['full_name']} - ${debt['amount']} - is_paid: ${debt['is_paid']}',
         );
       }
 
       setState(() => _isLoadingDebts = false);
     } catch (e) {
-      print('Error fetching debt data: $e');
+      debugPrint('Error fetching debt data: $e');
       setState(() => _isLoadingDebts = false);
-    }
-  }
-
-  Future<void> _loadUserProfile() async {
-    try {
-      final token = await AuthService().getToken();
-      if (token == null) return;
-      final profile = await ProfileService().getUserProfile(token);
-      if (mounted) {
-        setState(() {
-          _currentUser = profile;
-        });
-        // Recalculate if needed, but fetchDebtData calls calculate
-        _fetchDebtData();
-      }
-    } catch (e) {
-      print('Error loading profile: $e');
     }
   }
 
@@ -234,7 +226,7 @@ class _GroupsScreenState extends State<GroupsScreen>
 
       // Map API data to UI model
       final mappedGroups = groups.map((g) {
-        print("DEBUG GROUP: ${g['name']} - Members: ${g['members']}");
+        debugPrint("DEBUG GROUP: ${g['name']} - Members: ${g['members']}");
         // Calculate days left
         int daysLeft = 0;
         String status = 'active';
@@ -250,14 +242,16 @@ class _GroupsScreenState extends State<GroupsScreen>
               status = 'completed';
             }
           } catch (e) {
-            print('Error parsing deadline: $e');
+            debugPrint('Error marking debt as paid: $e');
           }
         }
 
         // Parse members
         final membersList = g['members'] as List? ?? [];
         final int memberCount = membersList.length;
-        print("DEBUG: Group ${g['name']} has ${membersList.length} members");
+        debugPrint(
+          "DEBUG: Group ${g['name']} has ${membersList.length} members",
+        );
 
         // Parse avatars
         final avatars = membersList
@@ -296,7 +290,7 @@ class _GroupsScreenState extends State<GroupsScreen>
         });
       }
     } catch (e) {
-      print('Error fetching groups: $e');
+      debugPrint('Error fetching groups: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -428,8 +422,11 @@ class _GroupsScreenState extends State<GroupsScreen>
 
                               try {
                                 await _groupRepository.joinGroup(code: code);
+
+                                if (!context.mounted) return;
+
+                                Navigator.pop(ctx);
                                 if (mounted) {
-                                  Navigator.pop(ctx);
                                   await PopupNotification.showSuccess(
                                     context,
                                     'Tham gia nhóm thành công!',
@@ -438,7 +435,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                                 }
                               } catch (e) {
                                 setModalState(() => isLoading = false);
-                                if (mounted) {
+                                if (context.mounted) {
                                   PopupNotification.showError(
                                     context,
                                     e.toString().replaceAll('Exception: ', ''),
@@ -681,8 +678,8 @@ class _GroupsScreenState extends State<GroupsScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(
-                0.05,
+              color: Colors.black.withValues(
+                alpha: 0.1,
               ), // Giảm opacity cho nhẹ nhàng hơn
               blurRadius: 3,
               offset: const Offset(0, 1),
@@ -856,6 +853,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                     .toSet()
                     .toList();
 
+                debugPrint('Group created successfully');
                 return [
                   const PopupMenuItem(
                     value: 'default',

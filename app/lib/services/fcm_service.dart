@@ -5,9 +5,15 @@ import 'auth_service.dart';
 
 /// Service để xử lý Firebase Cloud Messaging
 class FCMService {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final FirebaseMessaging _messaging;
+  final AuthService _authService;
 
   static const String _fcmTokenKey = 'fcm_token';
+
+  /// Constructor với dependency injection cho testing
+  FCMService({FirebaseMessaging? messaging, AuthService? authService})
+    : _messaging = messaging ?? FirebaseMessaging.instance,
+      _authService = authService ?? AuthService();
 
   /// Initialize FCM và request permissions
   Future<void> initialize() async {
@@ -70,8 +76,7 @@ class FCMService {
   /// Gửi FCM token lên server
   Future<void> _updateFCMTokenToServer(String token) async {
     try {
-      final authService = AuthService();
-      final result = await authService.updateFCMToken(token);
+      final result = await _authService.updateFCMToken(token);
 
       if (result['success'] == true) {
         debugPrint('✅ Đã cập nhật FCM token lên server');

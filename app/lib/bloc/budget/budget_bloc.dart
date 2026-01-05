@@ -4,9 +4,11 @@ import 'budget_event.dart';
 import 'budget_state.dart';
 
 class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
-  final BudgetRepository _repository = BudgetRepository();
+  final BudgetRepository _repository;
 
-  BudgetBloc() : super(BudgetInitial()) {
+  BudgetBloc({BudgetRepository? repository})
+    : _repository = repository ?? BudgetRepository(),
+      super(BudgetInitial()) {
     on<BudgetLoadRequested>(_onLoadRequested);
     on<BudgetCreateRequested>(_onCreateRequested);
     on<BudgetUpdateRequested>(_onUpdateRequested);

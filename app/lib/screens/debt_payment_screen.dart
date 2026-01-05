@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+
 import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
@@ -17,6 +18,8 @@ class DebtPaymentScreen extends StatefulWidget {
   final bool isPaid;
   final String? paymentWalletId;
   final String? paymentNote;
+  final GroupRepository? groupRepository;
+  final WalletRepository? walletRepository;
 
   const DebtPaymentScreen({
     super.key,
@@ -30,6 +33,8 @@ class DebtPaymentScreen extends StatefulWidget {
     this.isPaid = false,
     this.paymentWalletId,
     this.paymentNote,
+    this.groupRepository,
+    this.walletRepository,
   });
 
   @override
@@ -37,8 +42,8 @@ class DebtPaymentScreen extends StatefulWidget {
 }
 
 class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
-  final GroupRepository _groupRepository = GroupRepository();
-  final WalletRepository _walletRepository = WalletRepository();
+  late final GroupRepository _groupRepository;
+  late final WalletRepository _walletRepository;
   final TextEditingController _noteController = TextEditingController();
 
   List<Wallet> _wallets = [];
@@ -49,11 +54,19 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   @override
   void initState() {
     super.initState();
+    // FAB is hidden automatically by /full-screen/ route prefix in MainWrapper
+    _groupRepository = widget.groupRepository ?? GroupRepository();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
     // Set note từ payment note nếu đã paid
     if (widget.isPaid && widget.paymentNote != null) {
       _noteController.text = widget.paymentNote!;
     }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadWallets() async {
@@ -529,7 +542,9 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
             decoration: BoxDecoration(
               color: AppColors.blue100,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.blue500.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [

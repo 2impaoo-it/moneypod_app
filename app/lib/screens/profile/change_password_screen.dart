@@ -48,9 +48,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (mounted) {
       if (result['success'] == true) {
         // Tắt sinh trắc học để yêu cầu người dùng bật lại với mật khẩu mới
-        await BiometricService().disableBiometricLogin();
+        await BiometricService().clearAllAccounts();
 
-        await PopupNotification.showSuccess(context, result['message']);
+        if (mounted) {
+          await PopupNotification.showSuccess(context, result['message']);
+        }
         if (mounted) Navigator.pop(context);
       } else {
         PopupNotification.showError(context, result['message']);
@@ -93,7 +95,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -171,8 +173,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      disabledBackgroundColor: AppColors.primary.withOpacity(
-                        0.5,
+                      disabledBackgroundColor: AppColors.primary.withValues(
+                        alpha: 0.5,
                       ),
                     ),
                     child: _isLoading
