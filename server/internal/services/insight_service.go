@@ -37,7 +37,8 @@ func (s *InsightService) GetMonthlyInsight(userID string, month, year int) (stri
 	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0).Add(-time.Second)
 
-	err := s.db.Where("user_id = ? AND date BETWEEN ? AND ?", userID, startDate, endDate).
+	// Chuyển userID string sang UUID
+	err := s.db.Where("user_id::text = ? AND date BETWEEN ? AND ?", userID, startDate, endDate).
 		Find(&transactions).Error
 	if err != nil {
 		return "", fmt.Errorf("lỗi khi lấy giao dịch: %w", err)
