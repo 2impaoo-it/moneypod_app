@@ -542,13 +542,24 @@ class _MainWrapperState extends State<MainWrapper> {
       return true;
     }
 
-    if (location.startsWith('/savings/') && location != '/savings')
+    if (location.startsWith('/savings/') && location != '/savings') {
       return false;
-    if (location.startsWith('/budget')) return false;
-    if (location.startsWith('/calendar')) return false;
-    if (location.startsWith('/profile')) return false;
-    if (location.startsWith('/change-password')) return false;
-    if (location == '/report') return false;
+    }
+    if (location.startsWith('/budget')) {
+      return false;
+    }
+    if (location.startsWith('/calendar')) {
+      return false;
+    }
+    if (location.startsWith('/profile')) {
+      return false;
+    }
+    if (location.startsWith('/change-password')) {
+      return false;
+    }
+    if (location == '/report') {
+      return false;
+    }
 
     debugPrint("📍 [MainWrapper] Default Showing");
     return true;

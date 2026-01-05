@@ -251,6 +251,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       return;
     }
 
+    if (_selectedPayerId == null && _currentUserId == null) {
+      PopupNotification.showError(context, 'Vui lòng chọn người trả tiền');
+      return;
+    }
+
     if (description.isEmpty) {
       PopupNotification.showError(context, 'Vui lòng nhập nội dung chi tiêu');
       return;

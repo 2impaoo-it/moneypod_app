@@ -264,6 +264,8 @@ class GroupRepository {
         body['split_details'] = splitDetails;
       }
 
+      debugPrint("🚀 [API] POST /groups/expenses Body: $body");
+
       final response = await _dio.post(
         url,
         data: body,
