@@ -71,11 +71,6 @@ class _BudgetListScreenState extends State<BudgetListScreen> {
       ),
       body: BlocConsumer<BudgetBloc, BudgetState>(
         listener: (context, state) {
-          if (state is BudgetOperationSuccess) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
-          }
           if (state is BudgetError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

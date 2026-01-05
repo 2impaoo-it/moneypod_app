@@ -60,8 +60,12 @@ class _GroupsScreenState extends State<GroupsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     // Auto-refresh khi app quay lại foreground
+    // Chỉ refresh nếu đã cache đủ lâu hoặc các màn hình khác pop về
+    // Tuy nhiên ở đây chỉ đơn giản là check resumed.
+    // Để fix bug "kéo notif xuống bị reload", ta có thể bỏ qua refresh ở đây
+    // hoặc check thời gian pause. Nhưng đơn giản nhất là bỏ việc auto refresh quá aggressive.
     if (state == AppLifecycleState.resumed) {
-      _refreshData();
+      // _refreshData(); // Bỏ auto refresh khi resume để tránh reload khi kéo notification
     }
   }
 

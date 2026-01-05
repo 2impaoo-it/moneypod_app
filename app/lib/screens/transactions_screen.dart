@@ -41,6 +41,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String _sortOrder =
       'date_desc'; // date_desc, date_asc, amount_desc, amount_asc, wallet
 
+  // 3. Quản lý state cho Search
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -175,8 +178,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   ],
                 ),
                 child: TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                   decoration: InputDecoration(
-                    hintText: "Tìm kiếm giao dịch...",
+                    hintText: "Tìm kiếm theo ghi chú...",
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: AppColors.textMuted,
@@ -249,7 +257,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   if (state is TransactionLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (state is TransactionLoaded) {
-                    // Filter
+                    // Filter by category
                     var filtered = _selectedFilter == "Tất cả"
                         ? state.transactions
                         : state.transactions
@@ -259,6 +267,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                     _selectedFilter,
                               )
                               .toList();
+
+                    // Filter by search query (note field)
+                    if (_searchQuery.isNotEmpty) {
+                      filtered = filtered.where((tx) {
+                        final title = tx.title.toLowerCase();
+                        final category = tx.category.toLowerCase();
+                        final walletName = tx.walletName?.toLowerCase() ?? '';
+                        return title.contains(_searchQuery) ||
+                            category.contains(_searchQuery) ||
+                            walletName.contains(_searchQuery);
+                      }).toList();
+                    }
 
                     // Sort
                     filtered.sort((a, b) {

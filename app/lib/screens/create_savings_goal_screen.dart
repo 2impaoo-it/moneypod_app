@@ -317,8 +317,13 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
 
         setState(() => _isLoading = false);
         if (mounted) {
-          PopupNotification.showSuccess(context, 'Tạo mục tiêu thành công!');
-          context.pop(true);
+          await PopupNotification.showSuccess(
+            context,
+            'Tạo mục tiêu thành công!',
+          );
+          if (mounted) {
+            context.pop(true);
+          }
         }
         return;
       }
@@ -333,13 +338,15 @@ class _CreateSavingsGoalContentState extends State<CreateSavingsGoalContent> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<SavingsBloc, SavingsState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is SavingsLoading) {
           setState(() => _isLoading = true);
         } else if (state is SavingsActionSuccess) {
           setState(() => _isLoading = false);
-          PopupNotification.showSuccess(context, state.message);
-          context.pop(true);
+          await PopupNotification.showSuccess(context, state.message);
+          if (context.mounted) {
+            context.pop(true);
+          }
         } else if (state is SavingsError) {
           setState(() => _isLoading = false);
           PopupNotification.showError(context, state.message);

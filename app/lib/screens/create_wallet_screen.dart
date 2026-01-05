@@ -231,15 +231,7 @@ class _CreateWalletContentState extends State<_CreateWalletContent> {
             _buildBalanceField(context, currencyFormat),
             const SizedBox(height: 16),
 
-            // Helper text
-            Text(
-              'Bạn có thể thay đổi số dư sau khi tạo ví',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textMuted.withValues(alpha: 0.7),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+            
           ],
         ),
       ),

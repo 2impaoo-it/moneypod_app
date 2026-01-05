@@ -8,6 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../main.dart'; // For AppColors
 import '../../utils/category_helper.dart';
+import '../../utils/popup_notification.dart';
 
 import '../../models/transaction.dart';
 import '../../bloc/budget/budget_bloc.dart'; // Import BudgetBloc
@@ -167,17 +168,18 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<BudgetBloc, BudgetState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is BudgetOperationSuccess) {
-          Navigator.pop(context, true); // Return true to signal success
+          await PopupNotification.showSuccess(
+            context,
+            "Tạo ngân sách thành công!",
+          );
+          if (context.mounted) {
+            Navigator.pop(context, true); // Return true to signal success
+          }
         }
         if (state is BudgetError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          PopupNotification.showError(context, state.message);
         }
       },
       child: Scaffold(
