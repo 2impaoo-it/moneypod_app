@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // User đại diện cho bảng 'users' trong Database
 type User struct {
 	BaseModel // Cái này tự động thêm: ID, CreatedAt, UpdatedAt, DeletedAt
@@ -16,6 +18,8 @@ type User struct {
 	// 🔥 Sử dụng con trỏ *string để hỗ trợ NULL (Optional Unique)
 	// Nếu không nhập SĐT -> nil -> NULL trong DB (Postgres cho phép nhiều NULL)
 	// Nếu có nhập -> chuỗi -> DB check Unique bình thường
-	Phone    *string `gorm:"unique" json:"phone"`
-	FCMToken string  `json:"fcm_token"`
+	Phone             *string    `gorm:"unique" json:"phone"`
+	FCMToken          string     `json:"fcm_token"`
+	FCMTokenValid     bool       `gorm:"default:true" json:"fcm_token_valid"`
+	FCMTokenUpdatedAt *time.Time `json:"fcm_token_updated_at"`
 }

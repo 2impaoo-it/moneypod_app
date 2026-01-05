@@ -28,7 +28,7 @@ func main() {
 
 	// 3. 🔥 KHỞI TẠO NOTIFICATION SERVICE
 	// Lưu ý: Bạn cần có file serviceAccountKey.json ở cùng thư mục
-	notifService, err := services.NewNotificationService("./serviceAccountKey.json", notifRepo)
+	notifService, err := services.NewNotificationService("./serviceAccountKey.json", notifRepo, db.DB)
 	if err != nil {
 		log.Println("⚠️ Cảnh báo: Không thể kết nối Firebase (Chưa có key hoặc sai đường dẫn). Tính năng thông báo sẽ không chạy.")
 		notifService = nil // Vẫn cho server chạy nhưng không gửi được thông báo
