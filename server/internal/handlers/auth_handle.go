@@ -217,16 +217,14 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	}
 
 	// 2. Gọi Service
-	err := h.authService.ForgotPassword(req.Email)
+	result, err := h.authService.ForgotPassword(req.Email)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Lỗi hệ thống: " + err.Error()})
 		return
 	}
 
-	// Luôn trả về thành công để không lộ thông tin email có tồn tại hay không
-	c.JSON(200, gin.H{
-		"message": "Nếu email tồn tại, một email khôi phục mật khẩu đã được gửi đến hộp thư của bạn",
-	})
+	// Trả về kết quả bao gồm temporary password nếu có
+	c.JSON(200, result)
 }
 
 // UpdateFCMTokenRequest request body cho cập nhật FCM token

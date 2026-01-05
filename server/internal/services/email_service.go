@@ -42,9 +42,21 @@ func NewSimpleEmailService(config SMTPConfig) *SimpleEmailService {
 func (s *SimpleEmailService) SendPasswordResetEmail(to, temporaryPassword string) error {
 	// Nếu không có config SMTP, chỉ log ra console (development mode)
 	if s.config.Host == "" {
-		fmt.Printf("📧 [EMAIL - DEV MODE] Gửi email đến: %s\n", to)
-		fmt.Printf("📧 [EMAIL - DEV MODE] Mật khẩu tạm thời: %s\n", temporaryPassword)
-		fmt.Println("📧 [EMAIL - DEV MODE] Vui lòng đổi mật khẩu sau khi đăng nhập")
+		fmt.Printf("\n========================================\n")
+		fmt.Printf("📧 [EMAIL - DEV MODE] \n")
+		fmt.Printf("========================================\n")
+		fmt.Printf("Gửi đến: %s\n", to)
+		fmt.Printf("Tiêu đề: Đặt Lại Mật Khẩu - MoneyPod App\n")
+		fmt.Printf("\n🔐 MẬT KHẨU TẠM THỜI CỦA BẠN:\n")
+		fmt.Printf("┌────────────────────────────────────┐\n")
+		fmt.Printf("│  %s  │\n", temporaryPassword)
+		fmt.Printf("└────────────────────────────────────┘\n")
+		fmt.Printf("\n⚠️  VUI LÒNG ĐỔI MẬT KHẨU NGAY SAU KHI ĐĂNG NHẬP!\n")
+		fmt.Printf("\nCách sử dụng:\n")
+		fmt.Printf("1. Đăng nhập bằng mật khẩu tạm thời này\n")
+		fmt.Printf("2. Vào Cài đặt > Bảo mật\n")
+		fmt.Printf("3. Đổi sang mật khẩu mới của bạn\n")
+		fmt.Printf("========================================\n\n")
 		return nil
 	}
 
@@ -89,36 +101,69 @@ func (s *SimpleEmailService) SendPasswordResetEmail(to, temporaryPassword string
                             <!-- Message -->
                             <p style="margin: 0 0 25px 0; font-size: 15px; color: #555555; line-height: 1.7;">
                                 Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong style="color: #667eea;">%s</strong> của bạn.
+                                Dưới đây là mật khẩu tạm thời để bạn có thể đăng nhập lại vào ứng dụng.
                             </p>
                             
                             <!-- Password Label -->
-                            <p style="margin: 30px 0 15px 0; font-size: 13px; font-weight: bold; color: #667eea; text-transform: uppercase; letter-spacing: 1px;">
-                                📧 MẬT KHẨU TẠM THỜI
+                            <p style="margin: 30px 0 15px 0; font-size: 14px; font-weight: bold; color: #667eea; text-transform: uppercase; letter-spacing: 1.5px; text-align: center;">
+                                🔐 MẬT KHẨU TẠM THỜI CỦA BẠN
                             </p>
                             
-                            <!-- Password Box -->
+                            <!-- Password Box - Enhanced -->
                             <table width="100%%" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
-                                    <td style="background: linear-gradient(135deg, #f8f9fc 0%%, #e3e8f7 100%%); border: 3px solid #667eea; border-radius: 12px; padding: 25px 20px; text-align: center;">
-                                        <div style="font-family: 'Courier New', Courier, monospace; font-size: 24px; font-weight: bold; color: #764ba2; letter-spacing: 3px; word-break: break-all; user-select: all;">
-                                            %s
-                                        </div>
+                                    <td style="background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); border-radius: 16px; padding: 3px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);">
+                                        <table width="100%%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="background: #ffffff; border-radius: 14px; padding: 30px 20px; text-align: center;">
+                                                    <div style="font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: bold; color: #764ba2; letter-spacing: 4px; word-break: break-all; user-select: all; line-height: 1.6;">
+                                                        %s
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
                             
-                            <!-- Copy Hint -->
-                            <p style="margin: 12px 0 0 0; font-size: 13px; color: #999999; text-align: center; font-style: italic;">
-                                💡 Nhấn và giữ vào mật khẩu để chọn, sau đó copy (Ctrl+C hoặc Cmd+C)
-                            </p>
+                            <!-- Copy Hint - Enhanced -->
+                            <table width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 15px;">
+                                <tr>
+                                    <td style="background-color: #f0f4ff; border-radius: 10px; padding: 15px; text-align: center;">
+                                        <p style="margin: 0; font-size: 14px; color: #667eea; font-weight: 600;">
+                                            💡 Mẹo: Nhấn và giữ vào mật khẩu để chọn toàn bộ, sau đó copy (Ctrl+C hoặc Cmd+C)
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
                             
                             <!-- Warning Box -->
                             <table width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 30px;">
                                 <tr>
-                                    <td style="background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; border-radius: 8px;">
-                                        <p style="margin: 0; font-size: 15px; font-weight: 600; color: #856404;">
-                                            ⚠️ Vui lòng đổi mật khẩu ngay sau khi đăng nhập!
+                                    <td style="background: linear-gradient(135deg, #fff3cd 0%%, #ffe69c 100%%); border-left: 6px solid #ffc107; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);">
+                                        <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #856404;">
+                                            ⚠️ VUI LÒNG ĐỔI MẬT KHẨU NGAY SAU KHI ĐĂNG NHẬP!
                                         </p>
+                                        <p style="margin: 0; font-size: 14px; color: #856404; line-height: 1.6;">
+                                            Để bảo mật tài khoản, bạn cần thay đổi mật khẩu này ngay sau lần đăng nhập đầu tiên.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Steps to change password -->
+                            <table width="100%%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 25px;">
+                                <tr>
+                                    <td style="background-color: #f8f9fc; border-radius: 12px; padding: 25px;">
+                                        <p style="margin: 0 0 15px 0; font-size: 15px; font-weight: 600; color: #2c3e50;">
+                                            📝 Hướng dẫn đổi mật khẩu:
+                                        </p>
+                                        <ol style="margin: 0; padding-left: 20px; font-size: 14px; color: #555555; line-height: 2;">
+                                            <li style="margin-bottom: 8px;">Đăng nhập bằng mật khẩu tạm thời phía trên</li>
+                                            <li style="margin-bottom: 8px;">Vào phần <strong>Cài đặt → Bảo mật</strong></li>
+                                            <li style="margin-bottom: 8px;">Chọn <strong>"Đổi mật khẩu"</strong></li>
+                                            <li style="margin-bottom: 0;">Nhập mật khẩu mới và xác nhận</li>
+                                        </ol>
                                     </td>
                                 </tr>
                             </table>

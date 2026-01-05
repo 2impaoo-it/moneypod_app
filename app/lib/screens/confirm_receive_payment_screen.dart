@@ -19,7 +19,6 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? proofImageUrl;
   final bool isPaid;
   final String? receivedWalletId;
-  final bool hasPaymentRequest;
 
   const ConfirmReceivePaymentScreen({
     super.key,
@@ -34,13 +33,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.proofImageUrl,
     this.isPaid = false,
     this.receivedWalletId,
-    this.hasPaymentRequest = false,
-    this.groupRepository,
-    this.walletRepository,
   });
-
-  final GroupRepository? groupRepository;
-  final WalletRepository? walletRepository;
 
   @override
   State<ConfirmReceivePaymentScreen> createState() =>
@@ -49,8 +42,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
 
 class _ConfirmReceivePaymentScreenState
     extends State<ConfirmReceivePaymentScreen> {
-  late final GroupRepository _groupRepository;
-  late final WalletRepository _walletRepository;
+  final GroupRepository _groupRepository = GroupRepository();
+  final WalletRepository _walletRepository = WalletRepository();
 
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
@@ -60,8 +53,6 @@ class _ConfirmReceivePaymentScreenState
   @override
   void initState() {
     super.initState();
-    _groupRepository = widget.groupRepository ?? GroupRepository();
-    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
   }
 
@@ -74,13 +65,10 @@ class _ConfirmReceivePaymentScreenState
 
         // Nếu đã paid, chọn ví đã nhận tiền
         if (widget.isPaid && widget.receivedWalletId != null) {
-          try {
-            _selectedWallet = _wallets.firstWhere(
-              (w) => w.id == widget.receivedWalletId,
-            );
-          } catch (_) {
-            if (_wallets.isNotEmpty) _selectedWallet = _wallets.first;
-          }
+          _selectedWallet = _wallets.firstWhere(
+            (w) => w.id == widget.receivedWalletId,
+            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+          );
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
         }
@@ -113,7 +101,7 @@ class _ConfirmReceivePaymentScreenState
       setState(() => _isLoading = false);
 
       // Pop trước khi show notification
-      context.pop(true);
+      Navigator.pop(context, true);
 
       // Show notification sau khi pop
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -209,7 +197,7 @@ class _ConfirmReceivePaymentScreenState
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+            backgroundColor: AppColors.primary.withOpacity(0.1),
             backgroundImage:
                 (widget.debtorAvatar.isNotEmpty &&
                     widget.debtorAvatar.startsWith('http'))
@@ -283,7 +271,7 @@ class _ConfirmReceivePaymentScreenState
       decoration: BoxDecoration(
         color: AppColors.blue50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,56 +393,19 @@ class _ConfirmReceivePaymentScreenState
             // Chỉ hiển thị ví đã chọn khi đã paid
             ..._wallets.where((w) => w.id == _selectedWallet?.id).map((wallet) {
               final isSelected = _selectedWallet?.id == wallet.id;
-              return _buildWalletOption(wallet, isSelected, disabled: true);
-            })
-          else
-            // Hiển thị tất cả ví khi chưa paid
-            ..._wallets.map((wallet) {
-              final isSelected = _selectedWallet?.id == wallet.id;
-              return _buildWalletOption(wallet, isSelected, disabled: false);
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWalletOption(
-    Wallet wallet,
-    bool isSelected, {
-    required bool disabled,
-  }) {
-    return GestureDetector(
-      onTap: disabled ? null : () => setState(() => _selectedWallet = wallet),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.slate50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.slate200,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              color: isSelected ? AppColors.primary : AppColors.slate400,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    wallet.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
+              return GestureDetector(
+                onTap: widget.isPaid
+                    ? null
+                    : () => setState(() => _selectedWallet = wallet),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withOpacity(0.1)
+                        : AppColors.slate50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
                       color: isSelected
                           ? AppColors.primary
                           : AppColors.slate900,
@@ -503,7 +454,7 @@ class _ConfirmReceivePaymentScreenState
               widget.proofImageUrl!,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
+              errorBuilder: (_, __, ___) => Container(
                 height: 200,
                 color: AppColors.slate100,
                 child: const Center(
@@ -581,8 +532,9 @@ class _ConfirmReceivePaymentScreenState
       );
     }
 
-    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có payment_wallet_id)
-    final bool canConfirm = widget.hasPaymentRequest;
+    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có paymentDate)
+    final bool canConfirm =
+        widget.paymentDate != null && widget.paymentDate!.isNotEmpty;
 
     return Column(
       children: [
@@ -591,11 +543,9 @@ class _ConfirmReceivePaymentScreenState
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withValues(alpha: 0.1),
+              color: AppColors.warning.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.warning.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
             ),
             child: Row(
               children: [
