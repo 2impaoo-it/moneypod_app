@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -18,10 +20,11 @@ import (
 type NotificationService struct {
 	client    *messaging.Client
 	notifRepo *repositories.NotificationRepository
+	db        *gorm.DB
 }
 
 // Khởi tạo Service: Kết nối tới Firebase
-func NewNotificationService(credPath string, notifRepo *repositories.NotificationRepository) (*NotificationService, error) {
+func NewNotificationService(credPath string, notifRepo *repositories.NotificationRepository, db *gorm.DB) (*NotificationService, error) {
 	ctx := context.Background()
 
 	// Cấu hình credential từ file json
@@ -42,6 +45,7 @@ func NewNotificationService(credPath string, notifRepo *repositories.Notificatio
 	return &NotificationService{
 		client:    client,
 		notifRepo: notifRepo,
+		db:        db,
 	}, nil
 }
 
@@ -80,10 +84,10 @@ func (s *NotificationService) SendMulticastNotification(tokens []string, title, 
 }
 
 // Hàm gửi thông báo cho 1 người
-func (s *NotificationService) SendNotification(token, title, body string) {
+func (s *NotificationService) SendNotification(token, title, body string) error {
 	// Nếu không có token hoặc service chưa khởi tạo được thì bỏ qua
 	if s == nil || s.client == nil || token == "" {
-		return
+		return nil
 	}
 
 	// Tạo gói tin
@@ -99,10 +103,28 @@ func (s *NotificationService) SendNotification(token, title, body string) {
 	_, err := s.client.Send(context.Background(), message)
 	if err != nil {
 		log.Println("❌ Lỗi gửi thông báo FCM:", err)
-		return
+
+		// Kiểm tra xem có phải lỗi token không hợp lệ không
+		if isTokenInvalid(err) {
+			return fmt.Errorf("invalid_token: %v", err)
+		}
+		return err
 	}
 
 	log.Println("✅ FCM: Gửi thông báo thành công")
+	return nil
+}
+
+// isTokenInvalid: Kiểm tra xem lỗi có phải do token không hợp lệ không
+func isTokenInvalid(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "Requested entity was not found") ||
+		strings.Contains(errMsg, "registration-token-not-registered") ||
+		strings.Contains(errMsg, "invalid-registration-token") ||
+		strings.Contains(errMsg, "InvalidRegistration")
 }
 
 // === NEW METHODS: LƯU VÀO DATABASE ===
@@ -144,7 +166,17 @@ func (s *NotificationService) CreateAndSendNotification(userID uuid.UUID, notifT
 	// 4. Gửi FCM nếu user bật setting và có token
 	if shouldSend && fcmToken != "" {
 		log.Printf("📤 Đang gửi FCM: Token=%s..., Title=%s", fcmToken[:20], title)
-		s.SendNotification(fcmToken, title, body)
+		err := s.SendNotification(fcmToken, title, body)
+
+		// Nếu token không hợp lệ, vô hiệu hóa nó
+		if err != nil && strings.Contains(err.Error(), "invalid_token") {
+			log.Printf("🔧 Vô hiệu hóa FCM token cho user %s", userID)
+			now := time.Now()
+			s.db.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+				"fcm_token_valid":      false,
+				"fcm_token_updated_at": &now,
+			})
+		}
 	} else {
 		log.Printf("⚠️ Không gửi FCM: shouldSend=%v, hasToken=%v", shouldSend, fcmToken != "")
 	}
@@ -245,7 +277,7 @@ func (s *NotificationService) SendMaintenanceNotification(db *gorm.DB, title, bo
 	// Query để lấy user có token
 	if err := db.Table("users").
 		Select("id, fcm_token").
-		Where("fcm_token != ''").
+		Where("fcm_token != '' AND fcm_token_valid = true").
 		Find(&users).Error; err != nil {
 		return err
 	}

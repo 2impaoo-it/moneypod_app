@@ -37,7 +37,6 @@ void main() {
       MaterialApp(
         home: GroupsScreen(
           groupRepository: mockGroupRepo,
-          profileRepository: mockProfileRepo,
           authService: mockAuthService,
         ),
       ),

@@ -173,11 +173,15 @@ class FinancialReportBloc
 
           // Calculate start and end day of the selected week
           int startDay = 1 + (event.week - 1) * 7 - (firstDayWeekday - 1);
-          if (startDay < 1) startDay = 1;
+          if (startDay < 1) {
+            startDay = 1;
+          }
 
           final lastDayOfMonth = DateTime(event.year, event.month + 1, 0).day;
           int endDay = startDay + 6;
-          if (endDay > lastDayOfMonth) endDay = lastDayOfMonth;
+          if (endDay > lastDayOfMonth) {
+            endDay = lastDayOfMonth;
+          }
 
           // Filter transactions within the selected week
           targetTransactions = currentTransactions.where((t) {
@@ -195,7 +199,9 @@ class FinancialReportBloc
           } else {
             // Previous week is in the same month
             int prevStartDay = startDay - 7;
-            if (prevStartDay < 1) prevStartDay = 1;
+            if (prevStartDay < 1) {
+              prevStartDay = 1;
+            }
             int prevEndDay = startDay - 1;
             targetPrevTransactions = currentTransactions.where((t) {
               return t.date.day >= prevStartDay && t.date.day <= prevEndDay;

@@ -118,7 +118,6 @@ void main() {
               body: GroupsScreen(
                 authService: mockAuthService,
                 groupRepository: mockGroupRepository,
-                profileRepository: mockProfileRepository,
               ),
             ),
           ),
@@ -151,7 +150,6 @@ void main() {
             body: GroupsScreen(
               authService: mockAuthService,
               groupRepository: mockGroupRepository,
-              profileRepository: mockProfileRepository,
             ),
           ),
         ),
@@ -184,7 +182,6 @@ void main() {
             body: GroupsScreen(
               authService: mockAuthService,
               groupRepository: mockGroupRepository,
-              profileRepository: mockProfileRepository,
             ),
           ),
         ),

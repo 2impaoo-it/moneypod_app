@@ -10,11 +10,9 @@ class MockGroupRepository extends Mock implements GroupRepository {}
 class MockWalletRepository extends Mock implements WalletRepository {}
 
 void main() {
-  late MockGroupRepository mockGroupRepository;
   late MockWalletRepository mockWalletRepository;
 
   setUp(() {
-    mockGroupRepository = MockGroupRepository();
     mockWalletRepository = MockWalletRepository();
 
     // Mock wallet loading
@@ -33,9 +31,8 @@ void main() {
           amount: 50000,
           description: 'Payment',
           groupName: 'Test Group',
+
           // notificationId removed as it's not in constructor
-          groupRepository: mockGroupRepository,
-          walletRepository: mockWalletRepository,
         ),
       ),
     );

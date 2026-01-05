@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/2impaoo-it/moneypod_app/backend/internal/models"
@@ -41,95 +42,130 @@ func (s *NotificationScheduler) StartDebtReminderScheduler() {
 }
 
 // SendDebtReminders: Gửi thông báo nhắc nhở cho những người còn nợ
+// ✅ OPTIMIZED: Group by user, batch check duplicates, rate limiting
 func (s *NotificationScheduler) SendDebtReminders() {
 	log.Println("🔔 Đang gửi nhắc nhở nợ...")
 
-	// Lấy tất cả các khoản nợ chưa trả
-	var debts []struct {
-		DebtID      uuid.UUID
+	// Step 1: Group debts by user với aggregation
+	var results []struct {
 		FromUserID  uuid.UUID
-		ToUserID    uuid.UUID
-		Amount      float64
-		GroupID     uuid.UUID
-		GroupName   string
-		ExpenseDesc string
-		FromUserFCM string
-		ExpenseID   uuid.UUID
+		DebtCount   int
+		TotalAmount float64
+		FCMToken    string
+		GroupNames  string // PostgreSQL JSON_AGG returns string
 	}
 
 	query := `
 		SELECT 
-			d.id as debt_id,
 			d.from_user_id,
-			d.to_user_id,
-			d.amount,
-			d.expense_id,
-			g.id as group_id,
-			g.name as group_name,
-			e.description as expense_desc,
-			u.fcm_token as from_user_fcm
+			COUNT(DISTINCT d.id) as debt_count,
+			SUM(d.amount) as total_amount,
+			u.fcm_token,
+			STRING_AGG(DISTINCT g.name, ', ') as group_names
 		FROM debts d
 		JOIN expenses e ON d.expense_id = e.id
 		JOIN groups g ON e.group_id = g.id
 		JOIN users u ON d.from_user_id = u.id
-		WHERE d.is_paid = false
+		WHERE d.is_paid = false 
 		AND u.fcm_token != ''
+		AND u.fcm_token_valid = true
+		GROUP BY d.from_user_id, u.fcm_token
 	`
 
-	if err := s.db.Raw(query).Scan(&debts).Error; err != nil {
+	if err := s.db.Raw(query).Scan(&results).Error; err != nil {
 		log.Printf("❌ Lỗi lấy danh sách nợ: %v\n", err)
 		return
 	}
 
-	if len(debts) == 0 {
+	if len(results) == 0 {
 		log.Println("✅ Không có khoản nợ nào cần nhắc nhở")
 		return
 	}
 
-	// Gửi thông báo cho từng người nợ (nhưng check duplicate trước)
-	count := 0
-	for _, debt := range debts {
-		// Kiểm tra xem đã gửi notification cho debt này trong 24h chưa
-		var existingCount int64
-		s.db.Model(&models.Notification{}).
-			Where("user_id = ? AND type = ? AND data LIKE ? AND created_at > ?",
-				debt.FromUserID,
-				"debt_reminder",
-				fmt.Sprintf("%%\"debt_id\":\"%s\"%%", debt.DebtID),
-				time.Now().Add(-24*time.Hour),
-			).Count(&existingCount)
+	log.Printf("📊 Tìm thấy %d users có nợ chưa trả", len(results))
 
-		if existingCount > 0 {
-			log.Printf("⏭️ Đã gửi notification cho debt %s trong 24h, bỏ qua", debt.DebtID)
+	// Step 2: Batch check duplicates (đã gửi trong 24h chưa)
+	userIDs := make([]uuid.UUID, len(results))
+	for i, r := range results {
+		userIDs[i] = r.FromUserID
+	}
+
+	var alreadySentUsers []uuid.UUID
+	s.db.Model(&models.Notification{}).
+		Select("DISTINCT user_id").
+		Where("user_id IN ? AND type = ? AND created_at > ?",
+			userIDs,
+			"debt_reminder",
+			time.Now().Add(-24*time.Hour),
+		).
+		Pluck("user_id", &alreadySentUsers)
+
+	// Convert to map for fast lookup
+	alreadySentMap := make(map[uuid.UUID]bool)
+	for _, uid := range alreadySentUsers {
+		alreadySentMap[uid] = true
+	}
+
+	log.Printf("⏭️  Bỏ qua %d users đã nhận thông báo trong 24h", len(alreadySentMap))
+
+	// Step 3: Send with rate limiting (10 requests/second max)
+	count := 0
+	skipped := 0
+	rateLimiter := time.NewTicker(100 * time.Millisecond)
+	defer rateLimiter.Stop()
+
+	for _, result := range results {
+		// Skip if already sent in last 24h
+		if alreadySentMap[result.FromUserID] {
+			skipped++
 			continue
 		}
 
-		title := "💰 Nhắc nhở: Bạn còn nợ chưa thanh toán"
-		body := fmt.Sprintf("Bạn còn nợ %.0f đ trong nhóm '%s' ('%s'). Hãy thanh toán sớm nhé!",
-			debt.Amount, debt.GroupName, debt.ExpenseDesc)
+		<-rateLimiter.C // Rate limit: max 10 req/s
+
+		// Build smart notification message
+		title := "💰 Nhắc nhở thanh toán"
+		body := ""
+
+		if result.DebtCount == 1 {
+			body = fmt.Sprintf("Bạn có 1 khoản nợ %.0f đ chưa thanh toán trong nhóm '%s'",
+				result.TotalAmount, result.GroupNames)
+		} else {
+			// Count groups
+			groupCount := len(strings.Split(result.GroupNames, ", "))
+			if groupCount == 1 {
+				body = fmt.Sprintf("Bạn có %d khoản nợ (tổng %.0f đ) chưa thanh toán trong nhóm '%s'",
+					result.DebtCount, result.TotalAmount, result.GroupNames)
+			} else {
+				body = fmt.Sprintf("Bạn có %d khoản nợ (tổng %.0f đ) trong %d nhóm. Hãy thanh toán sớm nhé!",
+					result.DebtCount, result.TotalAmount, groupCount)
+			}
+		}
 
 		data := map[string]interface{}{
-			"type":       "debt_reminder",
-			"debt_id":    debt.DebtID.String(),
-			"group_id":   debt.GroupID.String(),
-			"expense_id": debt.ExpenseID.String(),
-			"group_name": debt.GroupName,
+			"type":         "debt_reminder",
+			"debt_count":   result.DebtCount,
+			"total_amount": result.TotalAmount,
+			"group_names":  result.GroupNames,
 		}
 
 		if s.notifService != nil {
-			s.notifService.CreateAndSendNotification(
-				debt.FromUserID,
+			if err := s.notifService.CreateAndSendNotification(
+				result.FromUserID,
 				"debt_reminder",
 				title,
 				body,
 				data,
-				debt.FromUserFCM,
-			)
-			count++
+				result.FCMToken,
+			); err != nil {
+				log.Printf("⚠️ Lỗi gửi notification cho user %s: %v", result.FromUserID, err)
+			} else {
+				count++
+			}
 		}
 	}
 
-	log.Printf("✅ Đã gửi %d thông báo nhắc nhở nợ\n", count)
+	log.Printf("✅ Đã gửi %d thông báo nhắc nhở nợ (bỏ qua %d, tổng %d users)\n", count, skipped, len(results))
 }
 
 // StartSavingsReminderScheduler: Nhắc nhở tiết kiệm định kỳ
@@ -176,6 +212,7 @@ func (s *NotificationScheduler) SendSavingsReminders() {
 		JOIN users u ON sg.user_id = u.id
 		WHERE sg.status = 'IN_PROGRESS'
 		AND u.fcm_token != ''
+		AND u.fcm_token_valid = true
 		AND sg.deleted_at IS NULL
 	`
 
