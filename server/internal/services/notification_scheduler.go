@@ -92,7 +92,7 @@ func (s *NotificationScheduler) SendDebtReminders() {
 		// Kiểm tra xem đã gửi notification cho debt này trong 24h chưa
 		var existingCount int64
 		s.db.Model(&models.Notification{}).
-			Where("user_id = ? AND type = ? AND data LIKE ? AND created_at > ?",
+			Where("user_id = ? AND type = ? AND data::text LIKE ? AND created_at > ?",
 				debt.FromUserID,
 				"debt_reminder",
 				fmt.Sprintf("%%\"debt_id\":\"%s\"%%", debt.DebtID),
