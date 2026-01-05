@@ -42,6 +42,8 @@ class _GroupsScreenState extends State<GroupsScreen>
   List<Map<String, dynamic>> _groupsList = [];
   bool _isLoading = true;
   late final GroupRepository _groupRepository;
+  late final AuthService _authService;
+  late final ProfileService _profileService;
 
   // Debt optimization and pending settlements
   Map<String, dynamic>? _optimizedDebt;
@@ -55,6 +57,8 @@ class _GroupsScreenState extends State<GroupsScreen>
   void initState() {
     super.initState();
     _groupRepository = widget.groupRepository ?? GroupRepository();
+    _authService = widget.authService ?? AuthService();
+    _profileService = ProfileService(widget.profileRepository);
     WidgetsBinding.instance.addObserver(this);
     _loadUserProfile();
     _fetchGroups();
@@ -253,9 +257,9 @@ class _GroupsScreenState extends State<GroupsScreen>
 
   Future<void> _loadUserProfile() async {
     try {
-      final token = await AuthService().getToken();
+      final token = await _authService.getToken();
       if (token == null) return;
-      final profile = await ProfileService().getUserProfile(token);
+      final profile = await _profileService.getUserProfile(token);
       if (mounted) {
         setState(() {
           _currentUser = profile;

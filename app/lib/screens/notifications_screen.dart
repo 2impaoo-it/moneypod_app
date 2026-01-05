@@ -30,13 +30,14 @@ class NotificationsScreen extends StatelessWidget {
         return NotificationBloc(repository: NotificationRepository())
           ..add(NotificationLoadRequested(token ?? ''));
       },
-      child: const _NotificationsScreenView(),
+      child: const NotificationsScreenView(),
     );
   }
 }
 
-class _NotificationsScreenView extends StatelessWidget {
-  const _NotificationsScreenView();
+@visibleForTesting
+class NotificationsScreenView extends StatelessWidget {
+  const NotificationsScreenView({super.key});
 
   @override
   Widget build(BuildContext context) {

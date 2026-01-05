@@ -29,6 +29,18 @@ void main() {
     );
 
     blocTest<CreateWalletBloc, CreateWalletState>(
+      'emits state with new balance when WalletBalanceChanged is added',
+      build: () => CreateWalletBloc(walletRepository: mockRepository),
+      act: (bloc) => bloc.add(const WalletBalanceChanged(1000)),
+      expect: () => [
+        const CreateWalletState(
+          balance: 1000,
+          status: CreateWalletStatus.initial,
+        ),
+      ],
+    );
+
+    blocTest<CreateWalletBloc, CreateWalletState>(
       'emits [loading, success] when CreateWalletSubmitted succeeds',
       build: () {
         when(
@@ -51,6 +63,40 @@ void main() {
           status: CreateWalletStatus.success,
         ),
       ],
+    );
+
+    blocTest<CreateWalletBloc, CreateWalletState>(
+      'emits [loading, failure] when CreateWalletSubmitted fails',
+      build: () {
+        when(
+          () => mockRepository.createWallet(name: 'New Wallet', balance: 0),
+        ).thenThrow(Exception('Error'));
+        return CreateWalletBloc(walletRepository: mockRepository);
+      },
+      act: (bloc) {
+        bloc.add(const WalletNameChanged('New Wallet'));
+        bloc.add(const CreateWalletSubmitted());
+      },
+      skip: 1,
+      expect: () => [
+        const CreateWalletState(
+          name: 'New Wallet',
+          status: CreateWalletStatus.loading,
+        ),
+        const CreateWalletState(
+          name: 'New Wallet',
+          status: CreateWalletStatus.failure,
+          errorMessage: 'Error',
+        ),
+      ],
+    );
+
+    blocTest<CreateWalletBloc, CreateWalletState>(
+      'emits initial state when ResetCreateWallet is added',
+      build: () => CreateWalletBloc(walletRepository: mockRepository),
+      seed: () => const CreateWalletState(name: 'Dirty', balance: 100),
+      act: (bloc) => bloc.add(const ResetCreateWallet()),
+      expect: () => [const CreateWalletState()],
     );
   });
 }

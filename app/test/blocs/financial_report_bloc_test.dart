@@ -37,5 +37,54 @@ void main() {
       ),
       expect: () => [isA<ReportLoading>(), isA<ReportLoaded>()],
     );
+    final emptyReportData = ReportData(
+      totalIncome: 0,
+      totalExpense: 0,
+      previousMonthIncome: 0,
+      previousMonthExpense: 0,
+      categoryAllocation: {},
+      trends: [],
+      dailyIncome: {},
+      dailyExpense: {},
+      transactions: [],
+      previousCategoryAllocation: {},
+    );
+
+    blocTest<FinancialReportBloc, FinancialReportState>(
+      'emits [ReportLoaded] with updated isBarChart when SwitchChartType is added',
+      build: () => FinancialReportBloc(mockRepository),
+      seed: () => ReportLoaded(
+        data: emptyReportData,
+        currentMonth: 10,
+        currentYear: 2023,
+        isBarChart: true,
+      ),
+      act: (bloc) => bloc.add(const SwitchChartType(false)),
+      expect: () => [
+        isA<ReportLoaded>().having(
+          (state) => state.isBarChart,
+          'isBarChart',
+          false,
+        ),
+      ],
+    );
+
+    blocTest<FinancialReportBloc, FinancialReportState>(
+      'emits [ReportLoading, ReportError] when LoadReport fails',
+      build: () {
+        when(
+          () => mockRepository.getTransactions(
+            month: any(named: 'month'),
+            year: any(named: 'year'),
+            limit: any(named: 'limit'),
+          ),
+        ).thenThrow(Exception('Network error'));
+        return FinancialReportBloc(mockRepository);
+      },
+      act: (bloc) => bloc.add(
+        const LoadReport(month: 10, year: 2023, reportType: ReportType.month),
+      ),
+      expect: () => [isA<ReportLoading>(), isA<ReportError>()],
+    );
   });
 }

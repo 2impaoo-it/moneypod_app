@@ -45,7 +45,72 @@ void main() {
         return BillScanBloc(repository: mockRepository);
       },
       act: (bloc) => bloc.add(const ScanBillFromCamera()),
-      expect: () => [const BillScanLoading(), isA<BillScanFailure>()],
+      expect: () => [
+        const BillScanLoading(),
+        isA<BillScanFailure>().having(
+          (s) => s.error,
+          'error',
+          contains('Có lỗi xảy ra'),
+        ),
+      ],
+    );
+
+    blocTest<BillScanBloc, BillScanState>(
+      'emits [Loading, Success] when ScanBillFromGallery succeeds',
+      build: () {
+        when(
+          () => mockRepository.scanBillFromGallery(),
+        ).thenAnswer((_) async => mockResult);
+        return BillScanBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(const ScanBillFromGallery()),
+      expect: () => [const BillScanLoading(), BillScanSuccess(mockResult)],
+    );
+
+    blocTest<BillScanBloc, BillScanState>(
+      'emits [Loading, Failure] with generic error when ScanBillFromGallery fails',
+      build: () {
+        when(
+          () => mockRepository.scanBillFromGallery(),
+        ).thenThrow(Exception('Unknown'));
+        return BillScanBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(const ScanBillFromGallery()),
+      expect: () => [
+        const BillScanLoading(),
+        isA<BillScanFailure>().having(
+          (s) => s.error,
+          'error',
+          contains('Có lỗi xảy ra'),
+        ),
+      ],
+    );
+
+    blocTest<BillScanBloc, BillScanState>(
+      'emits [Loading, Failure] with specific error when ScanBillFromGallery fails with "Không có ảnh"',
+      build: () {
+        when(
+          () => mockRepository.scanBillFromGallery(),
+        ).thenThrow(Exception('Không có ảnh'));
+        return BillScanBloc(repository: mockRepository);
+      },
+      act: (bloc) => bloc.add(const ScanBillFromGallery()),
+      expect: () => [
+        const BillScanLoading(),
+        isA<BillScanFailure>().having(
+          (s) => s.error,
+          'error',
+          'Bạn chưa chọn ảnh nào.',
+        ),
+      ],
+    );
+
+    blocTest<BillScanBloc, BillScanState>(
+      'emits [Initial] when ResetBillScan is added',
+      build: () => BillScanBloc(repository: mockRepository),
+      seed: () => BillScanSuccess(mockResult),
+      act: (bloc) => bloc.add(const ResetBillScan()),
+      expect: () => [const BillScanInitial()],
     );
   });
 }

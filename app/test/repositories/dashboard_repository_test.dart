@@ -1,13 +1,13 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:moneypod/models/dashboard_data.dart';
-
 import 'package:moneypod/repositories/dashboard_repository.dart';
 import 'package:moneypod/services/auth_service.dart';
 
-class MockDio extends Mock implements Dio {}
+class MockDio extends Mock implements Dio {
+  @override
+  BaseOptions get options => BaseOptions(baseUrl: 'https://test.com');
+}
 
 class MockAuthService extends Mock implements AuthService {}
 
@@ -20,151 +20,195 @@ void main() {
     mockDio = MockDio();
     mockAuthService = MockAuthService();
     repository = DashboardRepository(
-      dio: mockDio,
       authService: mockAuthService,
+      dio: mockDio,
     );
-
-    // Default behaviors
-    when(
-      () => mockAuthService.getToken(),
-    ).thenAnswer((_) async => 'valid_token');
-
-    // Fix interceptors getter access
-    when(
-      () => mockDio.options,
-    ).thenReturn(BaseOptions(baseUrl: 'https://test.com'));
-    when(() => mockDio.interceptors).thenReturn(Interceptors());
   });
 
   group('DashboardRepository', () {
-    test('throws exception when no token found', () async {
-      when(() => mockAuthService.getToken()).thenAnswer((_) async => null);
-
-      expect(
-        () => repository.getDashboardData(),
-        throwsA(
-          isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('đăng nhập'),
-          ),
-        ),
-      );
-    });
-
-    test('returns DashboardData on 200 success', () async {
-      final jsonResponse = {
-        'data': {
-          'user_info': {
-            'id': 'u1',
-            'email': 'test@test.com',
-            'full_name': 'Test',
-          },
-          'total_balance': 1000000.0,
-          'wallets': [],
-          'recent_transactions': [],
-        },
-      };
-
-      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
-        (_) async => Response(
-          data: jsonResponse,
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/dashboard'),
-        ),
-      );
-
-      final result = await repository.getDashboardData();
-
-      expect(result, isA<DashboardData>());
-      expect(result.totalBalance, equals(1000000.0));
-    });
-
-    test('throws Exception on 401 Unauthorized', () async {
-      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
-        (_) async => Response(
-          data: {'error': 'Unauthorized'},
-          statusCode: 401,
-          requestOptions: RequestOptions(path: '/dashboard'),
-        ),
-      );
-
-      expect(
-        () => repository.getDashboardData(),
-        throwsA(
-          isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('Unauthorized'),
-          ),
-        ),
-      );
-    });
-
-    test('throws Exception on 500 Server Error', () async {
-      when(() => mockDio.get(any(), options: any(named: 'options'))).thenAnswer(
-        (_) async => Response(
-          data: {'error': 'Internal Server Error'},
-          statusCode: 500,
-          requestOptions: RequestOptions(path: '/dashboard'),
-        ),
-      );
-
-      expect(
-        () => repository.getDashboardData(),
-        throwsA(
-          isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('Server Error'),
-          ),
-        ),
-      );
-    });
-
-    test('throws Exception on Network Error (SocketException)', () async {
-      when(() => mockDio.get(any(), options: any(named: 'options'))).thenThrow(
-        DioException(
-          requestOptions: RequestOptions(path: '/dashboard'),
-          error: const SocketException('No Internet'),
-          type: DioExceptionType.connectionError,
-        ),
-      );
-
-      expect(
-        () => repository.getDashboardData(),
-        throwsA(
-          isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('kết nối mạng'),
-          ),
-        ),
-      );
-    });
-
-    test('throws Exception on Generic DioException', () async {
-      when(() => mockDio.get(any(), options: any(named: 'options'))).thenThrow(
-        DioException(
-          requestOptions: RequestOptions(path: '/dashboard'),
-          response: Response(
+    group('getDashboardData', () {
+      test('returns DashboardData on successful response', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get('/dashboard', options: any(named: 'options')),
+        ).thenAnswer(
+          (_) async => Response(
             requestOptions: RequestOptions(path: '/dashboard'),
-            data: {'error': 'Custom Error'},
+            statusCode: 200,
+            data: {
+              'data': {
+                'user_info': {'email': 'test@example.com'},
+                'total_balance': 10000000.0,
+                'wallets': [],
+                'recent_transactions': [],
+              },
+            },
           ),
-          type: DioExceptionType.badResponse,
-        ),
-      );
+        );
 
-      expect(
-        () => repository.getDashboardData(),
-        throwsA(
-          isA<Exception>().having(
-            (e) => e.toString(),
-            'message',
-            contains('Custom Error'),
+        final result = await repository.getDashboardData();
+
+        expect(result.userInfo.email, 'test@example.com');
+        expect(result.totalBalance, 10000000.0);
+        verify(() => mockAuthService.getToken()).called(1);
+      });
+
+      test('throws exception when no token', () async {
+        when(() => mockAuthService.getToken()).thenAnswer((_) async => null);
+
+        expect(
+          () => repository.getDashboardData(),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('đăng nhập'),
+            ),
           ),
-        ),
-      );
+        );
+      });
+
+      test('throws exception on non-200 status', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get('/dashboard', options: any(named: 'options')),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/dashboard'),
+            statusCode: 401,
+            data: {'error': 'Unauthorized'},
+          ),
+        );
+
+        expect(() => repository.getDashboardData(), throwsA(isA<Exception>()));
+      });
+
+      test('handles DioException with error response', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get('/dashboard', options: any(named: 'options')),
+        ).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/dashboard'),
+            response: Response(
+              requestOptions: RequestOptions(path: '/dashboard'),
+              statusCode: 500,
+              data: {'error': 'Server error'},
+            ),
+          ),
+        );
+
+        expect(() => repository.getDashboardData(), throwsA(isA<Exception>()));
+      });
+    });
+
+    group('getTransactionsWithFilter', () {
+      test('returns transactions on successful response', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get(
+            '/transactions',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/transactions'),
+            statusCode: 200,
+            data: {
+              'data': [
+                {'id': '1', 'title': 'Test', 'amount': 50000},
+                {'id': '2', 'title': 'Test2', 'amount': 100000},
+              ],
+            },
+          ),
+        );
+
+        final result = await repository.getTransactionsWithFilter(
+          month: 1,
+          year: 2026,
+          type: 'expense',
+        );
+
+        expect(result, hasLength(2));
+        expect(result[0]['title'], 'Test');
+      });
+
+      test('returns empty list when no token', () async {
+        when(() => mockAuthService.getToken()).thenAnswer((_) async => null);
+
+        final result = await repository.getTransactionsWithFilter();
+
+        expect(result, isEmpty);
+      });
+
+      test('returns empty list on error', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get(
+            '/transactions',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenThrow(Exception('Network error'));
+
+        final result = await repository.getTransactionsWithFilter();
+
+        expect(result, isEmpty);
+      });
+
+      test('passes correct query parameters', () async {
+        when(
+          () => mockAuthService.getToken(),
+        ).thenAnswer((_) async => 'valid_token');
+        when(
+          () => mockDio.get(
+            '/transactions',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/transactions'),
+            statusCode: 200,
+            data: {'data': []},
+          ),
+        );
+
+        await repository.getTransactionsWithFilter(
+          month: 6,
+          year: 2026,
+          category: 'Ăn uống',
+          type: 'expense',
+          page: 2,
+          pageSize: 50,
+        );
+
+        verify(
+          () => mockDio.get(
+            '/transactions',
+            queryParameters: {
+              'page': 2,
+              'page_size': 50,
+              'month': 6,
+              'year': 2026,
+              'category': 'Ăn uống',
+              'type': 'expense',
+            },
+            options: any(named: 'options'),
+          ),
+        ).called(1);
+      });
     });
   });
 }

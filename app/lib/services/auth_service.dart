@@ -9,9 +9,11 @@ class AuthService {
   final storage = const FlutterSecureStorage();
   late final Dio _dio;
 
-  AuthService() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = baseUrl;
+  AuthService({Dio? dio}) {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = baseUrl;
+    }
   }
 
   // Đăng ký tài khoản mới

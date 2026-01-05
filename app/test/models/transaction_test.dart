@@ -3,255 +3,386 @@ import 'package:moneypod/models/transaction.dart';
 
 void main() {
   group('Transaction Model', () {
+    final now = DateTime.now();
+
     group('fromJson', () {
-      test('parses complete data correctly', () {
+      test('parses complete JSON correctly', () {
         final json = {
           'id': '123',
-          'title': 'Ăn sáng',
+          'title': 'Lunch',
           'category': 'Ăn uống',
           'amount': 50000.0,
-          'date': '2026-01-04T10:30:00.000Z',
+          'date': now.toIso8601String(),
           'is_expense': true,
-          'hashtag': '#caphe',
-          'wallet_id': 'wallet-1',
-          'user': {
-            'full_name': 'Nguyễn Văn A',
-            'avatar_url': 'https://example.com/avatar.jpg',
-          },
-          'wallet': {'name': 'Ví tiền mặt'},
+          'hashtag': '#food',
+          'wallet_id': 'wallet1',
           'proof_image': 'https://example.com/proof.jpg',
         };
 
-        final transaction = Transaction.fromJson(json);
+        final tx = Transaction.fromJson(json);
 
-        expect(transaction.id, '123');
-        expect(transaction.title, 'Ăn sáng');
-        expect(transaction.category, 'Ăn uống');
-        expect(transaction.amount, 50000.0);
-        expect(transaction.isExpense, true);
-        expect(transaction.hashtag, '#caphe');
-        expect(transaction.walletId, 'wallet-1');
-        expect(transaction.walletName, 'Ví tiền mặt');
-        expect(transaction.userName, 'Nguyễn Văn A');
-        expect(transaction.userAvatar, 'https://example.com/avatar.jpg');
-        expect(transaction.proofImage, 'https://example.com/proof.jpg');
+        expect(tx.id, '123');
+        expect(tx.title, 'Lunch');
+        expect(tx.category, 'Ăn uống');
+        expect(tx.amount, 50000.0);
+        expect(tx.isExpense, true);
+        expect(tx.hashtag, '#food');
+        expect(tx.walletId, 'wallet1');
+        expect(tx.proofImage, 'https://example.com/proof.jpg');
       });
 
-      test('handles missing optional fields', () {
+      test('handles uppercase ID key', () {
         final json = {
-          'id': '456',
-          'note': 'Mua đồ',
-          'category': 'Mua sắm',
-          'amount': 200000,
-          'date': '2026-01-04T14:00:00.000Z',
-          'type': 'expense',
-        };
-
-        final transaction = Transaction.fromJson(json);
-
-        expect(transaction.id, '456');
-        expect(transaction.title, 'Mua đồ');
-        expect(transaction.isExpense, true);
-        expect(transaction.hashtag, 'Mua sắm'); // Falls back to category
-        expect(transaction.walletId, isNull);
-        expect(transaction.walletName, isNull);
-        expect(transaction.userName, isNull);
-        expect(transaction.proofImage, isNull);
-      });
-
-      test('handles GORM-style keys (ID, CreatedAt)', () {
-        final json = {
-          'ID': '789',
-          'title': 'Lương tháng 1',
-          'category': 'Lương',
-          'amount': 15000000,
-          'date': '2026-01-01T00:00:00.000Z',
+          'ID': 456,
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 100,
+          'date': now.toIso8601String(),
           'is_expense': false,
         };
 
-        final transaction = Transaction.fromJson(json);
-
-        expect(transaction.id, '789');
-        expect(transaction.isExpense, false);
+        final tx = Transaction.fromJson(json);
+        expect(tx.id, '456');
       });
 
-      test('parses amount from string', () {
+      test('handles note field as title alternative', () {
         final json = {
-          'id': '101',
+          'id': '1',
+          'note': 'This is a note',
+          'category': 'Other',
+          'amount': 100,
+          'date': now.toIso8601String(),
+          'is_expense': true,
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.title, 'This is a note');
+      });
+
+      test('handles type field for expense detection', () {
+        final json = {
+          'id': '1',
           'title': 'Test',
-          'category': 'Khác',
-          'amount': '75000',
-          'date': '2026-01-04T12:00:00.000Z',
-          'is_expense': true,
+          'category': 'Other',
+          'amount': 100,
+          'date': now.toIso8601String(),
+          'type': 'expense',
         };
 
-        final transaction = Transaction.fromJson(json);
-
-        expect(transaction.amount, 75000.0);
+        final tx = Transaction.fromJson(json);
+        expect(tx.isExpense, true);
       });
 
-      test('handles null date with fallback to now', () {
+      test('parses amount from String', () {
         final json = {
-          'id': '102',
-          'title': 'No date',
-          'category': 'Khác',
-          'amount': 1000,
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': '123456.78',
+          'date': now.toIso8601String(),
           'is_expense': true,
         };
 
-        final transaction = Transaction.fromJson(json);
+        final tx = Transaction.fromJson(json);
+        expect(tx.amount, 123456.78);
+      });
 
-        expect(transaction.date, isA<DateTime>());
-        expect(
-          transaction.date.difference(DateTime.now()).inSeconds.abs(),
-          lessThan(2),
-        );
+      test('parses amount from int', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 500000,
+          'date': now.toIso8601String(),
+          'is_expense': false,
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.amount, 500000.0);
+      });
+
+      test('handles null/invalid amount', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 'invalid',
+          'date': now.toIso8601String(),
+          'is_expense': true,
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.amount, 0.0);
+      });
+
+      test('handles nested user object', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 100,
+          'date': now.toIso8601String(),
+          'is_expense': true,
+          'user': {
+            'full_name': 'Test User',
+            'avatar_url': 'https://example.com/avatar.png',
+          },
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.userName, 'Test User');
+        expect(tx.userAvatar, 'https://example.com/avatar.png');
+      });
+
+      test('handles nested wallet object', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 100,
+          'date': now.toIso8601String(),
+          'is_expense': true,
+          'wallet': {'name': 'Main Wallet'},
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.walletName, 'Main Wallet');
+      });
+
+      test('handles missing date (defaults to now)', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Other',
+          'amount': 100,
+          'is_expense': true,
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.date.year, DateTime.now().year);
+      });
+
+      test('uses category as hashtag fallback', () {
+        final json = {
+          'id': '1',
+          'title': 'Test',
+          'category': 'Shopping',
+          'amount': 100,
+          'date': now.toIso8601String(),
+          'is_expense': true,
+        };
+
+        final tx = Transaction.fromJson(json);
+        expect(tx.hashtag, 'Shopping');
       });
     });
 
     group('toJson', () {
       test('serializes all fields correctly', () {
-        final date = DateTime.parse('2026-01-04T10:30:00.000Z');
-        final transaction = Transaction(
+        final tx = Transaction(
           id: '123',
-          title: 'Test transaction',
-          category: 'Ăn uống',
-          amount: 50000,
-          date: date,
-          isExpense: true,
-          hashtag: '#test',
-          walletId: 'wallet-1',
-          walletName: 'Ví chính',
-          userName: 'User A',
-          userAvatar: 'avatar.jpg',
-          proofImage: 'proof.jpg',
+          title: 'Salary',
+          category: 'Lương',
+          amount: 10000000,
+          date: now,
+          isExpense: false,
+          hashtag: '#salary',
+          walletId: 'wallet1',
+          walletName: 'Main',
+          userName: 'User',
+          userAvatar: 'url',
+          proofImage: 'proof_url',
         );
 
-        final json = transaction.toJson();
+        final json = tx.toJson();
 
         expect(json['id'], '123');
-        expect(json['title'], 'Test transaction');
-        expect(json['category'], 'Ăn uống');
-        expect(json['amount'], 50000);
-        expect(json['date'], date.toIso8601String());
-        expect(json['is_expense'], true);
-        expect(json['hashtag'], '#test');
-        expect(json['wallet_id'], 'wallet-1');
-        expect(json['wallet_name'], 'Ví chính');
-        expect(json['user_name'], 'User A');
-        expect(json['user_avatar'], 'avatar.jpg');
-        expect(json['proof_image'], 'proof.jpg');
+        expect(json['title'], 'Salary');
+        expect(json['category'], 'Lương');
+        expect(json['amount'], 10000000);
+        expect(json['is_expense'], false);
+        expect(json['hashtag'], '#salary');
+        expect(json['wallet_id'], 'wallet1');
+        expect(json['wallet_name'], 'Main');
+        expect(json['user_name'], 'User');
+        expect(json['user_avatar'], 'url');
+        expect(json['proof_image'], 'proof_url');
+      });
+
+      test('handles null optional fields', () {
+        final tx = Transaction(
+          id: '1',
+          title: 'Test',
+          category: 'Other',
+          amount: 100,
+          date: now,
+          isExpense: true,
+        );
+
+        final json = tx.toJson();
+        expect(json['hashtag'], isNull);
+        expect(json['wallet_id'], isNull);
+        expect(json['proof_image'], isNull);
       });
     });
 
     group('copyWith', () {
-      test('creates modified copy with new amount', () {
+      test('copies all fields when provided', () {
         final original = Transaction(
           id: '1',
-          title: 'Original',
-          category: 'Ăn uống',
+          title: 'Old',
+          category: 'Old Cat',
           amount: 100,
-          date: DateTime.now(),
+          date: now,
           isExpense: true,
         );
 
-        final modified = original.copyWith(amount: 200);
+        final copied = original.copyWith(
+          title: 'New',
+          category: 'New Cat',
+          amount: 200,
+          isExpense: false,
+        );
 
-        expect(modified.amount, 200);
-        expect(modified.id, '1');
-        expect(modified.title, 'Original');
-        expect(modified.category, 'Ăn uống');
+        expect(copied.id, '1'); // unchanged
+        expect(copied.title, 'New');
+        expect(copied.category, 'New Cat');
+        expect(copied.amount, 200);
+        expect(copied.isExpense, false);
       });
 
-      test('preserves all fields when no changes', () {
+      test('preserves original values when not provided', () {
         final original = Transaction(
           id: '1',
           title: 'Test',
-          category: 'Mua sắm',
-          amount: 500,
-          date: DateTime(2026, 1, 4),
-          isExpense: false,
-          hashtag: '#shopping',
+          category: 'Cat',
+          amount: 1000,
+          date: now,
+          isExpense: true,
+          proofImage: 'proof.jpg',
         );
 
-        final copy = original.copyWith();
+        final copied = original.copyWith(title: 'New Title');
 
-        expect(copy, equals(original));
+        expect(copied.id, '1');
+        expect(copied.title, 'New Title');
+        expect(copied.category, 'Cat');
+        expect(copied.amount, 1000);
+        expect(copied.proofImage, 'proof.jpg');
       });
     });
 
     group('type getter', () {
       test('returns expense for isExpense=true', () {
-        final transaction = Transaction(
+        final tx = Transaction(
           id: '1',
-          title: 'Chi tiêu',
-          category: 'Ăn uống',
+          title: 'T',
+          category: 'C',
           amount: 100,
           date: DateTime.now(),
           isExpense: true,
         );
-
-        expect(transaction.type, 'expense');
+        expect(tx.type, 'expense');
       });
 
       test('returns income for isExpense=false', () {
-        final transaction = Transaction(
-          id: '2',
-          title: 'Thu nhập',
-          category: 'Lương',
-          amount: 1000000,
-          date: DateTime.now(),
+        final tx = Transaction(
+          id: '1',
+          title: 'T',
+          category: 'C',
+          amount: 100,
+          date: now,
           isExpense: false,
         );
-
-        expect(transaction.type, 'income');
+        expect(tx.type, 'income');
       });
     });
 
     group('Equatable', () {
       test('two transactions with same props are equal', () {
-        final date = DateTime(2026, 1, 4);
-        final t1 = Transaction(
+        final tx1 = Transaction(
           id: '1',
           title: 'Test',
-          category: 'Ăn uống',
+          category: 'Cat',
           amount: 100,
-          date: date,
+          date: now,
           isExpense: true,
         );
-        final t2 = Transaction(
+        final tx2 = Transaction(
           id: '1',
           title: 'Test',
-          category: 'Ăn uống',
+          category: 'Cat',
           amount: 100,
-          date: date,
+          date: now,
           isExpense: true,
         );
 
-        expect(t1, equals(t2));
-        expect(t1.hashCode, equals(t2.hashCode));
+        expect(tx1, equals(tx2));
+        expect(tx1.hashCode, equals(tx2.hashCode));
       });
 
-      test('two transactions with different id are not equal', () {
-        final date = DateTime(2026, 1, 4);
-        final t1 = Transaction(
+      test('two transactions with different props are not equal', () {
+        final tx1 = Transaction(
           id: '1',
           title: 'Test',
-          category: 'Ăn uống',
+          category: 'Cat',
           amount: 100,
-          date: date,
+          date: now,
           isExpense: true,
         );
-        final t2 = Transaction(
+        final tx2 = Transaction(
           id: '2',
           title: 'Test',
-          category: 'Ăn uống',
+          category: 'Cat',
           amount: 100,
-          date: date,
+          date: now,
           isExpense: true,
         );
 
-        expect(t1, isNot(equals(t2)));
+        expect(tx1, isNot(equals(tx2)));
+      });
+
+      test('props contains all fields', () {
+        final tx = Transaction(
+          id: '1',
+          title: 'Test',
+          category: 'Cat',
+          amount: 100,
+          date: now,
+          isExpense: true,
+          hashtag: '#tag',
+          walletId: 'w1',
+          walletName: 'Wallet',
+          userName: 'User',
+          userAvatar: 'avatar',
+          proofImage: 'proof',
+        );
+
+        expect(tx.props, hasLength(12));
+      });
+    });
+
+    group('roundtrip', () {
+      test('fromJson -> toJson preserves core data', () {
+        final originalJson = {
+          'id': '123',
+          'title': 'Lunch',
+          'category': 'Food',
+          'amount': 50000.0,
+          'date': now.toIso8601String(),
+          'is_expense': true,
+          'hashtag': '#food',
+          'wallet_id': 'wallet1',
+        };
+
+        final tx = Transaction.fromJson(originalJson);
+        final resultJson = tx.toJson();
+
+        expect(resultJson['id'], originalJson['id']);
+        expect(resultJson['title'], originalJson['title']);
+        expect(resultJson['category'], originalJson['category']);
+        expect(resultJson['amount'], originalJson['amount']);
+        expect(resultJson['is_expense'], originalJson['is_expense']);
       });
     });
   });

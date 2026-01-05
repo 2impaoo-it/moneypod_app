@@ -18,8 +18,12 @@ import 'voice_assistant_screen.dart';
 import '../models/voice_command.dart';
 import '../repositories/transaction_repository.dart';
 
+import '../services/insight_service.dart'; // Ensure import
+
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final InsightService? insightService;
+
+  const DashboardScreen({super.key, this.insightService});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -317,7 +321,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 24),
 
                       // --- AI INSIGHT CARD ---
-                      const InsightWidget(),
+                      InsightWidget(insightService: widget.insightService),
                       const SizedBox(height: 24),
 
                       // --- SPENDING CHARTS - ENHANCED ---
