@@ -8,7 +8,6 @@ class MockSavingsRepository extends Mock implements SavingsRepository {}
 
 void main() {
   testWidgets('CreateSavingsGoalScreen builds', (WidgetTester tester) async {
-    // Skipped due to environment issues
     final mockRepo = MockSavingsRepository();
 
     await tester.pumpWidget(
