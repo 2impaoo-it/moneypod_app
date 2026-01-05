@@ -527,23 +527,45 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text("Chia đều"),
-                      value: true,
-                      groupValue: _isSplitEqually,
-                      onChanged: (val) =>
-                          setState(() => _isSplitEqually = val!),
-                      contentPadding: EdgeInsets.zero,
+                    child: InkWell(
+                      onTap: () => setState(() => _isSplitEqually = true),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isSplitEqually
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: Colors.teal,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Chia đều"),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
-                    child: RadioListTile<bool>(
-                      title: const Text("Chia cụ thể"),
-                      value: false,
-                      groupValue: _isSplitEqually,
-                      onChanged: (val) =>
-                          setState(() => _isSplitEqually = val!),
-                      contentPadding: EdgeInsets.zero,
+                    child: InkWell(
+                      onTap: () => setState(() => _isSplitEqually = false),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              !_isSplitEqually
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: Colors.teal,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Chia cụ thể"),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

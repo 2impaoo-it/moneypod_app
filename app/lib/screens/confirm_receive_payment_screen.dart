@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+import '../utils/app_global_state.dart';
 import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
@@ -18,6 +19,7 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
   final String? paymentNote;
   final String? proofImageUrl;
   final bool isPaid;
+  final bool hasPaymentRequest; // TRUE when debtor has sent payment request
   final String? receivedWalletId;
 
   const ConfirmReceivePaymentScreen({
@@ -32,8 +34,14 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
     this.paymentNote,
     this.proofImageUrl,
     this.isPaid = false,
+    this.hasPaymentRequest = false,
     this.receivedWalletId,
+    this.groupRepository,
+    this.walletRepository,
   });
+
+  final GroupRepository? groupRepository;
+  final WalletRepository? walletRepository;
 
   @override
   State<ConfirmReceivePaymentScreen> createState() =>
@@ -42,8 +50,8 @@ class ConfirmReceivePaymentScreen extends StatefulWidget {
 
 class _ConfirmReceivePaymentScreenState
     extends State<ConfirmReceivePaymentScreen> {
-  final GroupRepository _groupRepository = GroupRepository();
-  final WalletRepository _walletRepository = WalletRepository();
+  late final GroupRepository _groupRepository;
+  late final WalletRepository _walletRepository;
 
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
@@ -53,7 +61,18 @@ class _ConfirmReceivePaymentScreenState
   @override
   void initState() {
     super.initState();
+    // Hide MainWrapper's FAB when this screen is active
+    AppGlobalState.hideMainFAB.value = true;
+    _groupRepository = widget.groupRepository ?? GroupRepository();
+    _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
+  }
+
+  @override
+  void dispose() {
+    // Restore FAB when leaving this screen
+    AppGlobalState.hideMainFAB.value = false;
+    super.dispose();
   }
 
   Future<void> _loadWallets() async {
@@ -67,7 +86,7 @@ class _ConfirmReceivePaymentScreenState
         if (widget.isPaid && widget.receivedWalletId != null) {
           _selectedWallet = _wallets.firstWhere(
             (w) => w.id == widget.receivedWalletId,
-            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+            orElse: () => _wallets.isNotEmpty ? _wallets.first : _wallets.first,
           );
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;
@@ -91,6 +110,9 @@ class _ConfirmReceivePaymentScreenState
 
     try {
       // Gọi API xác nhận đã nhận tiền
+      debugPrint(
+        "🔍 [ConfirmPayment] debtId=${widget.debtId}, walletId=${_selectedWallet!.id}",
+      );
       await _groupRepository.confirmReceivePayment(
         widget.debtId,
         walletId: _selectedWallet!.id,
@@ -197,7 +219,7 @@ class _ConfirmReceivePaymentScreenState
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             backgroundImage:
                 (widget.debtorAvatar.isNotEmpty &&
                     widget.debtorAvatar.startsWith('http'))
@@ -271,7 +293,7 @@ class _ConfirmReceivePaymentScreenState
       decoration: BoxDecoration(
         color: AppColors.blue50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.blue500.withOpacity(0.3)),
+        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,24 +424,125 @@ class _ConfirmReceivePaymentScreenState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primary.withOpacity(0.1)
+                        ? AppColors.primary.withValues(alpha: 0.1)
                         : AppColors.slate50,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.slate900,
+                          : AppColors.slate200,
                     ),
                   ),
-                  Text(
-                    _formatCurrency(wallet.balance.toInt()),
-                    style: TextStyle(fontSize: 12, color: AppColors.slate600),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.slate600,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wallet.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.slate900,
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(wallet.balance.toInt()),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
+                ),
+              );
+            })
+          else
+            ..._wallets.map((wallet) {
+              final isSelected = _selectedWallet?.id == wallet.id;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedWallet = wallet),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.1)
+                        : AppColors.slate50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.slate200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.slate600,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wallet.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.slate900,
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(wallet.balance.toInt()),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.slate600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
@@ -454,7 +577,7 @@ class _ConfirmReceivePaymentScreenState
               widget.proofImageUrl!,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (context, error, stackTrace) => Container(
                 height: 200,
                 color: AppColors.slate100,
                 child: const Center(
@@ -532,9 +655,8 @@ class _ConfirmReceivePaymentScreenState
       );
     }
 
-    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (có paymentDate)
-    final bool canConfirm =
-        widget.paymentDate != null && widget.paymentDate!.isNotEmpty;
+    // Chỉ cho phép xác nhận khi người nợ đã gửi lệnh trả tiền (hasPaymentRequest = true)
+    final bool canConfirm = widget.hasPaymentRequest;
 
     return Column(
       children: [
@@ -543,9 +665,11 @@ class _ConfirmReceivePaymentScreenState
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.1),
+              color: AppColors.warning.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               children: [

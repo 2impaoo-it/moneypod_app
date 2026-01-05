@@ -9,13 +9,16 @@ import '../bloc/dashboard/dashboard_bloc.dart';
 import '../bloc/dashboard/dashboard_state.dart';
 import '../bloc/dashboard/dashboard_event.dart';
 import '../bloc/settings/settings_cubit.dart';
-import '../models/transaction.dart' as model;
+
 import '../widgets/header_widget.dart';
 import '../widgets/insight_widget.dart';
+import '../widgets/transaction_item.dart';
+import '../widgets/transaction_detail_modal.dart';
 import '../models/profile.dart';
 import '../utils/popup_notification.dart';
 import 'voice_assistant_screen.dart';
 import '../models/voice_command.dart';
+import '../models/wallet.dart';
 import '../repositories/transaction_repository.dart';
 
 import '../services/insight_service.dart'; // Ensure import
@@ -679,7 +682,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         itemCount: recentTransactions.length,
                         itemBuilder: (context, index) {
                           final tx = recentTransactions[index];
-                          return _buildTransactionItem(tx, currencyFormat);
+                          return TransactionItem(
+                            transaction: tx,
+                            onTap: () =>
+                                TransactionDetailModal.show(context, tx),
+                          );
                         },
                       ),
                       const SizedBox(height: 80),
@@ -887,158 +894,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _buildTransactionItem(model.Transaction tx, NumberFormat fmt) {
-    final style = _getCategoryStyle(tx.category);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: style.bgColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(style.icon, color: style.iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      tx.category,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (tx.hashtag != null && tx.hashtag != tx.category) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        tx.hashtag!,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "${tx.isExpense ? '-' : '+'}${fmt.format(tx.amount)}",
-                style: TextStyle(
-                  color: tx.isExpense ? AppColors.danger : AppColors.success,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                DateFormat('dd/MM HH:mm').format(tx.date),
-                style: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  _CategoryStyle _getCategoryStyle(String category) {
-    final lowerCategory = category.toLowerCase();
-
-    if (lowerCategory.contains('ăn') ||
-        lowerCategory.contains('food') ||
-        lowerCategory.contains('ăn uống')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFCCFBF1),
-        iconColor: const Color(0xFF0D9488),
-        icon: LucideIcons.utensils,
-      );
-    } else if (lowerCategory.contains('di chuyển') ||
-        lowerCategory.contains('transport')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFDBEAFE),
-        iconColor: const Color(0xFF2563EB),
-        icon: LucideIcons.car,
-      );
-    } else if (lowerCategory.contains('mua sắm') ||
-        lowerCategory.contains('shopping')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFCE7F3),
-        iconColor: const Color(0xFFDB2777),
-        icon: LucideIcons.shoppingBag,
-      );
-    } else if (lowerCategory.contains('giải trí') ||
-        lowerCategory.contains('entertainment')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFF3E8FF),
-        iconColor: const Color(0xFF9333EA),
-        icon: LucideIcons.gamepad2,
-      );
-    } else if (lowerCategory.contains('lương') ||
-        lowerCategory.contains('salary')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFDCFCE7),
-        iconColor: const Color(0xFF16A34A),
-        icon: LucideIcons.wallet,
-      );
-    } else if (lowerCategory.contains('hóa đơn') ||
-        lowerCategory.contains('bill')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFFEDD5),
-        iconColor: const Color(0xFFEA580C),
-        icon: LucideIcons.fileText,
-      );
-    } else if (lowerCategory.contains('sức khỏe') ||
-        lowerCategory.contains('health')) {
-      return _CategoryStyle(
-        bgColor: const Color(0xFFFEE2E2),
-        iconColor: const Color(0xFFDC2626),
-        icon: LucideIcons.heart,
-      );
+  Future<void> _openVoiceAssistant() async {
+    List<Wallet>? wallets;
+    final state = context.read<DashboardBloc>().state;
+    if (state is DashboardLoaded) {
+      wallets = state.data.wallets;
     }
 
-    return _CategoryStyle(
-      bgColor: const Color(0xFFF3F4F6),
-      iconColor: const Color(0xFF4B5563),
-      icon: LucideIcons.moreHorizontal,
-    );
-  }
-
-  Future<void> _openVoiceAssistant() async {
     final command = await showModalBottomSheet<VoiceCommand>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const VoiceAssistantScreen(),
+      builder: (context) => VoiceAssistantScreen(preloadedWallets: wallets),
     );
 
     if (command != null && mounted) {
@@ -1050,10 +917,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final repository = context.read<TransactionRepository>();
       final state = context.read<DashboardBloc>().state;
-      String? walletId;
+      String? walletId = command.walletId;
 
-      if (state is DashboardLoaded && state.data.wallets.isNotEmpty) {
-        // Try to find default wallet, or fallback to first
+      if (walletId == null &&
+          state is DashboardLoaded &&
+          state.data.wallets.isNotEmpty) {
+        // Fallback to first wallet if not selected
         walletId = state.data.wallets.first.id;
       }
 
@@ -1112,16 +981,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
   }
-}
-
-class _CategoryStyle {
-  final Color bgColor;
-  final Color iconColor;
-  final IconData icon;
-
-  _CategoryStyle({
-    required this.bgColor,
-    required this.iconColor,
-    required this.icon,
-  });
 }

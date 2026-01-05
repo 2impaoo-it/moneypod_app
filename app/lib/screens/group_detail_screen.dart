@@ -683,6 +683,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     final note = debt['note'] ?? 'Chi tiêu nhóm';
     final groupName = _groupData['name'] ?? 'Nhóm';
     final debtId = debt['id']?.toString() ?? '';
+    debugPrint(
+      "🔍 Debt Item [$debtId]: PaymentWallet=${debt['payment_wallet_id']}, Confirmed=${debt['payment_confirmed_at']}",
+    );
 
     // Check payment status
     // Assuming backend returns 'payment_wallet_id' when payment is made but not confirmed
@@ -697,14 +700,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return GestureDetector(
       onTap: () async {
         if (isMyDebt) {
-          if (isPending) {
-            // Pending confirmation - Do nothing or show toast
-            PopupNotification.showInfo(
-              context,
-              'Bạn đã xác nhận trả khoản này rồi. Vui lòng chờ xác nhận!',
-            );
-            return;
-          }
           // Tôi nợ người khác - Navigate to debt payment screen
           debugPrint("🚀 Navigating to /full-screen/debt/pay");
           final result = await context.push(
@@ -717,6 +712,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               'description': note,
               'groupName': groupName,
               'existingProofImageUrl': expenseImageUrl,
+              'isPaid': isPending,
             },
           );
 
@@ -729,6 +725,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           final paymentDate = debt['payment_confirmed_at'] as String?;
           final paymentNote = debt['payment_note'] as String?;
 
+          debugPrint("🚀 Navigating to /full-screen/debt/confirm");
           final result = await context.push(
             '/full-screen/debt/confirm',
             extra: {
@@ -741,7 +738,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               'paymentDate': paymentDate,
               'paymentNote': paymentNote,
               'proofImageUrl': expenseImageUrl,
-              'hasPaymentRequest': isPending, // Pass pending status
+              'hasPaymentRequest': isPending,
+              'isPaid': paymentDate != null && paymentDate.isNotEmpty,
             },
           );
 

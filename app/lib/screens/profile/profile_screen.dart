@@ -1137,7 +1137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               showAboutDialog(
                 context: context,
                 applicationName: 'MoneyPod',
-                applicationVersion: '1.0.0',
+                applicationVersion: '1.3.3',
                 applicationLegalese: '© 2024 MoneyPod Team',
               );
             },

@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../repositories/group_repository.dart';
 import '../repositories/wallet_repository.dart';
 import '../utils/popup_notification.dart';
+import '../utils/app_global_state.dart';
 import 'package:go_router/go_router.dart';
 import '../models/wallet.dart';
 
@@ -53,6 +54,8 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
   @override
   void initState() {
     super.initState();
+    // Hide MainWrapper's FAB when this screen is active
+    AppGlobalState.hideMainFAB.value = true;
     _groupRepository = widget.groupRepository ?? GroupRepository();
     _walletRepository = widget.walletRepository ?? WalletRepository();
     _loadWallets();
@@ -60,6 +63,13 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
     if (widget.isPaid && widget.paymentNote != null) {
       _noteController.text = widget.paymentNote!;
     }
+  }
+
+  @override
+  void dispose() {
+    // Restore FAB when leaving this screen
+    AppGlobalState.hideMainFAB.value = false;
+    super.dispose();
   }
 
   Future<void> _loadWallets() async {
@@ -73,7 +83,10 @@ class _DebtPaymentScreenState extends State<DebtPaymentScreen> {
         if (widget.isPaid && widget.paymentWalletId != null) {
           _selectedWallet = _wallets.firstWhere(
             (w) => w.id == widget.paymentWalletId,
-            orElse: () => _wallets.isNotEmpty ? _wallets.first : null as Wallet,
+            orElse: () => _wallets.isNotEmpty
+                ? _wallets.first
+                : _wallets
+                      .first, // Will throw StateError if empty but that is expected if list is empty
           );
         } else if (_wallets.isNotEmpty) {
           _selectedWallet = _wallets.first;

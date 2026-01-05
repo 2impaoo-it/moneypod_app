@@ -423,14 +423,18 @@ class GroupRepository {
       }
 
       final data = <String, dynamic>{};
-      if (walletId != null) data['wallet_id'] = walletId;
+      if (walletId != null) data['payment_wallet_id'] = walletId;
       if (note != null && note.isNotEmpty) data['note'] = note;
+
+      debugPrint("🚀 [API] PUT /groups/debts/$debtId/paid with data: $data");
 
       final response = await _dio.put(
         '/groups/debts/$debtId/paid',
         data: data,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
+
+      debugPrint("✅ [API] Response: ${response.statusCode} - ${response.data}");
 
       if (response.statusCode != 200) {
         throw Exception(response.data['error'] ?? 'Lỗi cập nhật trạng thái nợ');
@@ -450,6 +454,8 @@ class GroupRepository {
       final token = await _authService.getToken();
 
       final data = <String, dynamic>{'wallet_id': walletId};
+
+      debugPrint("🚀 [API] PUT /groups/debts/$debtId/confirm with data: $data");
 
       final response = await _dio.put(
         '/groups/debts/$debtId/confirm',

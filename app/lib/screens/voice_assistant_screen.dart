@@ -3,7 +3,10 @@ import 'package:avatar_glow/avatar_glow.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/voice_command.dart';
+import '../models/wallet.dart';
+import '../repositories/wallet_repository.dart';
 import '../services/voice_service.dart';
 import '../services/voice_command_parser.dart';
 import '../theme/app_colors.dart';
@@ -11,12 +14,15 @@ import '../theme/app_colors.dart';
 /// Bottom sheet UI cho Voice Assistant
 class VoiceAssistantScreen extends StatefulWidget {
   final String? defaultWalletId;
+
   final VoiceService? voiceService;
+  final List<Wallet>? preloadedWallets; // Add this
 
   const VoiceAssistantScreen({
     super.key,
     this.defaultWalletId,
     this.voiceService,
+    this.preloadedWallets,
   });
 
   @override
@@ -32,11 +38,58 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
   bool _isListening = false;
   VoiceCommand? _parsedCommand;
 
+  // Wallet related
+  List<Wallet> _wallets = [];
+  String? _selectedWalletId;
+  bool _isLoadingWallets = true;
+
   @override
   void initState() {
     super.initState();
     _voiceService = widget.voiceService ?? VoiceService();
+    _fetchWallets();
     _initVoice();
+  }
+
+  Future<void> _fetchWallets() async {
+    // 1. Use preloaded wallets if available
+    if (widget.preloadedWallets != null &&
+        widget.preloadedWallets!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _wallets = widget.preloadedWallets!;
+          _isLoadingWallets = false;
+          _setDefaultWallet();
+        });
+      }
+      return;
+    }
+
+    // 2. Fetch from repository if not preloaded
+    try {
+      final wallets = await context.read<WalletRepository>().getWallets();
+      if (mounted) {
+        setState(() {
+          _wallets = wallets;
+          _isLoadingWallets = false;
+          _setDefaultWallet();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingWallets = false);
+      }
+      debugPrint('Error fetching wallets for voice: $e');
+    }
+  }
+
+  void _setDefaultWallet() {
+    if (widget.defaultWalletId != null &&
+        _wallets.any((w) => w.id == widget.defaultWalletId)) {
+      _selectedWalletId = widget.defaultWalletId;
+    } else if (_wallets.isNotEmpty) {
+      _selectedWalletId = _wallets.first.id;
+    }
   }
 
   Future<void> _initVoice() async {
@@ -162,6 +215,64 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
               const SizedBox(height: 12),
               _buildInfoRow('Ghi chú', command.note!),
             ],
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+
+            // Wallet Selector
+            if (_isLoadingWallets)
+              const Center(child: CircularProgressIndicator())
+            else if (_wallets.isNotEmpty)
+              StatefulBuilder(
+                builder: (context, setStateDialog) {
+                  return Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.wallet,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Ví:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedWalletId,
+                              isExpanded: true,
+                              items: _wallets.map((w) {
+                                return DropdownMenuItem(
+                                  value: w.id,
+                                  child: Text(
+                                    '${w.name} - ${currencyFormat.format(w.balance)}',
+                                    style: const TextStyle(fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _selectedWalletId = value);
+                                  setStateDialog(() {});
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
           ],
         ),
         actions: [
@@ -186,7 +297,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
 
     if (confirmed == true && mounted) {
       // Return command to caller
-      Navigator.pop(context, command);
+      Navigator.pop(context, command.copyWith(walletId: _selectedWalletId));
     } else if (mounted) {
       // Restart listening
       setState(() {
@@ -352,8 +463,8 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen> {
                 const SizedBox(height: 8),
                 const Text(
                   '• "Chi 50 nghìn ăn sáng"\n'
-                  '• "Thu nhập 5 triệu lương"\n'
-                  '• "Mua 2 triệu 5 điện thoại"',
+                  '• "Thu nhập lương 5 triệu"\n'
+                  '• "Mua điện thoại 2 triệu 5"',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.black54,

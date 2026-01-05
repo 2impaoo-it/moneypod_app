@@ -30,6 +30,7 @@ import 'services/fcm_service.dart';
 import 'utils/session_manager.dart';
 import 'utils/popup_notification.dart';
 import 'utils/dio_client.dart';
+import 'utils/app_global_state.dart';
 
 // --- IMPORTS MÀN HÌNH & WIDGETS ---
 import 'screens/splash_screen.dart';
@@ -223,6 +224,7 @@ class _MoneyPodAppState extends State<MoneyPodApp> with WidgetsBindingObserver {
               paymentDate: extra?['paymentDate'],
               paymentNote: extra?['paymentNote'],
               proofImageUrl: extra?['proofImageUrl'],
+              hasPaymentRequest: extra?['hasPaymentRequest'] ?? false,
               isPaid: extra?['isPaid'] ?? false,
               receivedWalletId: extra?['receivedWalletId'],
             );
@@ -515,36 +517,40 @@ class _MainWrapperState extends State<MainWrapper> {
   // Kiểm tra xem có nên hiển thị FAB hay không
   bool _shouldShowFAB(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
-    // print("📍 [MainWrapper] Current Location: $location"); // DEBUG LOG
+    debugPrint("📍 [MainWrapper] Checking FAB for: $location");
+    final hideByGlobal = AppGlobalState.hideMainFAB.value;
+    debugPrint("📍 [MainWrapper] Global Hide: $hideByGlobal");
+
+    if (hideByGlobal) debugPrint("📍 [MainWrapper] Hiding due to Global State");
+    if (hideByGlobal) return false;
 
     // Ẩn FAB trên các màn hình tạo mới, profile, đổi mật khẩu
     if (location.contains('/create') && location != '/report/create-budget') {
+      debugPrint("📍 [MainWrapper] Hiding due to /create");
       return false;
     }
-    if (location.startsWith('/debt/')) return false;
-    if (location.startsWith('/full-screen/')) return false;
-    // ALLOW Report page to have FAB
-    // if (location == '/report') return false;
-    if (location.startsWith('/savings/') && location != '/savings') {
+
+    // Hide FAB for all full-screen routes (includes debt payment screens)
+    if (location.contains('/full-screen/')) {
+      debugPrint("📍 [MainWrapper] Hiding due to /full-screen/");
       return false;
     }
-    if (location.startsWith('/budget')) {
-      return false; // Hide FAB on budget screens
+
+    // Explicitly allow for groups list and group detail FIRST
+    if (location == '/groups' || location.startsWith('/groups/')) {
+      debugPrint("📍 [MainWrapper] Showing for Groups");
+      return true;
     }
-    if (location.startsWith('/calendar')) return false; // Hide FAB on calendar
+
+    if (location.startsWith('/savings/') && location != '/savings')
+      return false;
+    if (location.startsWith('/budget')) return false;
+    if (location.startsWith('/calendar')) return false;
     if (location.startsWith('/profile')) return false;
     if (location.startsWith('/change-password')) return false;
+    if (location == '/report') return false;
 
-    // Explicitly allow for groups list and group detail
-    if (location == '/groups' || location.startsWith('/groups/')) return true;
-    if (location == '/report') return false; // Hide FAB on Report screen
-    if (location.startsWith('/debt-payment')) {
-      return false; // Hide FAB on Debt Payment
-    }
-    if (location.startsWith('/confirm-receive-payment')) {
-      return false; // Hide FAB on Confirm Receive Payment
-    }
-
+    debugPrint("📍 [MainWrapper] Default Showing");
     return true;
   }
 
@@ -557,12 +563,19 @@ class _MainWrapperState extends State<MainWrapper> {
       _openAddExpenseScreen(context);
     } else if (location.startsWith('/groups/')) {
       // Trên màn hình Chi tiết Nhóm -> Thêm chi tiêu cho nhóm này
-      // Extract Group ID from location /groups/:id
-      final parts = location.split('/');
-      if (parts.length > 2) {
-        final groupId = parts[2];
-        _openAddExpenseScreen(context, preSelectedGroupId: groupId);
-      } else {
+      // Extract Group ID from location /groups/:id robustly
+      try {
+        final uri = Uri.parse(location);
+        // pathSegments for /groups/123 -> ['groups', '123']
+        if (uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'groups') {
+          final groupId = uri.pathSegments[1];
+          debugPrint("🚀 [FAB] Pre-selecting Group ID: $groupId");
+          _openAddExpenseScreen(context, preSelectedGroupId: groupId);
+        } else {
+          _openAddExpenseScreen(context);
+        }
+      } catch (e) {
+        debugPrint("❌ [FAB] Error parsing group location: $e");
         _openAddExpenseScreen(context);
       }
     } else if (location == '/savings') {
@@ -600,105 +613,116 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // Hide FAB when keyboard is visible
-    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
-    final showFAB = _shouldShowFAB(context) && !keyboardVisible;
+    // Use ValueListenableBuilder to react to hideMainFAB changes
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppGlobalState.hideMainFAB,
+      builder: (context, hideByGlobal, _) {
+        // Hide FAB when keyboard is visible or when a debt screen is active
+        final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+        final showFAB =
+            _shouldShowFAB(context) && !keyboardVisible && !hideByGlobal;
 
-    // Get current location using GoRouter
-    final String location = GoRouterState.of(context).uri.toString();
+        // Get current location using GoRouter
+        final String location = GoRouterState.of(context).uri.toString();
 
-    // Define root paths for tabs where we want to intercept Back button
-    final bool isRootTab =
-        location == '/' ||
-        location == '/transactions' ||
-        location == '/groups' ||
-        location == '/savings';
+        // Define root paths for tabs where we want to intercept Back button
+        final bool isRootTab =
+            location == '/' ||
+            location == '/transactions' ||
+            location == '/groups' ||
+            location == '/savings';
 
-    // If NOT at a root tab (e.g. /profile, /groups/123), allow native pop (Swipe Back works)
-    // If AT a root tab, block pop to handle Exit/Tab switching manually
-    final bool canPop = !isRootTab;
+        // If NOT at a root tab (e.g. /profile, /groups/123), allow native pop (Swipe Back works)
+        // If AT a root tab, block pop to handle Exit/Tab switching manually
+        final bool canPop = !isRootTab;
 
-    return PopScope(
-      canPop: canPop,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
+        return PopScope(
+          canPop: canPop,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
 
-        // Code below only runs when canPop is FALSE (i.e., we are at a Root Tab)
+            // Code below only runs when canPop is FALSE (i.e., we are at a Root Tab)
 
-        // 2. Nếu đang ở tab khác Home -> Về Home
-        final currentIndex = _calculateSelectedIndex(context);
-        if (currentIndex != 0) {
-          _onItemTapped(0, context);
-          return;
-        }
+            // 2. Nếu đang ở tab khác Home -> Về Home
+            final currentIndex = _calculateSelectedIndex(context);
+            if (currentIndex != 0) {
+              _onItemTapped(0, context);
+              return;
+            }
 
-        // 3. Nếu đang ở Home và không pop được -> Double Back để thoát
-        final now = DateTime.now();
-        if (_lastPressedAt == null ||
-            now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
-          _lastPressedAt = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Nhấn lần nữa để thoát',
-                style: TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.black87,
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-          );
-          return;
-        }
-
-        await SystemNavigator.pop();
-      },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: Stack(children: [widget.child]),
-
-        // --- FLOATING ACTION BUTTON (GRADIENT) ---
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        floatingActionButton: showFAB
-            ? Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primaryDark,
-                    ], // Teal Gradient
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+            // 3. Nếu đang ở Home và không pop được -> Double Back để thoát
+            final now = DateTime.now();
+            if (_lastPressedAt == null ||
+                now.difference(_lastPressedAt!) > const Duration(seconds: 2)) {
+              _lastPressedAt = now;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'Nhấn lần nữa để thoát',
+                    style: TextStyle(color: Colors.white),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  backgroundColor: Colors.black87,
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                 ),
-                child: FloatingActionButton(
-                  onPressed: () => _handleFABPressed(context),
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  shape: const CircleBorder(),
-                  child: const Icon(LucideIcons.plus, color: Colors.white),
-                ),
-              )
-            : null,
+              );
+              return;
+            }
 
-        bottomNavigationBar: showFAB
-            ? _buildConfiguredBottomBar(context)
-            : null,
-      ),
+            await SystemNavigator.pop();
+          },
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: Stack(children: [widget.child]),
+
+            // --- FLOATING ACTION BUTTON (GRADIENT) ---
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerDocked,
+            floatingActionButton: showFAB
+                ? Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primaryDark,
+                        ], // Teal Gradient
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: FloatingActionButton(
+                      onPressed: () => _handleFABPressed(context),
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      shape: const CircleBorder(),
+                      child: const Icon(LucideIcons.plus, color: Colors.white),
+                    ),
+                  )
+                : null,
+
+            bottomNavigationBar: showFAB
+                ? _buildConfiguredBottomBar(context)
+                : null,
+          ),
+        );
+      },
     );
   }
 

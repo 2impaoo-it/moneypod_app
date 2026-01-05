@@ -120,46 +120,63 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                       ),
                     ],
                   ),
-                  child: RadioListTile<bool>(
-                    value: true,
-                    groupValue: _isTotalMonthly ? true : null,
-                    onChanged: (val) {
+                  child: InkWell(
+                    onTap: () {
                       setState(() {
                         _isTotalMonthly = true;
                         _selectedCategory = null;
                       });
                     },
-                    activeColor: AppColors.primary,
-                    title: Text(
-                      "Tổng chi tiêu trong tháng",
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
                       ),
-                    ),
-                    subtitle: Text(
-                      "Áp dụng cho tất cả khoản chi",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Tổng chi tiêu trong tháng",
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  "Áp dụng cho tất cả khoản chi",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              LucideIcons.coins,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Icon(
+                            _isTotalMonthly
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: AppColors.primary,
+                          ),
+                        ],
                       ),
-                    ),
-                    secondary: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        LucideIcons.coins,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                    ),
-                    controlAffinity: ListTileControlAffinity.trailing,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 16,
                     ),
                   ),
                 ),
@@ -181,9 +198,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             child: SafeArea(
               child: ElevatedButton(
                 onPressed: (_selectedCategory != null || _isTotalMonthly)
-                    ? () {
-                        Navigator.push(
-                          context,
+                    ? () async {
+                        final navigator = Navigator.of(context);
+                        final result = await navigator.push(
                           MaterialPageRoute(
                             builder: (_) => BudgetAmountScreen(
                               categoryName: _isTotalMonthly
@@ -194,14 +211,15 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                                   widget.transactions, // Pass transactions
                             ),
                           ),
-                        ).then((result) {
-                          if (result == true && mounted) {
-                            Navigator.pop(
-                              context,
-                              true,
-                            ); // Return success to refresh report
-                          }
-                        });
+                        );
+
+                        if (!mounted) return;
+
+                        if (result == true) {
+                          navigator.pop(
+                            true,
+                          ); // Return success to refresh report
+                        }
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
@@ -284,33 +302,49 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
   Widget _buildRadioItem(String category) {
     final color = CategoryHelper.getColor(category);
-    return RadioListTile<String>(
-      value: category,
-      groupValue: _selectedCategory,
-      onChanged: (val) {
+    final isSelected = _selectedCategory == category;
+
+    return InkWell(
+      onTap: () {
         setState(() {
-          _selectedCategory = val;
+          _selectedCategory = category;
           _isTotalMonthly = false;
         });
       },
-      activeColor: AppColors.primary,
-      title: Text(
-        category,
-        style: GoogleFonts.inter(
-          fontWeight: FontWeight.w500,
-          color: AppColors.textPrimary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                CategoryHelper.getIcon(category),
+                color: color,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                category,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? AppColors.primary : Colors.grey.shade400,
+            ),
+          ],
         ),
       ),
-      secondary: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(CategoryHelper.getIcon(category), color: color, size: 20),
-      ),
-      controlAffinity: ListTileControlAffinity.trailing,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }

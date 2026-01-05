@@ -14,7 +14,30 @@ class VoiceCommand {
     this.note,
     this.fromWallet,
     this.toWallet,
+    this.walletId,
   });
+
+  final String? walletId;
+
+  VoiceCommand copyWith({
+    String? type,
+    double? amount,
+    String? category,
+    String? note,
+    String? fromWallet,
+    String? toWallet,
+    String? walletId,
+  }) {
+    return VoiceCommand(
+      type: type ?? this.type,
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      note: note ?? this.note,
+      fromWallet: fromWallet ?? this.fromWallet,
+      toWallet: toWallet ?? this.toWallet,
+      walletId: walletId ?? this.walletId,
+    );
+  }
 
   @override
   String toString() {
