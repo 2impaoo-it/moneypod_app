@@ -31,8 +31,6 @@ void main() {
           amount: 50000,
           description: 'Payment',
           groupName: 'Test Group',
-
-          // notificationId removed as it's not in constructor
         ),
       ),
     );
