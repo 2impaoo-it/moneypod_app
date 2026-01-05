@@ -420,6 +420,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		Type:     "income",
 		Amount:   debt.Amount,
 		Date:     time.Now(),
+		Category: "Thu nợ",
 		Note:     fmt.Sprintf("Nhận tiền trả nợ từ %s: %s", debt.FromUser.FullName, debt.Expense.Description),
 	}
 	if err := tx.Create(&creditorTrans).Error; err != nil {
@@ -441,6 +442,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		Type:     "expense",
 		Amount:   debt.Amount,
 		Date:     time.Now(),
+		Category: "Trả nợ",
 		Note:     fmt.Sprintf("Trả nợ cho %s: %s", debt.ToUser.FullName, debt.Expense.Description),
 	}
 	if err := tx.Create(&debtorTrans).Error; err != nil {
