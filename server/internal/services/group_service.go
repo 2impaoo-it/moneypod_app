@@ -419,6 +419,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		WalletID: receiverWalletID,
 		Type:     "income",
 		Amount:   debt.Amount,
+		Category: "Thu nợ", // Mặc định danh mục Thu nợ
 		Date:     time.Now(),
 		Note:     fmt.Sprintf("Nhận tiền trả nợ từ %s: %s", debt.FromUser.FullName, debt.Expense.Description),
 	}
@@ -440,6 +441,7 @@ func (s *GroupService) ConfirmReceivePayment(debtID uuid.UUID, creditorID uuid.U
 		WalletID: *debt.PaymentWalletID,
 		Type:     "expense",
 		Amount:   debt.Amount,
+		Category: "Trả nợ", // Mặc định danh mục Trả nợ
 		Date:     time.Now(),
 		Note:     fmt.Sprintf("Trả nợ cho %s: %s", debt.ToUser.FullName, debt.Expense.Description),
 	}
