@@ -183,7 +183,7 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, oldPassword, newPassword 
 // - Tạo reset token và lưu vào DB với thời gian hết hạn
 // - Gửi email với link reset có token thay vì gửi trực tiếp mật khẩu
 // - Tạo API verify token và reset password
-func (s *AuthService) ForgotPassword(email string) error {
+func (s *AuthService) ForgotPassword(email string) (map[string]interface{}, error) {
 	// 1. Tìm user theo email
 	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
@@ -191,13 +191,15 @@ func (s *AuthService) ForgotPassword(email string) error {
 		// Vẫn trả về success để không lộ thông tin
 		// Nhưng vẫn gửi email service để không lộ timing attack
 		_ = s.emailService.SendPasswordResetEmail(email, "")
-		return nil
+		return map[string]interface{}{
+			"message": "Nếu email tồn tại, một email khôi phục mật khẩu đã được gửi đến hộp thư của bạn",
+		}, nil
 	}
 
 	// 2. Tạo password ngẫu nhiên an toàn
 	temporaryPassword, err := generateRandomPassword(12)
 	if err != nil {
-		return errors.New("không thể tạo mật khẩu tạm thời")
+		return nil, errors.New("không thể tạo mật khẩu tạm thời")
 	}
 
 	// Thêm ký tự đặc biệt để đảm bảo độ mạnh
@@ -206,13 +208,13 @@ func (s *AuthService) ForgotPassword(email string) error {
 	// 3. Mã hóa password mới
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(temporaryPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return errors.New("không thể mã hóa mật khẩu")
+		return nil, errors.New("không thể mã hóa mật khẩu")
 	}
 
 	// 4. Cập nhật password
 	err = s.userRepo.UpdatePassword(user.ID, string(hashedPassword))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 5. Gửi email thông báo password mới
@@ -224,6 +226,11 @@ func (s *AuthService) ForgotPassword(email string) error {
 
 	// Log để debug (trong production nên dùng proper logging service)
 	fmt.Printf("✅ Đã reset mật khẩu cho email: %s\n", email)
+	fmt.Printf("🔐 Mật khẩu tạm thời: %s\n", temporaryPassword)
 
-	return nil
+	// Trả về cả mật khẩu tạm thời để hiển thị trên UI (giúp người dùng tiện lợi hơn)
+	return map[string]interface{}{
+		"message":            "Email khôi phục mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư của bạn.",
+		"temporary_password": temporaryPassword,
+	}, nil
 }
