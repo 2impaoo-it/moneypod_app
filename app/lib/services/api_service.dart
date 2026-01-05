@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../utils/dio_client.dart';
 
@@ -7,15 +8,25 @@ import '../utils/dio_client.dart';
 class ApiService {
   static const String baseUrl =
       'https://pseudoeconomical-loise-interpolable.ngrok-free.dev/api/v1';
-  static final Dio _dio = DioClient.getDio(null);
+  static final Dio _defaultDio = DioClient.getDio(null);
 
-  /// Kiểm tra server có hoạt động không
+  final Dio _dio;
+
+  /// Constructor với dependency injection cho testing
+  ApiService({Dio? dio}) : _dio = dio ?? _defaultDio;
+
+  /// Kiểm tra server có hoạt động không (static method - backward compatible)
+  static Future<Map<String, dynamic>> checkServerHealth() async {
+    return ApiService().checkHealth();
+  }
+
+  /// Kiểm tra server có hoạt động không (instance method - testable)
   ///
   /// Returns: Map với keys 'isHealthy' (bool) và 'errorType' (String?)
   /// errorType có thể là: 'maintenance' (503), 'no_internet' (mất mạng), null (nếu OK)
-  static Future<Map<String, dynamic>> checkServerHealth() async {
+  Future<Map<String, dynamic>> checkHealth() async {
     try {
-      print('🔵 [ApiService] Kiểm tra server health...');
+      debugPrint('🔵 [ApiService] Kiểm tra server health...');
 
       final response = await _dio.get(
         '$baseUrl/ping',
@@ -25,12 +36,12 @@ class ApiService {
         ),
       );
 
-      print('📡 [ApiService] Status code: ${response.statusCode}');
-      print('📡 [ApiService] Response body: ${response.data}');
+      debugPrint('📡 [ApiService] Status code: ${response.statusCode}');
+      debugPrint('📡 [ApiService] Response body: ${response.data}');
 
       // Check 503 - Server đang bảo trì
       if (response.statusCode == 503) {
-        print('🔧 [ApiService] Server đang bảo trì (503)');
+        debugPrint('🔧 [ApiService] Server đang bảo trì (503)');
         String maintenanceMessage = 'Server đang bảo trì, vui lòng thử lại sau';
         if (response.data is Map) {
           maintenanceMessage = response.data['message'] ?? maintenanceMessage;
@@ -49,12 +60,12 @@ class ApiService {
 
         // Kiểm tra message có chứa "moneypod" không
         if (message.contains('moneypod')) {
-          print('✅ [ApiService] Server hoạt động tốt!');
+          debugPrint('✅ [ApiService] Server hoạt động tốt!');
           return {'isHealthy': true, 'errorType': null};
         }
       }
 
-      print('❌ [ApiService] Server trả về response không hợp lệ');
+      debugPrint('❌ [ApiService] Server trả về response không hợp lệ');
       return {
         'isHealthy': false,
         'errorType': 'unknown',
@@ -63,21 +74,21 @@ class ApiService {
     } on DioException catch (e) {
       if (e.error is SocketException ||
           e.type == DioExceptionType.connectionTimeout) {
-        print('❌ [ApiService] Lỗi kết nối: $e');
+        debugPrint('❌ [ApiService] Lỗi kết nối: $e');
         return {
           'isHealthy': false,
           'errorType': 'no_internet',
           'message': 'Không thể kết nối đến server',
         };
       }
-      print('❌ [ApiService] Dio error: $e');
+      debugPrint('❌ [ApiService] Dio error: $e');
       return {
         'isHealthy': false,
         'errorType': 'unknown',
         'message': e.response?.data['error'] ?? 'Có lỗi xảy ra',
       };
     } catch (e) {
-      print('❌ [ApiService] Lỗi không xác định: $e');
+      debugPrint('❌ [ApiService] Lỗi không xác định: $e');
       return {
         'isHealthy': false,
         'errorType': 'unknown',

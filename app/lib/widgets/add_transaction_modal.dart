@@ -24,7 +24,14 @@ class ModalColors {
 }
 
 class AddTransactionModal extends StatefulWidget {
-  const AddTransactionModal({super.key});
+  final TransactionRepository? transactionRepository;
+  final WalletRepository? walletRepository;
+
+  const AddTransactionModal({
+    super.key,
+    this.transactionRepository,
+    this.walletRepository,
+  });
 
   @override
   State<AddTransactionModal> createState() => _AddTransactionModalState();
@@ -33,8 +40,16 @@ class AddTransactionModal extends StatefulWidget {
 class _AddTransactionModalState extends State<AddTransactionModal> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
-  final TransactionRepository _transactionRepo = TransactionRepository();
-  final WalletRepository _walletRepo = WalletRepository();
+  late final TransactionRepository _transactionRepo;
+  late final WalletRepository _walletRepo;
+
+  @override
+  void initState() {
+    super.initState();
+    _transactionRepo = widget.transactionRepository ?? TransactionRepository();
+    _walletRepo = widget.walletRepository ?? WalletRepository();
+    _loadWallets();
+  }
 
   bool _isExpense = true;
   int _selectedCategoryIndex = 0;
@@ -62,12 +77,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     {'name': 'Sức khỏe', 'icon': Icons.favorite, 'color': Colors.red},
     {'name': 'Khác', 'icon': Icons.more_horiz, 'color': Colors.grey},
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadWallets();
-  }
 
   Future<void> _loadWallets() async {
     try {
@@ -528,7 +537,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
                 border: isSelected
                     ? Border.all(color: ModalColors.teal500, width: 2)

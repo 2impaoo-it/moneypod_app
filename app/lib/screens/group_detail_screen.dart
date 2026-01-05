@@ -8,7 +8,6 @@ import '../repositories/profile_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'add_expense_screen.dart';
 
 /// Màn hình chi tiết nhóm - Sổ nợ
 class GroupDetailScreen extends StatefulWidget {
@@ -21,7 +20,14 @@ class GroupDetailScreen extends StatefulWidget {
     required this.groupId,
     this.groupName,
     this.inviteCode,
+    this.groupRepo,
+    this.profileRepo,
+    this.authService,
   });
+
+  final GroupRepository? groupRepo;
+  final ProfileRepository? profileRepo;
+  final AuthService? authService;
 
   @override
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -30,9 +36,9 @@ class GroupDetailScreen extends StatefulWidget {
 class _GroupDetailScreenState extends State<GroupDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final GroupRepository _groupRepo = GroupRepository();
-  final ProfileRepository _profileRepo = ProfileRepository();
-  final AuthService _authService = AuthService(); // Add service
+  late final GroupRepository _groupRepo;
+  late final ProfileRepository _profileRepo;
+  late final AuthService _authService;
 
   final currencyFormat = NumberFormat.currency(
     locale: 'vi_VN',
@@ -51,6 +57,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
   @override
   void initState() {
     super.initState();
+    _groupRepo = widget.groupRepo ?? GroupRepository();
+    _profileRepo = widget.profileRepo ?? ProfileRepository();
+    _authService = widget.authService ?? AuthService();
     _tabController = TabController(length: 3, vsync: this);
     _loadAllData();
   }
@@ -171,7 +180,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.copy, color: AppColors.primary),
@@ -194,7 +203,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.purple600.withOpacity(0.1),
+                    color: AppColors.purple600.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -367,25 +376,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          // Navigate to add expense screen với groupId được chọn sẵn
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  AddExpenseScreen(preSelectedGroupId: widget.groupId),
-            ),
-          );
-
-          // Nếu thêm expense thành công, refresh lại dữ liệu
-          if (result == true && mounted) {
-            _loadAllData();
-          }
-        },
-        backgroundColor: AppColors.teal500,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
+      // Global FAB from MainWrapper will handle add expense functionality
     );
   }
 
@@ -464,7 +455,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -523,7 +514,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -692,6 +683,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     final note = debt['note'] ?? 'Chi tiêu nhóm';
     final groupName = _groupData['name'] ?? 'Nhóm';
     final debtId = debt['id']?.toString() ?? '';
+    debugPrint(
+      "🔍 Debt Item [$debtId]: PaymentWallet=${debt['payment_wallet_id']}, Confirmed=${debt['payment_confirmed_at']}",
+    );
 
     // Check payment status
     // Assuming backend returns 'payment_wallet_id' when payment is made but not confirmed
@@ -706,16 +700,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     return GestureDetector(
       onTap: () async {
         if (isMyDebt) {
-          if (isPending) {
-            // Pending confirmation - Do nothing or show toast
-            PopupNotification.showInfo(
-              context,
-              'Bạn đã xác nhận trả khoản này rồi. Vui lòng chờ xác nhận!',
-            );
-            return;
-          }
           // Tôi nợ người khác - Navigate to debt payment screen
-          print("🚀 Navigating to /full-screen/debt/pay");
+          debugPrint("🚀 Navigating to /full-screen/debt/pay");
           final result = await context.push(
             '/full-screen/debt/pay',
             extra: {
@@ -726,6 +712,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               'description': note,
               'groupName': groupName,
               'existingProofImageUrl': expenseImageUrl,
+              'isPaid': isPending,
             },
           );
 
@@ -738,6 +725,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
           final paymentDate = debt['payment_confirmed_at'] as String?;
           final paymentNote = debt['payment_note'] as String?;
 
+          debugPrint("🚀 Navigating to /full-screen/debt/confirm");
           final result = await context.push(
             '/full-screen/debt/confirm',
             extra: {
@@ -750,7 +738,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
               'paymentDate': paymentDate,
               'paymentNote': paymentNote,
               'proofImageUrl': expenseImageUrl,
-              'hasPaymentRequest': isPending, // Pass pending status
+              'hasPaymentRequest': isPending,
+              'isPaid': paymentDate != null && paymentDate.isNotEmpty,
             },
           );
 
@@ -938,7 +927,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
@@ -948,8 +937,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                           children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: AppColors.primary.withOpacity(
-                                0.1,
+                              backgroundColor: AppColors.primary.withValues(
+                                alpha: 0.1,
                               ),
                               backgroundImage:
                                   (avatarUrl != null && avatarUrl.isNotEmpty)
@@ -998,8 +987,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                               ),
                               decoration: BoxDecoration(
                                 color: member['role'] == 'leader'
-                                    ? Colors.orange.withOpacity(0.1)
-                                    : Colors.blue.withOpacity(0.1),
+                                    ? Colors.orange.withValues(alpha: 0.1)
+                                    : Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1209,7 +1198,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                         statusText,
                         style: TextStyle(
                           fontSize: 12,
-                          color: amountColor.withOpacity(0.8),
+                          color: amountColor.withValues(alpha: 0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1342,7 +1331,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
                     width: double.infinity,
                     fit: BoxFit
                         .contain, // Changed to contain to show full image, or cover with limit
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: AppColors.background,

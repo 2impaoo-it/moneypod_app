@@ -365,12 +365,15 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
       margin: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppColors.primary.withOpacity(0.1)
-            : (isToday ? Colors.blue.withOpacity(0.08) : null),
+            ? AppColors.primary.withValues(alpha: 0.1)
+            : (isToday ? Colors.blue.withValues(alpha: 0.08) : null),
         border: isSelected
             ? Border.all(color: AppColors.primary, width: 1.5)
             : (isToday
-                  ? Border.all(color: Colors.blue.withOpacity(0.5), width: 1.5)
+                  ? Border.all(
+                      color: Colors.blue.withValues(alpha: 0.5),
+                      width: 1.5,
+                    )
                   : null),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -445,7 +448,7 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
           border: Border.all(color: Colors.grey.shade100),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -763,7 +766,7 @@ class _StatisticsCalendarScreenState extends State<StatisticsCalendarScreen> {
                         : null,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),

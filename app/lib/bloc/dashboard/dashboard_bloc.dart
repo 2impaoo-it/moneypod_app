@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../repositories/dashboard_repository.dart';
 import 'dashboard_event.dart';
@@ -35,6 +36,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         ),
       );
     } catch (e) {
+      debugPrint('Error loading dashboard data: $e'); // Changed from print
       emit(DashboardError(e.toString()));
     }
   }
@@ -55,6 +57,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         ),
       );
     } catch (e) {
+      debugPrint('Error refreshing dashboard: $e'); // Changed from print
       emit(DashboardError(e.toString()));
     }
   }
@@ -62,7 +65,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Future<Map<String, double>> _fetchMonthlyStats(String type) async {
     try {
       final now = DateTime.now();
-      print('🔍 Fetching $type stats for ${now.month}/${now.year}');
+      debugPrint('🔍 Fetching $type stats for ${now.month}/${now.year}');
 
       final rawTransactions = await _repository.getTransactionsWithFilter(
         month: now.month,
@@ -70,8 +73,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         type: type,
       );
 
-      print('📊 Raw transactions count: ${rawTransactions.length}');
-      print('📝 Sample data: ${rawTransactions.take(2).toList()}');
+      debugPrint('📊 Raw transactions count: ${rawTransactions.length}');
+      debugPrint('📝 Sample data: ${rawTransactions.take(2).toList()}');
 
       final Map<String, double> stats = {};
       for (var item in rawTransactions) {
@@ -88,10 +91,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         stats[category] = (stats[category] ?? 0) + amount.abs();
       }
 
-      print('📈 Final stats: $stats');
+      debugPrint('📈 Final stats: $stats');
       return stats;
     } catch (e) {
-      print('❌ Error calculating $type stats: $e');
+      debugPrint('❌ Error calculating $type stats: $e');
       return {};
     }
   }

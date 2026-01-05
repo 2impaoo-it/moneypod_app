@@ -39,6 +39,10 @@ class CategoryHelper {
         return LucideIcons.trendingUp;
       case 'chợ, siêu thị':
         return LucideIcons.shoppingCart;
+      case 'thu nợ':
+        return LucideIcons.arrowDownCircle;
+      case 'trả nợ':
+        return LucideIcons.arrowUpCircle;
       default:
         return LucideIcons.moreHorizontal;
     }
@@ -80,6 +84,10 @@ class CategoryHelper {
         return Colors.lightGreen;
       case 'tiền lãi':
         return Colors.lime;
+      case 'thu nợ':
+        return const Color(0xFF059669); // Emerald - income from debt collection
+      case 'trả nợ':
+        return const Color(0xFFDC2626); // Red - expense for debt payment
       default:
         return const Color(0xFF4B5563); // Gray
     }
@@ -109,6 +117,10 @@ class CategoryHelper {
       case 'lương':
       case 'salary':
         return const Color(0xFFDCFCE7);
+      case 'thu nợ':
+        return const Color(0xFFD1FAE5); // Emerald light
+      case 'trả nợ':
+        return const Color(0xFFFEE2E2); // Red light
       default:
         return const Color(0xFFF3F4F6);
     }
@@ -126,12 +138,14 @@ class CategoryHelper {
     'Hóa đơn',
     'Nhà cửa',
     'Người thân',
+    'Trả nợ',
   ];
 
   static const List<String> incomeCategories = [
     'Lương',
     'Thưởng',
     'Tiền lãi',
+    'Thu nợ',
     'Khác',
   ];
 }

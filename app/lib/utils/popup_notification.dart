@@ -57,10 +57,10 @@ class PopupNotification {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isWarning
-                          ? AppColors.warning.withOpacity(0.1)
+                          ? AppColors.warning.withValues(alpha: 0.1)
                           : (isError
-                                ? AppColors.danger.withOpacity(0.1)
-                                : AppColors.success.withOpacity(0.1)),
+                                ? AppColors.danger.withValues(alpha: 0.1)
+                                : AppColors.success.withValues(alpha: 0.1)),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(

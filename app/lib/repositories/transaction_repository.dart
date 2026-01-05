@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../models/transaction.dart' as model;
 import '../services/auth_service.dart';
@@ -7,12 +8,15 @@ import '../config/app_config.dart';
 
 /// Repository cho quản lý giao dịch
 class TransactionRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  TransactionRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  TransactionRepository({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Tạo giao dịch mới
@@ -31,7 +35,7 @@ class TransactionRepository {
     String? note,
   }) async {
     try {
-      print(
+      debugPrint(
         '🔵 [TransactionRepo] Tạo giao dịch: wallet=$walletId, amount=$amount, type=$type',
       );
 
@@ -50,7 +54,7 @@ class TransactionRepository {
         'note': note ?? '',
       };
 
-      print('📦 [TransactionRepo] Request body: $requestBody');
+      debugPrint('📦 [TransactionRepo] Request body: $requestBody');
 
       // Gửi POST request
       final response = await _dio.post(
@@ -59,24 +63,24 @@ class TransactionRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [TransactionRepo] Status: ${response.statusCode}');
-      print('📡 [TransactionRepo] Response: ${response.data}');
+      debugPrint('📡 [TransactionRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [TransactionRepo] Response: ${response.data}');
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(response.data['error'] ?? 'Không thể tạo giao dịch');
       }
 
-      print('✅ [TransactionRepo] Tạo giao dịch thành công!');
+      debugPrint('✅ [TransactionRepo] Tạo giao dịch thành công!');
     } on DioException catch (e) {
       if (e.error is SocketException) {
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [TransactionRepo] DioException: $e');
+      debugPrint('❌ [TransactionRepo] DioException: $e');
       throw Exception(e.response?.data['error'] ?? 'Không thể tạo giao dịch');
     } catch (e) {
-      print('❌ [TransactionRepo] Exception: $e');
+      debugPrint('❌ [TransactionRepo] Exception: $e');
       rethrow;
     }
   }
@@ -89,7 +93,7 @@ class TransactionRepository {
     int? limit,
   }) async {
     try {
-      print(
+      debugPrint(
         '🔵 [TransactionRepo] Lấy danh sách giao dịch... walletId=$walletId, month=$month, year=$year, limit=$limit',
       );
 
@@ -112,7 +116,7 @@ class TransactionRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [TransactionRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [TransactionRepo] Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -124,7 +128,9 @@ class TransactionRepository {
 
       // Debug: In ra JSON để kiểm tra
       if (transactionsJson.isNotEmpty) {
-        print('📝 [TransactionRepo] Sample JSON: ${transactionsJson.first}');
+        debugPrint(
+          '📝 [TransactionRepo] Sample JSON: ${transactionsJson.first}',
+        );
       }
 
       // Convert JSON to List<Transaction> - sử dụng Transaction.fromJson()
@@ -134,11 +140,11 @@ class TransactionRepository {
           )
           .toList();
 
-      print(
+      debugPrint(
         '✅ [TransactionRepo] Lấy ${transactions.length} giao dịch thành công!',
       );
       if (transactions.isNotEmpty) {
-        print(
+        debugPrint(
           '👤 [TransactionRepo] User: ${transactions.first.userName}, Avatar: ${transactions.first.userAvatar}',
         );
       }
@@ -149,12 +155,12 @@ class TransactionRepository {
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [TransactionRepo] DioException: $e');
+      debugPrint('❌ [TransactionRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Không thể lấy danh sách giao dịch',
       );
     } catch (e) {
-      print('❌ [TransactionRepo] Exception: $e');
+      debugPrint('❌ [TransactionRepo] Exception: $e');
       rethrow;
     }
   }
@@ -175,7 +181,7 @@ class TransactionRepository {
     String? note,
   }) async {
     try {
-      print('🔵 [TransactionRepo] Cập nhật giao dịch: id=$transactionId');
+      debugPrint('🔵 [TransactionRepo] Cập nhật giao dịch: id=$transactionId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -189,7 +195,7 @@ class TransactionRepository {
       if (type != null) requestBody['type'] = type;
       if (note != null) requestBody['note'] = note;
 
-      print('📦 [TransactionRepo] Request body: $requestBody');
+      debugPrint('📦 [TransactionRepo] Request body: $requestBody');
 
       final response = await _dio.put(
         '/transactions/$transactionId',
@@ -197,7 +203,7 @@ class TransactionRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [TransactionRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [TransactionRepo] Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw Exception(
@@ -205,19 +211,19 @@ class TransactionRepository {
         );
       }
 
-      print('✅ [TransactionRepo] Cập nhật giao dịch thành công!');
+      debugPrint('✅ [TransactionRepo] Cập nhật giao dịch thành công!');
     } on DioException catch (e) {
       if (e.error is SocketException) {
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [TransactionRepo] DioException: $e');
+      debugPrint('❌ [TransactionRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Không thể cập nhật giao dịch',
       );
     } catch (e) {
-      print('❌ [TransactionRepo] Exception: $e');
+      debugPrint('❌ [TransactionRepo] Exception: $e');
       rethrow;
     }
   }
@@ -228,7 +234,7 @@ class TransactionRepository {
   /// - [transactionId]: ID của giao dịch cần xóa
   Future<void> deleteTransaction(String transactionId) async {
     try {
-      print('🔵 [TransactionRepo] Xóa giao dịch: id=$transactionId');
+      debugPrint('🔵 [TransactionRepo] Xóa giao dịch: id=$transactionId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -240,23 +246,23 @@ class TransactionRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [TransactionRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [TransactionRepo] Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw Exception(response.data['error'] ?? 'Không thể xóa giao dịch');
       }
 
-      print('✅ [TransactionRepo] Xóa giao dịch thành công!');
+      debugPrint('✅ [TransactionRepo] Xóa giao dịch thành công!');
     } on DioException catch (e) {
       if (e.error is SocketException) {
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [TransactionRepo] DioException: $e');
+      debugPrint('❌ [TransactionRepo] DioException: $e');
       throw Exception(e.response?.data['error'] ?? 'Không thể xóa giao dịch');
     } catch (e) {
-      print('❌ [TransactionRepo] Exception: $e');
+      debugPrint('❌ [TransactionRepo] Exception: $e');
       rethrow;
     }
   }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../models/wallet.dart';
 import '../services/auth_service.dart';
@@ -7,12 +8,15 @@ import '../config/app_config.dart';
 
 /// Repository cho quản lý ví
 class WalletRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  WalletRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  WalletRepository({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Tạo ví mới
@@ -25,23 +29,25 @@ class WalletRepository {
     double balance = 0.0,
   }) async {
     try {
-      print('🔵 [WalletRepo] Bắt đầu tạo ví: name=$name, balance=$balance');
+      debugPrint(
+        '🔵 [WalletRepo] Bắt đầu tạo ví: name=$name, balance=$balance',
+      );
 
       // Lấy token từ secure storage
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [WalletRepo] Không có token');
+        debugPrint('❌ [WalletRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [WalletRepo] Đã lấy token: ${token.substring(0, 20)}...');
+      debugPrint('✅ [WalletRepo] Đã lấy token: ${token.substring(0, 20)}...');
 
       // Tạo request body
       final requestBody = {'name': name, 'balance': balance};
-      print('📦 [WalletRepo] Request body: $requestBody');
+      debugPrint('📦 [WalletRepo] Request body: $requestBody');
 
       // Gửi POST request
-      print('🌐 [WalletRepo] Gửi POST đến: /wallets');
+      debugPrint('🌐 [WalletRepo] Gửi POST đến: /wallets');
 
       final response = await _dio.post(
         '/wallets',
@@ -49,28 +55,28 @@ class WalletRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [WalletRepo] Status code: ${response.statusCode}');
-      print('📡 [WalletRepo] Response body: ${response.data}');
+      debugPrint('📡 [WalletRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [WalletRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200 && response.statusCode != 201) {
-        print('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(response.data['error'] ?? 'Không thể tạo ví');
       }
 
-      print('✅ [WalletRepo] Tạo ví thành công!');
+      debugPrint('✅ [WalletRepo] Tạo ví thành công!');
       // Thành công
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [WalletRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [WalletRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [WalletRepo] DioException: $e');
+      debugPrint('❌ [WalletRepo] DioException: $e');
       throw Exception(e.response?.data['error'] ?? 'Lỗi khi tạo ví: $e');
     } catch (e) {
-      print('❌ [WalletRepo] Exception: $e');
+      debugPrint('❌ [WalletRepo] Exception: $e');
       rethrow;
     }
   }
@@ -78,31 +84,31 @@ class WalletRepository {
   /// Lấy danh sách tất cả ví của user
   Future<List<Wallet>> getWallets() async {
     try {
-      print('🔵 [WalletRepo] Lấy danh sách ví...');
+      debugPrint('🔵 [WalletRepo] Lấy danh sách ví...');
 
       // Lấy token từ secure storage
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [WalletRepo] Không có token');
+        debugPrint('❌ [WalletRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [WalletRepo] Đã lấy token');
+      debugPrint('✅ [WalletRepo] Đã lấy token');
 
       // Gửi GET request
-      print('🌐 [WalletRepo] Gửi GET đến: /wallets');
+      debugPrint('🌐 [WalletRepo] Gửi GET đến: /wallets');
 
       final response = await _dio.get(
         '/wallets',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [WalletRepo] Status code: ${response.statusCode}');
-      print('📡 [WalletRepo] Response body: ${response.data}');
+      debugPrint('📡 [WalletRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [WalletRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
-        print('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint('❌ [WalletRepo] Lỗi từ server: ${response.data['error']}');
         throw Exception(response.data['error'] ?? 'Không thể lấy danh sách ví');
       }
 
@@ -114,21 +120,21 @@ class WalletRepository {
           .map((json) => Wallet.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      print('✅ [WalletRepo] Lấy ${wallets.length} ví thành công!');
+      debugPrint('✅ [WalletRepo] Lấy ${wallets.length} ví thành công!');
       return wallets;
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [WalletRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [WalletRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [WalletRepo] DioException: $e');
+      debugPrint('❌ [WalletRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Lỗi khi lấy danh sách ví: $e',
       );
     } catch (e) {
-      print('❌ [WalletRepo] Exception: $e');
+      debugPrint('❌ [WalletRepo] Exception: $e');
       rethrow;
     }
   }
@@ -193,7 +199,7 @@ class WalletRepository {
     String? note,
   }) async {
     try {
-      print('🔵 [WalletRepo] Bắt đầu chuyển tiền...');
+      debugPrint('🔵 [WalletRepo] Bắt đầu chuyển tiền...');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -207,7 +213,7 @@ class WalletRepository {
         if (note != null && note.isNotEmpty) 'note': note,
       };
 
-      print('📦 [WalletRepo] Request body: $requestBody');
+      debugPrint('📦 [WalletRepo] Request body: $requestBody');
 
       final response = await _dio.post(
         '/wallets/transfer',
@@ -215,23 +221,23 @@ class WalletRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [WalletRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [WalletRepo] Status code: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw Exception(response.data['error'] ?? 'Không thể chuyển tiền');
       }
 
-      print('✅ [WalletRepo] Chuyển tiền thành công!');
+      debugPrint('✅ [WalletRepo] Chuyển tiền thành công!');
     } on DioException catch (e) {
       if (e.error is SocketException) {
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [WalletRepo] DioException: $e');
+      debugPrint('❌ [WalletRepo] DioException: $e');
       throw Exception(e.response?.data['error'] ?? 'Lỗi khi chuyển tiền');
     } catch (e) {
-      print('❌ [WalletRepo] Exception: $e');
+      debugPrint('❌ [WalletRepo] Exception: $e');
       rethrow;
     }
   }

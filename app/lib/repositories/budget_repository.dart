@@ -1,16 +1,20 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../models/budget.dart';
 import '../utils/dio_client.dart';
 import '../services/auth_service.dart';
 import '../config/app_config.dart';
 
 class BudgetRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  BudgetRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  BudgetRepository({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   // Helper to get headers with token
@@ -59,12 +63,12 @@ class BudgetRepository {
         options: options,
       );
 
-      print('DEBUG: response.data type: ${response.data.runtimeType}');
-      print('DEBUG: response.data: ${response.data}');
+      debugPrint('DEBUG: response.data type: ${response.data.runtimeType}');
+      debugPrint('DEBUG: response.data: ${response.data}');
 
       return Budget.fromJson(response.data['data']);
     } catch (e) {
-      print('DEBUG: Error in createBudget: $e');
+      debugPrint('DEBUG: Error in createBudget: $e');
       if (e is DioException && e.response?.data != null) {
         throw Exception(e.response?.data['error'] ?? 'Failed to create budget');
       }

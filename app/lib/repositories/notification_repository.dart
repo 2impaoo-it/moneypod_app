@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../models/notification.dart';
 import '../utils/dio_client.dart';
 import '../config/app_config.dart';
@@ -6,9 +7,11 @@ import '../config/app_config.dart';
 class NotificationRepository {
   late final Dio _dio;
 
-  NotificationRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  NotificationRepository({Dio? dio}) {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   // ==================== NOTIFICATIONS ====================
@@ -27,11 +30,11 @@ class NotificationRepository {
             .map((json) => AppNotification.fromJson(json))
             .toList();
       } else {
-        print('Failed to load notifications: ${response.statusCode}');
+        debugPrint('Failed to load notifications: ${response.statusCode}');
         return [];
       }
     } on DioException catch (e) {
-      print('Error fetching notifications: $e');
+      debugPrint('Error fetching notifications: $e');
       rethrow;
     }
   }
@@ -51,15 +54,15 @@ class NotificationRepository {
         }
         return 0;
       } else {
-        print('Failed to load unread count: ${response.statusCode}');
+        debugPrint('Failed to load unread count: ${response.statusCode}');
         return 0;
       }
     } on DioException catch (e) {
-      print('DioException fetching unread count: ${e.message}');
+      debugPrint('DioException fetching unread count: ${e.message}');
       // Không throw lại exception, chỉ return 0
       return 0;
     } catch (e) {
-      print('Unexpected error fetching unread count: $e');
+      debugPrint('Unexpected error fetching unread count: $e');
       // Không throw lại exception, chỉ return 0
       return 0;
     }
@@ -75,7 +78,7 @@ class NotificationRepository {
 
       return response.statusCode == 200;
     } on DioException catch (e) {
-      print('Error marking notification as read: $e');
+      debugPrint('Error marking notification as read: $e');
       return false;
     }
   }
@@ -90,7 +93,7 @@ class NotificationRepository {
 
       return response.statusCode == 200;
     } on DioException catch (e) {
-      print('Error marking all notifications as read: $e');
+      debugPrint('Error marking all notifications as read: $e');
       return false;
     }
   }
@@ -107,7 +110,7 @@ class NotificationRepository {
           response.statusCode == 204 ||
           response.statusCode == 201;
     } on DioException catch (e) {
-      print('Error deleting notification: $e');
+      debugPrint('Error deleting notification: $e');
       return false;
     }
   }
@@ -124,7 +127,7 @@ class NotificationRepository {
           response.statusCode == 204 ||
           response.statusCode == 201;
     } on DioException catch (e) {
-      print('Error deleting all notifications: $e');
+      debugPrint('Error deleting all notifications: $e');
       return false;
     }
   }
@@ -142,11 +145,13 @@ class NotificationRepository {
       if (response.statusCode == 200) {
         return NotificationSettings.fromJson(response.data['data']);
       } else {
-        print('Failed to load notification settings: ${response.statusCode}');
+        debugPrint(
+          'Failed to load notification settings: ${response.statusCode}',
+        );
         return null;
       }
     } on DioException catch (e) {
-      print('Error fetching notification settings: $e');
+      debugPrint('Error fetching notification settings: $e');
       rethrow;
     }
   }
@@ -166,11 +171,13 @@ class NotificationRepository {
       if (response.statusCode == 200) {
         return NotificationSettings.fromJson(response.data['data']);
       } else {
-        print('Failed to update notification settings: ${response.statusCode}');
+        debugPrint(
+          'Failed to update notification settings: ${response.statusCode}',
+        );
         return null;
       }
     } on DioException catch (e) {
-      print('Error updating notification settings: $e');
+      debugPrint('Error updating notification settings: $e');
       rethrow;
     }
   }

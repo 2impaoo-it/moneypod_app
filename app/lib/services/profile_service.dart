@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:MoneyPod/models/profile.dart';
-import 'package:MoneyPod/repositories/profile_repository.dart';
+import 'package:moneypod/models/profile.dart';
+import 'package:moneypod/repositories/profile_repository.dart';
 
 class ProfileService {
   final Dio _dio;
@@ -60,7 +61,7 @@ class ProfileService {
 
     try {
       // Step 1: Upload image to get URL
-      print('Step 1: Uploading to /upload');
+      debugPrint('Step 1: Uploading to /upload');
       final uploadResp = await _dio.post(
         '/upload',
         data: form,
@@ -69,7 +70,7 @@ class ProfileService {
           contentType: 'multipart/form-data',
         ),
       );
-      print('Step 1 Success: ${uploadResp.data}');
+      debugPrint('Step 1 Success: ${uploadResp.data}');
 
       if (uploadResp.statusCode == 200 && uploadResp.data != null) {
         final data = uploadResp.data is Map
@@ -83,26 +84,28 @@ class ProfileService {
             innerData['file_url'] ??
             innerData['avatar_url'];
 
-        print('Extracted Image URL: $imageUrl');
+        debugPrint('Extracted Image URL: $imageUrl');
 
         if (imageUrl != null && imageUrl is String) {
           // Step 2: Update profile with the new avatar URL
-          print('Step 2: Updating profile at /profile/avatar with URL');
+          debugPrint('Step 2: Updating profile at /profile/avatar with URL');
           try {
             final updateResp = await _dio.put(
               '/profile/avatar',
               data: {'avatar_url': imageUrl},
               options: Options(headers: {'Authorization': 'Bearer $token'}),
             );
-            print('Step 2 Success: ${updateResp.statusCode}');
+            debugPrint('Step 2 Success: ${updateResp.statusCode}');
 
             if (updateResp.statusCode == 200) {
               return imageUrl;
             }
           } catch (e) {
             if (e is DioException) {
-              print('Step 2 Error: ${e.message} - ${e.response?.statusCode}');
-              print('Step 2 Path: ${e.requestOptions.uri}');
+              debugPrint(
+                'Step 2 Error: ${e.message} - ${e.response?.statusCode}',
+              );
+              debugPrint('Step 2 Path: ${e.requestOptions.uri}');
             }
             rethrow;
           }
@@ -110,11 +113,11 @@ class ProfileService {
       }
     } catch (e) {
       if (e is DioException) {
-        print('Upload avatar error: ${e.message}');
-        print('Failed Request URI: ${e.requestOptions.uri}');
-        print('Response Data: ${e.response?.data}');
+        debugPrint('Upload avatar error: ${e.message}');
+        debugPrint('Failed Request URI: ${e.requestOptions.uri}');
+        debugPrint('Response Data: ${e.response?.data}');
       } else {
-        print('Upload avatar error: $e');
+        debugPrint('Upload avatar error: $e');
       }
     }
     return null;
@@ -129,13 +132,13 @@ class ProfileService {
       );
     } catch (e) {
       if (e is DioException) {
-        print('Update phone error: ${e.message} - ${e.response?.data}');
+        debugPrint('Update phone error: ${e.message} - ${e.response?.data}');
         final data = e.response?.data;
         if (data is Map && data['error'] != null) {
           throw Exception(data['error']);
         }
       } else {
-        print('Update phone error: $e');
+        debugPrint('Update phone error: $e');
       }
       rethrow;
     }

@@ -30,13 +30,14 @@ class NotificationsScreen extends StatelessWidget {
         return NotificationBloc(repository: NotificationRepository())
           ..add(NotificationLoadRequested(token ?? ''));
       },
-      child: const _NotificationsScreenView(),
+      child: const NotificationsScreenView(),
     );
   }
 }
 
-class _NotificationsScreenView extends StatelessWidget {
-  const _NotificationsScreenView();
+@visibleForTesting
+class NotificationsScreenView extends StatelessWidget {
+  const NotificationsScreenView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +236,7 @@ class _NotificationItem extends StatelessWidget {
 
     final bgColor = notification.isRead
         ? Colors.white
-        : AppColors.blue50.withOpacity(0.3);
+        : AppColors.blue50.withValues(alpha: 0.3);
 
     return Dismissible(
       key: Key(notification.id),
@@ -281,7 +282,7 @@ class _NotificationItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.slate200.withOpacity(0.3),
+              color: AppColors.slate200.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -289,7 +290,7 @@ class _NotificationItem extends StatelessWidget {
           border: Border.all(
             color: notification.isRead
                 ? Colors.transparent
-                : AppColors.primary.withOpacity(0.1),
+                : AppColors.primary.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -318,7 +319,7 @@ class _NotificationItem extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: iconColor.withOpacity(0.1),
+                      color: iconColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Text(

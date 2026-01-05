@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../models/savings_goal.dart';
 import '../services/auth_service.dart';
 import '../utils/dio_client.dart';
@@ -6,12 +7,15 @@ import '../config/app_config.dart';
 
 /// Repository cho quản lý Savings Goals
 class SavingsRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  SavingsRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  SavingsRepository({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Format DateTime cho server (RFC3339 với timezone)
@@ -24,28 +28,28 @@ class SavingsRepository {
   /// Lấy danh sách mục tiêu tiết kiệm
   Future<List<SavingsGoal>> getSavingsGoals() async {
     try {
-      print('🔵 [SavingsRepo] Lấy danh sách mục tiêu tiết kiệm');
+      debugPrint('🔵 [SavingsRepo] Lấy danh sách mục tiêu tiết kiệm');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('🌐 [SavingsRepo] Gửi GET đến: /savings');
+      debugPrint('🌐 [SavingsRepo] Gửi GET đến: /savings');
 
       final response = await _dio.get(
         '/savings',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status Code: ${response.statusCode}');
-      print('📦 [SavingsRepo] Response Body: ${response.data}');
+      debugPrint('📡 [SavingsRepo] Status Code: ${response.statusCode}');
+      debugPrint('📦 [SavingsRepo] Response Body: ${response.data}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
 
         final goals = data.map((json) => SavingsGoal.fromJson(json)).toList();
-        print('✅ [SavingsRepo] Lấy thành công ${goals.length} mục tiêu');
+        debugPrint('✅ [SavingsRepo] Lấy thành công ${goals.length} mục tiêu');
         return goals;
       } else {
         throw Exception(
@@ -53,7 +57,7 @@ class SavingsRepository {
         );
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -74,7 +78,7 @@ class SavingsRepository {
     DateTime? deadline,
   }) async {
     try {
-      print('🔵 [SavingsRepo] Tạo mục tiêu: $name, target: $targetAmount');
+      debugPrint('🔵 [SavingsRepo] Tạo mục tiêu: $name, target: $targetAmount');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -88,7 +92,7 @@ class SavingsRepository {
         if (icon != null) 'icon': icon,
         if (deadline != null) 'deadline': _formatDateTimeForServer(deadline),
       };
-      print('📦 [SavingsRepo] Request body: $requestBody');
+      debugPrint('📦 [SavingsRepo] Request body: $requestBody');
 
       final response = await _dio.post(
         '/savings',
@@ -96,15 +100,15 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('✅ [SavingsRepo] Tạo mục tiêu thành công');
+        debugPrint('✅ [SavingsRepo] Tạo mục tiêu thành công');
       } else {
         throw Exception(response.data['error'] ?? 'Không thể tạo mục tiêu');
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -123,7 +127,7 @@ class SavingsRepository {
     String? note,
   }) async {
     try {
-      print(
+      debugPrint(
         '🔵 [SavingsRepo] Nạp $amount vào goal $goalId từ wallet $walletId',
       );
 
@@ -144,10 +148,10 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ [SavingsRepo] Nạp tiền thành công');
+        debugPrint('✅ [SavingsRepo] Nạp tiền thành công');
         // Kiểm tra xem có hoàn thành mục tiêu không
         return {
           'success': true,
@@ -158,7 +162,7 @@ class SavingsRepository {
         throw Exception(response.data['error'] ?? 'Không thể nạp tiền');
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -177,7 +181,9 @@ class SavingsRepository {
     String? note,
   }) async {
     try {
-      print('🔵 [SavingsRepo] Rút $amount từ goal $goalId về wallet $walletId');
+      debugPrint(
+        '🔵 [SavingsRepo] Rút $amount từ goal $goalId về wallet $walletId',
+      );
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -196,15 +202,15 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ [SavingsRepo] Rút tiền thành công');
+        debugPrint('✅ [SavingsRepo] Rút tiền thành công');
       } else {
         throw Exception(response.data['error'] ?? 'Không thể rút tiền');
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -223,7 +229,7 @@ class SavingsRepository {
     DateTime? deadline,
   }) async {
     try {
-      print('🔵 [SavingsRepo] Cập nhật mục tiêu $goalId');
+      debugPrint('🔵 [SavingsRepo] Cập nhật mục tiêu $goalId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -245,17 +251,17 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ [SavingsRepo] Cập nhật mục tiêu thành công');
+        debugPrint('✅ [SavingsRepo] Cập nhật mục tiêu thành công');
       } else {
         throw Exception(
           response.data['error'] ?? 'Không thể cập nhật mục tiêu',
         );
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -264,7 +270,7 @@ class SavingsRepository {
   /// This is called when user withdraws all money from a 100% goal
   Future<void> markGoalCompleted(String goalId) async {
     try {
-      print('🔵 [SavingsRepo] Đánh dấu hoàn thành mục tiêu $goalId');
+      debugPrint('🔵 [SavingsRepo] Đánh dấu hoàn thành mục tiêu $goalId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -277,17 +283,17 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ [SavingsRepo] Đánh dấu hoàn thành thành công');
+        debugPrint('✅ [SavingsRepo] Đánh dấu hoàn thành thành công');
       } else {
         throw Exception(
           response.data['error'] ?? 'Không thể đánh dấu hoàn thành',
         );
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -295,7 +301,7 @@ class SavingsRepository {
   /// Xóa mục tiêu (phải rút hết tiền trước)
   Future<void> deleteSavingsGoal(String goalId) async {
     try {
-      print('🔵 [SavingsRepo] Xóa mục tiêu $goalId');
+      debugPrint('🔵 [SavingsRepo] Xóa mục tiêu $goalId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -307,15 +313,15 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ [SavingsRepo] Xóa mục tiêu thành công');
+        debugPrint('✅ [SavingsRepo] Xóa mục tiêu thành công');
       } else {
         throw Exception(response.data['error'] ?? 'Không thể xóa mục tiêu');
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }
@@ -323,7 +329,7 @@ class SavingsRepository {
   /// Lấy lịch sử giao dịch của mục tiêu
   Future<List<SavingsTransaction>> getGoalTransactions(String goalId) async {
     try {
-      print('🔵 [SavingsRepo] Lấy lịch sử giao dịch của goal $goalId');
+      debugPrint('🔵 [SavingsRepo] Lấy lịch sử giao dịch của goal $goalId');
 
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
@@ -335,7 +341,7 @@ class SavingsRepository {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [SavingsRepo] Status: ${response.statusCode}');
+      debugPrint('📡 [SavingsRepo] Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
@@ -343,7 +349,7 @@ class SavingsRepository {
         final transactions = data
             .map((json) => SavingsTransaction.fromJson(json))
             .toList();
-        print(
+        debugPrint(
           '✅ [SavingsRepo] Lấy thành công ${transactions.length} giao dịch',
         );
         return transactions;
@@ -353,7 +359,7 @@ class SavingsRepository {
         );
       }
     } catch (e) {
-      print('❌ [SavingsRepo] Lỗi: $e');
+      debugPrint('❌ [SavingsRepo] Lỗi: $e');
       rethrow;
     }
   }

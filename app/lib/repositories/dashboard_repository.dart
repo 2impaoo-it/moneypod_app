@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../models/dashboard_data.dart';
 import '../services/auth_service.dart';
@@ -7,42 +8,47 @@ import '../config/app_config.dart';
 
 /// Repository để lấy dữ liệu dashboard
 class DashboardRepository {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
   late final Dio _dio;
 
-  DashboardRepository() {
-    _dio = DioClient.getDio(null);
-    _dio.options.baseUrl = AppConfig.baseUrl;
+  DashboardRepository({AuthService? authService, Dio? dio})
+    : _authService = authService ?? AuthService() {
+    _dio = dio ?? DioClient.getDio(null);
+    if (dio == null) {
+      _dio.options.baseUrl = AppConfig.baseUrl;
+    }
   }
 
   /// Lấy tất cả dữ liệu dashboard (user, wallets, transactions)
   Future<DashboardData> getDashboardData() async {
     try {
-      print('🔵 [DashboardRepo] Lấy dashboard data...');
+      debugPrint('🔵 [DashboardRepo] Lấy dashboard data...');
 
       // Lấy token từ secure storage
       final token = await _authService.getToken();
       if (token == null || token.isEmpty) {
-        print('❌ [DashboardRepo] Không có token');
+        debugPrint('❌ [DashboardRepo] Không có token');
         throw Exception('Bạn cần đăng nhập để sử dụng tính năng này');
       }
 
-      print('✅ [DashboardRepo] Đã lấy token');
+      debugPrint('✅ [DashboardRepo] Đã lấy token');
 
       // Gửi GET request
-      print('🌐 [DashboardRepo] Gửi GET đến: /dashboard');
+      debugPrint('🌐 [DashboardRepo] Gửi GET đến: /dashboard');
 
       final response = await _dio.get(
         '/dashboard',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      print('📡 [DashboardRepo] Status code: ${response.statusCode}');
-      print('📡 [DashboardRepo] Response body: ${response.data}');
+      debugPrint('📡 [DashboardRepo] Status code: ${response.statusCode}');
+      debugPrint('📡 [DashboardRepo] Response body: ${response.data}');
 
       // Kiểm tra status code
       if (response.statusCode != 200) {
-        print('❌ [DashboardRepo] Lỗi từ server: ${response.data['error']}');
+        debugPrint(
+          '❌ [DashboardRepo] Lỗi từ server: ${response.data['error']}',
+        );
         throw Exception(
           response.data['error'] ?? 'Không thể lấy dữ liệu dashboard',
         );
@@ -50,21 +56,21 @@ class DashboardRepository {
 
       final dashboardData = DashboardData.fromJson(response.data['data']);
 
-      print('✅ [DashboardRepo] Lấy dashboard data thành công!');
+      debugPrint('✅ [DashboardRepo] Lấy dashboard data thành công!');
       return dashboardData;
     } on DioException catch (e) {
       if (e.error is SocketException) {
-        print('❌ [DashboardRepo] Lỗi kết nối mạng');
+        debugPrint('❌ [DashboardRepo] Lỗi kết nối mạng');
         throw Exception(
           'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
         );
       }
-      print('❌ [DashboardRepo] DioException: $e');
+      debugPrint('❌ [DashboardRepo] DioException: $e');
       throw Exception(
         e.response?.data['error'] ?? 'Lỗi khi lấy dashboard data: $e',
       );
     } catch (e) {
-      print('❌ [DashboardRepo] Exception: $e');
+      debugPrint('❌ [DashboardRepo] Exception: $e');
       rethrow;
     }
   }
@@ -102,7 +108,7 @@ class DashboardRepository {
       }
       return [];
     } catch (e) {
-      print('Error fetching filtered transactions: $e');
+      debugPrint('Error fetching filtered transactions: $e');
       return [];
     }
   }

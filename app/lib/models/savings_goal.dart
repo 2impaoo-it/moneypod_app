@@ -1,4 +1,6 @@
-/// Model cho Savings Goal - Khớp với server Go
+// Model cho Savings Goal - Khớp với server Go
+import 'package:flutter/foundation.dart';
+
 class SavingsGoal {
   final String id; // UUID
   final String userId; // UUID
@@ -41,10 +43,12 @@ class SavingsGoal {
       status: json['status'] ?? 'IN_PROGRESS',
       deadline: _parseDateTime(json['deadline']),
       isOverdue: json['is_overdue'] ?? false,
-      createdAt: _parseDateTime(json['created_at']) ?? 
-          _parseDateTime(json['CreatedAt']) ?? 
+      createdAt:
+          _parseDateTime(json['created_at']) ??
+          _parseDateTime(json['CreatedAt']) ??
           DateTime.now(),
-      updatedAt: _parseDateTime(json['updated_at']) ?? 
+      updatedAt:
+          _parseDateTime(json['updated_at']) ??
           _parseDateTime(json['UpdatedAt']),
     );
   }
@@ -55,29 +59,29 @@ class SavingsGoal {
     if (value is DateTime) {
       return DateTime(value.year, value.month, value.day);
     }
-    
+
     try {
       String dateStr = value.toString().trim();
-      
+
       // Xử lý các format phổ biến từ server:
       // "2026-07-15T00:00:00.000+07:00"
       // "2026-07-15T00:00:00.000"
       // "2026-07-15T00:00:00"
-      
+
       // Loại bỏ timezone nếu có (+07:00, -07:00, Z)
       dateStr = dateStr.replaceAll(RegExp(r'[+-]\d{2}:\d{2}$'), '');
       dateStr = dateStr.replaceAll('Z', '');
-      
+
       // Loại bỏ milliseconds nếu có (.000, .123)
       if (dateStr.contains('.')) {
         dateStr = dateStr.split('.')[0];
       }
-      
+
       // Parse và chỉ lấy phần date
       final parsed = DateTime.parse(dateStr);
       return DateTime(parsed.year, parsed.month, parsed.day);
     } catch (e) {
-      print('⚠️ Lỗi parse datetime: $value - $e');
+      debugPrint('⚠️ Lỗi parse datetime: $value - $e');
       return null;
     }
   }
@@ -181,9 +185,7 @@ class SavingsTransaction {
       amount: _parseDouble(json['amount'] ?? 0),
       type: json['type'] ?? 'DEPOSIT',
       note: json['note'],
-      createdAt: _parseDateTimeNonNull(
-        json['created_at'] ?? json['CreatedAt']
-      ),
+      createdAt: _parseDateTimeNonNull(json['created_at'] ?? json['CreatedAt']),
     );
   }
 
@@ -195,23 +197,23 @@ class SavingsTransaction {
     if (value is DateTime) {
       return DateTime(value.year, value.month, value.day);
     }
-    
+
     try {
       String dateStr = value.toString().trim();
-      
+
       // Loại bỏ timezone
       dateStr = dateStr.replaceAll(RegExp(r'[+-]\d{2}:\d{2}$'), '');
       dateStr = dateStr.replaceAll('Z', '');
-      
+
       // Loại bỏ milliseconds
       if (dateStr.contains('.')) {
         dateStr = dateStr.split('.')[0];
       }
-      
+
       final parsed = DateTime.parse(dateStr);
       return DateTime(parsed.year, parsed.month, parsed.day);
     } catch (e) {
-      print('⚠️ Lỗi parse datetime: $value - $e');
+      debugPrint('⚠️ Lỗi parse datetime: $value - $e');
       final now = DateTime.now();
       return DateTime(now.year, now.month, now.day);
     }

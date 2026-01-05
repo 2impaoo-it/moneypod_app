@@ -1,7 +1,7 @@
-import 'package:MoneyPod/repositories/profile_repository.dart';
-import 'package:MoneyPod/screens/profile/profile_screen.dart';
-import 'package:MoneyPod/services/auth_service.dart';
-import 'package:MoneyPod/services/profile_service.dart';
+import 'package:moneypod/repositories/profile_repository.dart';
+import 'package:moneypod/screens/profile/profile_screen.dart';
+import 'package:moneypod/services/auth_service.dart';
+import 'package:moneypod/services/profile_service.dart';
 import 'package:flutter/material.dart';
 
 class ProfileWidget extends StatefulWidget {

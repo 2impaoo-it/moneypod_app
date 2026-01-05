@@ -8,6 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../main.dart'; // For AppColors
 import '../../utils/category_helper.dart';
+import '../../utils/popup_notification.dart';
 
 import '../../models/transaction.dart';
 import '../../bloc/budget/budget_bloc.dart'; // Import BudgetBloc
@@ -167,17 +168,18 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<BudgetBloc, BudgetState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is BudgetOperationSuccess) {
-          Navigator.pop(context, true); // Return true to signal success
+          await PopupNotification.showSuccess(
+            context,
+            "Tạo ngân sách thành công!",
+          );
+          if (context.mounted) {
+            Navigator.pop(context, true); // Return true to signal success
+          }
         }
         if (state is BudgetError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          PopupNotification.showError(context, state.message);
         }
       },
       child: Scaffold(
@@ -216,7 +218,7 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
+                                    color: Colors.black.withValues(alpha: 0.05),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -328,7 +330,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -392,7 +396,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                     drawVerticalLine: false,
                                     getDrawingHorizontalLine: (value) {
                                       return FlLine(
-                                        color: Colors.black.withOpacity(0.05),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         strokeWidth: 1,
                                         dashArray: [4, 4],
                                       );
@@ -409,8 +415,8 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                                           toY: e.value.y,
                                           color: e.key == 5
                                               ? AppColors.primary
-                                              : AppColors.primary.withOpacity(
-                                                  0.3,
+                                              : AppColors.primary.withValues(
+                                                  alpha: 0.1,
                                                 ),
                                           width: 12,
                                           borderRadius: BorderRadius.circular(
@@ -449,8 +455,9 @@ class _BudgetAmountScreenState extends State<BudgetAmountScreen> {
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          disabledBackgroundColor: AppColors.primary
-                              .withOpacity(0.5),
+                          disabledBackgroundColor: AppColors.primary.withValues(
+                            alpha: 0.5,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
