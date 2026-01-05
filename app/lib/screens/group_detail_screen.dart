@@ -1088,12 +1088,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
     String statusText;
 
     if (isPayer) {
-      // I paid the total
-      amountText = '+${currencyFormat.format(totalAmount)}';
-      amountColor = AppColors.teal500;
+      // I paid the total → Tôi mất tiền
+      amountText = '-${currencyFormat.format(totalAmount)}';
+      amountColor = AppColors.danger;
       statusText = 'Bạn đã trả';
     } else if (isInvolved) {
-      // I owe my share
+      // I owe my share → Tôi nợ (cũng là mất tiền)
       amountText = '-${currencyFormat.format(myShare)}';
       amountColor = AppColors.danger;
       statusText = 'Bạn nợ';

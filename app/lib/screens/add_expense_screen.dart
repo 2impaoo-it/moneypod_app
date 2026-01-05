@@ -310,11 +310,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       if (mounted) {
         setState(() => _isLoading = false);
-        PopupNotification.showSuccess(
-          context,
-          '✅ Đã thêm chi tiêu thành công!',
-        );
+
+        // Pop trước để quay về màn hình nhóm
         Navigator.pop(context, true);
+
+        // Show notification sau khi đã pop
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            PopupNotification.showSuccess(
+              context,
+              '✅ Đã thêm chi tiêu thành công!',
+            );
+          }
+        });
       }
     } catch (e) {
       if (mounted) {

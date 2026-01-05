@@ -34,7 +34,6 @@ class _GroupsScreenState extends State<GroupsScreen>
   final GroupRepository _groupRepository = GroupRepository();
 
   // Debt optimization and pending settlements
-  Map<String, dynamic>? _optimizedDebt;
   List<Map<String, dynamic>> _pendingSettlements = []; // Tôi nợ người khác
   List<Map<String, dynamic>> _peopleOweMe = []; // Người nợ tôi
   bool _isLoadingDebts = true;
@@ -97,9 +96,6 @@ class _GroupsScreenState extends State<GroupsScreen>
         }
       }
 
-      // Tính toán nợ tối ưu
-      _optimizedDebt = _calculateOptimizedDebt(allMyDebts, allDebtsToMe);
-
       // Lấy danh sách chờ thanh toán (TÔI NỢ người khác - cần trả)
       _pendingSettlements = _mapPendingSettlements(allMyDebts);
 
@@ -121,123 +117,6 @@ class _GroupsScreenState extends State<GroupsScreen>
       print('Error fetching debt data: $e');
       setState(() => _isLoadingDebts = false);
     }
-  }
-
-  // Tính toán nợ tối ưu bằng thuật toán net balance
-  Map<String, dynamic>? _calculateOptimizedDebt(
-    List<Map<String, dynamic>> myDebts,
-    List<Map<String, dynamic>> debtsToMe,
-  ) {
-    print('\n=== DEBT OPTIMIZATION CALCULATION ===');
-    print('My debts (I owe): ${myDebts.length}');
-    print('Debts to me (Others owe me): ${debtsToMe.length}');
-
-    // Map để lưu net balance của từng người
-    Map<String, double> netBalance = {};
-    Map<String, Map<String, String>> userInfo = {}; // Lưu thông tin user
-
-    // Tính toán: Tôi nợ ai (trừ balance)
-    print('\n--- Processing MY DEBTS (I owe others) ---');
-    for (var debt in myDebts) {
-      if (debt['is_paid'] == true) continue; // Skip nợ đã trả
-
-      final toUserId = debt['to_user_id']?.toString();
-      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
-
-      // Lấy thông tin từ to_user object
-      final toUser = debt['to_user'] as Map<String, dynamic>?;
-      final toUserName =
-          toUser?['full_name'] ??
-          toUser?['name'] ??
-          toUser?['email'] ??
-          'Unknown';
-      final toUserAvatar = toUser?['avatar_url'] ?? '';
-
-      if (toUserId != null && amount > 0) {
-        netBalance[toUserId] = (netBalance[toUserId] ?? 0.0) - amount;
-        userInfo[toUserId] = {'name': toUserName, 'avatar': toUserAvatar};
-        print(
-          '  I owe $toUserName: -$amount (new balance: ${netBalance[toUserId]})',
-        );
-      }
-    }
-
-    // Tính toán: Ai nợ tôi (cộng balance)
-    print('\n--- Processing DEBTS TO ME (Others owe me) ---');
-    for (var debt in debtsToMe) {
-      if (debt['is_paid'] == true) continue; // Skip nợ đã trả
-
-      final fromUserId = debt['from_user_id']?.toString();
-      final amount = (debt['amount'] as num?)?.toDouble() ?? 0.0;
-
-      // Lấy thông tin từ from_user object
-      final fromUser = debt['from_user'] as Map<String, dynamic>?;
-      final fromUserName =
-          fromUser?['full_name'] ??
-          fromUser?['name'] ??
-          fromUser?['email'] ??
-          'Unknown';
-      final fromUserAvatar = fromUser?['avatar_url'] ?? '';
-
-      if (fromUserId != null && amount > 0) {
-        netBalance[fromUserId] = (netBalance[fromUserId] ?? 0.0) + amount;
-        userInfo[fromUserId] = {'name': fromUserName, 'avatar': fromUserAvatar};
-        print(
-          '  $fromUserName owes me: +$amount (new balance: ${netBalance[fromUserId]})',
-        );
-      }
-    }
-
-    // Tìm người tôi nợ nhiều nhất (balance âm nhất)
-    print('\n--- NET BALANCE SUMMARY ---');
-    for (var entry in netBalance.entries) {
-      final userName = userInfo[entry.key]?['name'] ?? 'Unknown';
-      print('  $userName (${entry.key}): ${entry.value}');
-    }
-
-    String? maxCreditorId;
-    double maxDebt = 0.0;
-
-    for (var entry in netBalance.entries) {
-      if (entry.value < -0.01 && entry.value.abs() > maxDebt) {
-        maxDebt = entry.value.abs();
-        maxCreditorId = entry.key;
-      }
-    }
-
-    // Nếu tôi không nợ ai, return null
-    if (maxCreditorId == null || maxDebt < 1) {
-      print('RESULT: No optimization needed (balance >= 0)');
-      print('=================================\n');
-      return null;
-    }
-
-    // Tìm tất cả các debt records liên quan đến người này để lấy debt_id
-    String? debtId;
-    for (var debt in myDebts) {
-      if (debt['to_user_id']?.toString() == maxCreditorId &&
-          debt['is_paid'] != true) {
-        debtId = debt['id']?.toString();
-        break;
-      }
-    }
-
-    final creditorName = userInfo[maxCreditorId]?['name'] ?? 'Unknown';
-    print('\nRESULT: Optimized debt found!');
-    print('  Pay to: $creditorName');
-    print('  Amount: $maxDebt');
-    print('  Debt ID: $debtId');
-    print('=================================\n');
-
-    return {
-      'from': {
-        'name': _currentUser?.fullName ?? _currentUser?.email ?? 'Bạn',
-        'avatar': _currentUser?.avatarUrl ?? '',
-      },
-      'to': userInfo[maxCreditorId],
-      'amount': maxDebt.round(),
-      'debt_id': debtId,
-    };
   }
 
   Future<void> _loadUserProfile() async {
@@ -342,49 +221,6 @@ class _GroupsScreenState extends State<GroupsScreen>
         'received_wallet_id': receivedWalletId,
       };
     }).toList();
-  }
-
-  // Đánh dấu đã trả nợ
-  Future<void> _markDebtAsPaid(String? debtId) async {
-    if (debtId == null) {
-      PopupNotification.showError(context, 'Không tìm thấy thông tin nợ');
-      return;
-    }
-
-    try {
-      await _groupRepository.markDebtPaid(debtId);
-      PopupNotification.showSuccess(context, 'Đã đánh dấu đã trả');
-
-      // Refresh data
-      await _fetchDebtData();
-    } catch (e) {
-      PopupNotification.showError(context, 'Lỗi: ${e.toString()}');
-    }
-  }
-
-  // Hiển thị thông tin về tối ưu hoá
-  void _showOptimizationInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Tối ưu trả nợ',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        content: const Text(
-          'Hệ thống tự động tính toán và cân bằng các khoản nợ giữa bạn và thành viên khác.\n\n'
-          'Ví dụ: Bạn nợ A 500k, nhưng A nợ bạn 300k → Bạn chỉ cần trả A 200k.\n\n'
-          'Giúp giảm số lần giao dịch và đơn giản hoá việc thanh toán.',
-          style: TextStyle(fontSize: 14, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Đã hiểu'),
-          ),
-        ],
-      ),
-    );
   }
 
   // Refresh toàn bộ data (groups + debts)
@@ -716,10 +552,7 @@ class _GroupsScreenState extends State<GroupsScreen>
                   ),
                 ],
 
-                // 3. Debt Optimization Section (Static UI for now)
-                _buildDebtOptimizationSection(),
-
-                // 4. Pending Settlements Section (Tôi nợ người khác)
+                // 3. Pending Settlements Section (Tôi nợ người khác)
                 _buildPendingSettlementsSection(),
 
                 // 5. People Owe Me Section (Người nợ tôi)
@@ -988,179 +821,6 @@ class _GroupsScreenState extends State<GroupsScreen>
           ],
         ),
       ),
-    );
-  }
-
-  // 3. Debt Optimization Section
-  Widget _buildDebtOptimizationSection() {
-    // Nếu đang loading hoặc không có nợ tối ưu, không hiển thị
-    if (_isLoadingDebts || _optimizedDebt == null) {
-      return const SizedBox.shrink();
-    }
-
-    final debt = _optimizedDebt!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        // Title Row
-        Row(
-          children: [
-            const Icon(
-              Icons.auto_awesome,
-              color: AppColors.amber500,
-              size: 20,
-            ), // Icon Sparkles tương tự
-            const SizedBox(width: 8),
-            const Text(
-              "Tối ưu trả nợ",
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.slate700,
-              ),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => _showOptimizationInfo(context),
-              child: const Icon(
-                Icons.info_outline,
-                size: 16,
-                color: AppColors.slate400,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Sau khi tính toán tổng các khoản nợ',
-          style: TextStyle(fontSize: 12, color: AppColors.slate600),
-        ),
-        const SizedBox(height: 8),
-        // Debt Card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.amber50, AppColors.orange50],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: AppColors.amber200),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              // Row: From -> To + Amount
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildOptimizationUser(
-                          debt['from']['avatar'],
-                          debt['from']['name'],
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Icon(
-                            Icons.arrow_forward_rounded,
-                            color: AppColors.amber500,
-                            size: 24,
-                          ),
-                        ),
-                        _buildOptimizationUser(
-                          debt['to']['avatar'],
-                          debt['to']['name'],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    formatCurrency(debt['amount']),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.slate900,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _markDebtAsPaid(debt['debt_id']),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.amber500,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    "Đánh dấu đã trả",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Helper cho Avatar trong Debt Card
-  // Helper cho User trong Optimization Card
-  Widget _buildOptimizationUser(String? avatarUrl, String name) {
-    // Lấy chữ cái đầu để làm fallback
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          radius: 20, // Bigger avatar
-          backgroundColor: Colors.white,
-          backgroundImage:
-              (avatarUrl != null &&
-                  avatarUrl.isNotEmpty &&
-                  avatarUrl.startsWith('http'))
-              ? NetworkImage(avatarUrl)
-              : null,
-          child:
-              (avatarUrl == null ||
-                  avatarUrl.isEmpty ||
-                  !avatarUrl.startsWith('http'))
-              ? Text(
-                  initial,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.slate700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.slate900,
-          ),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-      ],
     );
   }
 
