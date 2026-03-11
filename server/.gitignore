@@ -32,3 +32,4 @@ go.work
 Thumbs.db
 
 serviceAccountKey.json
+firebase-auth.json

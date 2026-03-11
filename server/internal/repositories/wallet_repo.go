@@ -54,13 +54,30 @@ func (r *WalletRepository) GetByID(walletID uuid.UUID) (*models.Wallet, error) {
 }
 
 // UpdateWallet cập nhật thông tin ví (không dùng transaction)
-func (r *WalletRepository) UpdateWallet(wallet *models.Wallet) error {
-	return r.db.Save(wallet).Error
+func (r *WalletRepository) UpdateWallet(wallet *models.Wallet, userID uuid.UUID) error {
+	result := r.db.Model(&models.Wallet{}).
+		Where("id = ? AND user_id = ?", wallet.ID, userID).
+		Updates(wallet)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound // Không tìm thấy hoặc không có quyền
+	}
+	return nil
 }
 
 // DeleteWallet xóa ví
-func (r *WalletRepository) DeleteWallet(walletID uuid.UUID) error {
-	return r.db.Delete(&models.Wallet{}, walletID).Error
+func (r *WalletRepository) DeleteWallet(walletID, userID uuid.UUID) error {
+	result := r.db.Where("id = ? AND user_id = ?", walletID, userID).Delete(&models.Wallet{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // CountTransactionsByWalletID đếm số giao dịch của ví

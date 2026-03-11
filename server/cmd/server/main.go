@@ -101,7 +101,7 @@ func main() {
 	}
 
 	authService := services.NewAuthService(userRepo, emailService, notifRepo, notifService)
-	walletService := services.NewWalletService(walletRepo)
+	walletService := services.NewWalletService(db.DB, walletRepo)
 	dashboardService := services.NewDashboardService(userRepo, walletRepo, transRepo)
 	transService := services.NewTransactionService(db.DB, transRepo, walletRepo, notifService)
 	groupService := services.NewGroupService(db.DB, notifService, userRepo)
@@ -131,6 +131,10 @@ func main() {
 	budgetHandler := handlers.NewBudgetHandler(budgetService)
 	// --- SETUP ROUTER ---
 	r := gin.Default()
+
+	// 🔒 SECURITY MIDDLEWARES
+	r.Use(middleware.CORSMiddleware())      // CORS protection
+	r.Use(middleware.RateLimitMiddleware()) // Rate limiting
 
 	// --- API ADMIN ---
 	adminGroup := r.Group("/api/admin")
@@ -180,9 +184,16 @@ func main() {
 		public.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{"message": "Welcome to MoneyPod API!"})
 		})
-		public.POST("/register", authHandler.Register)
-		public.POST("/login", authHandler.Login)
-		public.POST("/forgot-password", authHandler.ForgotPassword) // Quên mật khẩu
+
+		// 🔒 Strict rate limit cho auth endpoints (5 requests/15 phút)
+		authGroup := public.Group("")
+		authGroup.Use(middleware.StrictRateLimitMiddleware())
+		{
+			authGroup.POST("/register", authHandler.Register)
+			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/forgot-password", authHandler.ForgotPassword)
+		}
+
 		public.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 

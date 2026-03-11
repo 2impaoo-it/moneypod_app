@@ -1,18 +1,66 @@
-version: "3.8"
-
 services:
+  # 1. DATABASE POSTGRESQL
   db:
-    image: postgres:16-alpine # Bản nhẹ nhất của Postgres
+    image: postgres:16-alpine
     container_name: moneypod_db
     restart: always
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=moneypod_secret # Mật khẩu DB
-      - POSTGRES_DB=moneypod # Tên Database
+      - POSTGRES_PASSWORD=${DB_PASSWORD} #Lấy từ file .env
+      - POSTGRES_DB=moneypod
     ports:
-      - "5432:5432" # Mở cổng để code Go chui vào được
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Lưu dữ liệu bền vững
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - moneypod-net
+
+  # 2. BACKEND SERVICE
+  backend:
+    build: .
+    container_name: moneypod_api
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD} #Lấy từ file .env
+      - DB_NAME=moneypod
+      - APP_PORT=8080
+      - GEMINI_API_KEY=${GEMINI_API_KEY} #Lấy từ file .env
+      - FIREBASE_CREDENTIALS=/app/firebase-auth.json
+
+    volumes:
+      - ./firebase-auth.json:/app/firebase-auth.json
+    networks:
+      - moneypod-net
+
+  # 3. NGROK (Tunnel)
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: moneypod_ngrok
+    restart: unless-stopped
+    command:
+      - "http"
+      # Thay bằng domain tĩnh của bạn ở đây
+      - "--domain=${NGROK_DOMAIN}" #Lấy từ file .env
+      # Trỏ vào service backend cổng 8080
+      - "backend:8080"
+    environment:
+      # Thay token của bạn vào đây
+      NGROK_AUTHTOKEN: "${NGROK_AUTH}" #Lấy từ file .env
+    depends_on:
+      - backend
+    networks:
+      - moneypod-net
 
 volumes:
   postgres_data:
+
+networks:
+  moneypod-net:
+    driver: bridge

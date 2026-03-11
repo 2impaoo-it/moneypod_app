@@ -82,8 +82,9 @@ func (s *AuthService) Login(email, password string) (string, error) {
 
 	// 3. Tạo JWT Token - Sử dụng secret key từ config
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,                               // Subject: ID người dùng
-		"exp": time.Now().Add(time.Hour * 72).Unix(), // Hết hạn sau 3 ngày
+		"sub": user.ID,                                   // Subject: ID người dùng
+		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(), // Hết hạn sau 7 ngày (giảm từ 3 ngày để bảo mật hơn)
+		"iat": time.Now().Unix(),                         // Issued at
 	})
 
 	// 4. Ký tên (Sign) token

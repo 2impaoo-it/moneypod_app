@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/2impaoo-it/moneypod_app/server/internal/services"
+	"github.com/2impaoo-it/moneypod_app/server/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -41,6 +42,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 🔒 SECURITY: Validate email format
+	if err := utils.ValidateEmail(req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 🔒 SECURITY: Validate password strength
+	if err := utils.ValidatePassword(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 🔒 SECURITY: Sanitize full name
+	req.FullName = utils.SanitizeInput(req.FullName)
 
 	// 2. Gọi Service xử lý
 	err := h.authService.Register(req.Email, req.Password, req.FullName)
@@ -145,8 +161,16 @@ type LinkPhoneReq struct {
 // @Failure      400  {object}  map[string]interface{} "Lỗi dữ liệu đầu vào hoặc số điện thoại đã tồn tại"
 // @Router       /link-phone [post]
 func (h *AuthHandler) LinkPhone(c *gin.Context) {
-	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
 
 	var req LinkPhoneReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -181,8 +205,16 @@ type UpdateProfileReq struct {
 // @Router       /profile [put]
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	// 1. Lấy ID user từ Token
-	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
 
 	// 2. Parse dữ liệu
 	var req UpdateProfileReq
@@ -192,7 +224,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	// 3. Gọi Service
-	err := h.authService.UpdateUserInfo(userID, req.FullName)
+	err = h.authService.UpdateUserInfo(userID, req.FullName)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Lỗi cập nhật: " + err.Error()})
 		return
@@ -220,8 +252,16 @@ type UpdateAvatarReq struct {
 // @Router       /profile/avatar [put]
 func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	// 1. Lấy ID user
-	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
 
 	// 2. Parse dữ liệu
 	var req UpdateAvatarReq
@@ -231,7 +271,7 @@ func (h *AuthHandler) UpdateAvatar(c *gin.Context) {
 	}
 
 	// 3. Gọi Service
-	err := h.authService.UpdateAvatar(userID, req.AvatarURL)
+	err = h.authService.UpdateAvatar(userID, req.AvatarURL)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Lỗi cập nhật: " + err.Error()})
 		return
@@ -259,8 +299,16 @@ type ChangePasswordRequest struct {
 // @Router       /change-password [put]
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	// 1. Lấy ID user
-	idVal, _ := c.Get("userID")
-	userID, _ := uuid.Parse(idVal.(string))
+	idVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Không xác thực được người dùng"})
+		return
+	}
+	userID, err := uuid.Parse(idVal.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID người dùng lỗi format"})
+		return
+	}
 
 	// 2. Parse dữ liệu
 	var req ChangePasswordRequest
@@ -270,7 +318,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// 3. Gọi Service
-	err := h.authService.ChangePassword(userID, req.OldPassword, req.NewPassword)
+	err = h.authService.ChangePassword(userID, req.OldPassword, req.NewPassword)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return

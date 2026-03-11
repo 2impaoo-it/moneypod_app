@@ -235,7 +235,7 @@ func (s *TransactionService) UpdateTransaction(transactionID, userID uuid.UUID, 
 	}
 
 	// Cập nhật giao dịch
-	if err := s.repo.Update(tx, oldTransaction); err != nil {
+	if err := s.repo.Update(tx, oldTransaction, userID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -281,7 +281,7 @@ func (s *TransactionService) DeleteTransaction(transactionID, userID uuid.UUID) 
 	}
 
 	// Xóa giao dịch
-	if err := s.repo.Delete(tx, transactionID); err != nil {
+	if err := s.repo.Delete(tx, transactionID, userID); err != nil {
 		tx.Rollback()
 		return err
 	}

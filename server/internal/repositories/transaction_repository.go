@@ -62,13 +62,30 @@ func (r *TransactionRepository) GetByIDAndUserID(transactionID, userID uuid.UUID
 }
 
 // Update cập nhật giao dịch
-func (r *TransactionRepository) Update(tx *gorm.DB, transaction *models.Transaction) error {
-	return tx.Save(transaction).Error
+func (r *TransactionRepository) Update(tx *gorm.DB, transaction *models.Transaction, userID uuid.UUID) error {
+	result := tx.Model(&models.Transaction{}).
+		Where("id = ? AND user_id = ?", transaction.ID, userID).
+		Updates(transaction)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound // No record found for that user to update
+	}
+	return nil
 }
 
 // Delete xóa giao dịch
-func (r *TransactionRepository) Delete(tx *gorm.DB, transactionID uuid.UUID) error {
-	return tx.Delete(&models.Transaction{}, transactionID).Error
+func (r *TransactionRepository) Delete(tx *gorm.DB, transactionID, userID uuid.UUID) error {
+	result := tx.Where("id = ? AND user_id = ?", transactionID, userID).Delete(&models.Transaction{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // GetByUserIDWithFilters lấy giao dịch với filter và pagination
