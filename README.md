@@ -1,4 +1,4 @@
-# MoneyPod - Intelligent Group Expense Management System
+# MoneyPod - Hệ Thống Quản Lý Chi Tiêu Nhóm Thông Minh
 
 <div align="center">
   <img src="app/assets/icons/base_app_icon.png" alt="MoneyPod Logo" width="120" height="120" />
@@ -10,195 +10,196 @@
   [![REST API](https://img.shields.io/badge/API-REST-green)](https://restfulapi.net)
 </div>
 
-## 📖 Project Overview
+## 📖 Tổng Quan Dự Án
 
-**MoneyPod** is a full-stack group expense management system with a **RESTful API backend** built in Go, integrated with PostgreSQL and Firebase. The project focuses on **building complex expense splitting algorithms, automatic debt calculation, and high-performance group transaction history management**.
+**MoneyPod** là hệ thống quản lý chi tiêu nhóm full-stack với **RESTful API backend** xây dựng bằng Go, tích hợp PostgreSQL và Firebase. Dự án tập trung vào **xây dựng các thuật toán chia chi phí phức tạp, tính toán nợ tự động và quản lý lịch sử giao dịch nhóm hiệu năng cao**.
 
-### 🎯 Problem Statement
+### 🎯 Vấn Đề Cần Giải Quyết
 
-When dining out or traveling in groups, splitting bills and tracking who owes whom can be complicated. MoneyPod automates:
+Khi đi ăn hoặc du lịch theo nhóm, việc chia hóa đơn và theo dõi ai nợ ai thường rất phức tạp. MoneyPod tự động hóa:
 
-- ✅ Flexible expense splitting (equal/custom ratios)
-- ✅ Calculate and store debts within groups
-- ✅ Track payment history with proof images
-- ✅ Send realtime notifications via Firebase Cloud Messaging
+- ✅ Chia chi phí linh hoạt (chia đều / tỷ lệ tùy chỉnh)
+- ✅ Tính toán và lưu trữ các khoản nợ trong nhóm
+- ✅ Theo dõi lịch sử thanh toán kèm ảnh chứng minh
+- ✅ Gửi thông báo thời gian thực qua Firebase Cloud Messaging
 
-### 💡 Key Technical Contributions (Backend Focus)
+### 💡 Đóng Góp Kỹ Thuật Chính (Tập Trung Backend)
 
-1. **Direct Debt Tracking Algorithm with Database Transactions**
-   - Implemented **O(n)** expense splitting algorithm with 2 modes: Equal Split and Custom Split
-   - Used **ACID transactions** to ensure data integrity when creating expense and debt records
-   - **Reduced 60% of transaction volume** compared to manual calculations
+1. **Thuật Toán Theo Dõi Nợ Trực Tiếp Kết Hợp Database Transaction**
+   - Triển khai thuật toán chia chi phí **O(n)** với 2 chế độ: Chia Đều và Chia Tùy Chỉnh
+   - Sử dụng **ACID transaction** để đảm bảo tính toàn vẹn dữ liệu khi tạo bản ghi chi phí và nợ
+   - **Giảm 60% khối lượng giao dịch** so với tính toán thủ công
 
-2. **Asynchronous Notification System with Goroutines**
-   - Process FCM notifications **without blocking the main thread** using goroutines
-   - Batch processing for multiple recipients in same group
-   - **Improved 90% response time** of create expense API (from ~500ms to <50ms)
+2. **Hệ Thống Thông Báo Bất Đồng Bộ với Goroutines**
+   - Xử lý thông báo FCM **không chặn luồng chính** bằng goroutines
+   - Xử lý hàng loạt cho nhiều người nhận trong cùng nhóm
+   - **Cải thiện 90% thời gian phản hồi** của API tạo chi phí (từ ~500ms xuống <50ms)
 
-3. **RESTful API Design with Clean Architecture**
-   - Clear separation: Handler → Service → Repository
-   - Authentication middleware with Firebase Admin SDK
-   - Database indexing on foreign keys → **75% faster query speed** for transaction history
+3. **Thiết Kế RESTful API với Clean Architecture**
+   - Phân tách rõ ràng: Handler → Service → Repository
+   - Middleware xác thực với Firebase Admin SDK
+   - Đánh chỉ mục database trên khóa ngoại → **tốc độ truy vấn lịch sử giao dịch nhanh hơn 75%**
 
-4. **Debt Payment Workflow with State Machine**
-   - Managed payment flow with 3 states: PENDING → CONFIRMED/REJECTED
-   - Synchronized wallet balance when confirming payment
-   - Complete audit trail with proof images and timestamps
+4. **Quy Trình Thanh Toán Nợ với State Machine**
+   - Quản lý luồng thanh toán với 3 trạng thái: PENDING → CONFIRMED/REJECTED
+   - Đồng bộ số dư ví khi xác nhận thanh toán
+   - Lưu vết đầy đủ với ảnh chứng minh và dấu thời gian
 
 ---
 
-## 🏗️ High-Level Architecture
+## 🏗️ Kiến Trúc Tổng Thể
 
-### System Architecture Diagram
+### Sơ Đồ Kiến Trúc Hệ Thống
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            CLIENT LAYER                                      │
+│                            TẦNG CLIENT                                       │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  Flutter Mobile App (iOS/Android)                                       │ │
-│  │  • BLoC Pattern (State Management)                                     │ │
-│  │  • go_router (Navigation)                                              │ │
+│  │  Ứng Dụng Mobile Flutter (iOS/Android)                                  │ │
+│  │  • BLoC Pattern (Quản lý trạng thái)                                   │ │
+│  │  • go_router (Điều hướng)                                              │ │
 │  │  • dio (HTTP Client)                                                   │ │
 │  └────────────────────┬───────────────────────────────────────────────────┘ │
 └─────────────────────────┼───────────────────────────────────────────────────┘
                           │ HTTPS/REST + JWT Token
-                          │ FCM Token Registration
+                          │ Đăng ký FCM Token
 ┌─────────────────────────▼───────────────────────────────────────────────────┐
-│                         BACKEND SERVER LAYER                                 │
+│                         TẦNG BACKEND SERVER                                  │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  Go Web Server (Gin Framework)                                        │   │
 │  │                                                                        │   │
 │  │  ┌─────────────┐   ┌──────────────┐   ┌─────────────────────┐       │   │
 │  │  │  Middleware │──►│   Handlers   │──►│     Services        │       │   │
-│  │  │  (Auth/Log) │   │  (REST API)  │   │  (Business Logic)   │       │   │
+│  │  │ (Xác thực/  │   │  (REST API)  │   │  (Nghiệp vụ)        │       │   │
+│  │  │  Logging)   │   │              │   │                     │       │   │
 │  │  └─────────────┘   └──────────────┘   └──────────┬──────────┘       │   │
 │  │                                                    │                  │   │
 │  │  ┌─────────────────────────────────────────────────▼──────────────┐  │   │
 │  │  │                    Repositories                                 │  │   │
-│  │  │            (Data Access Layer - GORM ORM)                       │  │   │
+│  │  │            (Tầng truy cập dữ liệu - GORM ORM)                  │  │   │
 │  │  └─────────────────────────────────────────────────┬──────────────┘  │   │
 │  └────────────────────────────────────────────────────┼─────────────────┘   │
 │                                                        │                     │
 │  ┌────────────────────────┐               ┌───────────▼────────────┐        │
 │  │  Firebase Admin SDK    │               │   PostgreSQL Database  │        │
-│  │  • FCM (Notifications) │               │   • Users, Groups      │        │
-│  │  • Auth Verification   │               │   • Expenses, Debts    │        │
+│  │  • FCM (Thông báo)     │               │   • Users, Groups      │        │
+│  │  • Xác thực người dùng │               │   • Expenses, Debts    │        │
 │  └────────────────────────┘               │   • Wallets, Payments  │        │
 │                                            └────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Component Interaction Flow
+### Luồng Tương Tác Giữa Các Thành Phần
 
-#### 1️⃣ **Expense Creation & Debt Calculation Workflow**
+#### 1️⃣ **Luồng Tạo Chi Phí & Tính Toán Nợ**
 
 ```
-User → [POST /api/groups/:id/expenses] → Handler
+Người dùng → [POST /api/groups/:id/expenses] → Handler
                                             ↓
                                          Service
                             ┌───────────────┴────────────────┐
                             │                                 │
-                    [Begin Transaction]              [Get Group Members]
+                    [Bắt đầu Transaction]        [Lấy danh sách thành viên]
                             │                                 │
-                    [Create Expense]                          │
+                    [Tạo bản ghi Chi phí]                    │
                             │                                 │
-                    [Check Split Mode]◄───────────────────────┘
+                    [Kiểm tra chế độ chia]◄──────────────────┘
                        ↙          ↘
-            Equal Split          Custom Split
+            Chia đều          Chia tùy chỉnh
           (amount/members)    (split_details[].amount)
                   ↓                      ↓
-          [Create Debt Records: FromUserID → ToUserID]
+          [Tạo bản ghi Nợ: FromUserID → ToUserID]
                             │
                    [Commit Transaction]
                             │
-                  [Async: Send FCM Notifications]
+                  [Bất đồng bộ: Gửi thông báo FCM]
                             ↓
-                   Return Success Response
+                   Trả về phản hồi thành công
 ```
 
-**Core Algorithm:**
+**Thuật Toán Cốt Lõi:**
 
 ```go
-// Pseudocode - Direct Debt Tracking Algorithm
+// Mã giả - Thuật Toán Theo Dõi Nợ Trực Tiếp
 func CreateExpense(groupID, payerID, amount, splitDetails):
     tx = db.BeginTransaction()
 
-    // Step 1: Create expense record
+    // Bước 1: Tạo bản ghi chi phí
     expense = Expense{groupID, payerID, amount}
     tx.Create(expense)
 
-    // Step 2: Get all members
+    // Bước 2: Lấy tất cả thành viên
     members = tx.GetMembers(groupID)
 
-    // Step 3: Calculate debts
+    // Bước 3: Tính toán nợ
     if splitDetails != null:
-        // Custom Split: O(n) where n = number of split items
+        // Chia tùy chỉnh: O(n) với n = số mục chia
         for each item in splitDetails:
             if item.userID != payerID:
                 debt = Debt{
                     expenseID: expense.id,
-                    fromUserID: item.userID,    // Debtor
-                    toUserID: payerID,          // Creditor
+                    fromUserID: item.userID,    // Người nợ
+                    toUserID: payerID,          // Người cho nợ
                     amount: item.amount,
                     isPaid: false
                 }
                 tx.Create(debt)
     else:
-        // Equal Split: O(m) where m = number of members
+        // Chia đều: O(m) với m = số thành viên
         splitAmount = amount / len(members)
         for each member in members:
             if member.userID != payerID:
-                debt = Debt{...same, amount: splitAmount}
+                debt = Debt{...tương tự, amount: splitAmount}
                 tx.Create(debt)
 
     tx.Commit()
 
-    // Step 4: Async notification (non-blocking)
+    // Bước 4: Thông báo bất đồng bộ (không chặn)
     go SendBatchNotifications(members, expense)
 
     return success
 ```
 
-**Complexity Analysis:**
+**Phân Tích Độ Phức Tạp:**
 
-- Time: **O(n + m)** where n = split items, m = members
-- Space: **O(m)** for debt records
-- Database: **1 transaction** with ACID guarantee
+- Thời gian: **O(n + m)** với n = số mục chia, m = số thành viên
+- Không gian: **O(m)** cho các bản ghi nợ
+- Cơ sở dữ liệu: **1 transaction** với đảm bảo ACID
 
-#### 2️⃣ **Debt Payment & Confirmation Workflow**
+#### 2️⃣ **Luồng Thanh Toán Nợ & Xác Nhận**
 
 ```
-Debtor → [POST /api/debts/:id/pay] → Create PaymentRequest
+Người nợ → [POST /api/debts/:id/pay] → Tạo PaymentRequest
                                            {status: PENDING}
                                                  ↓
-                                      [Send Notification to Creditor]
+                                      [Gửi thông báo cho Người cho nợ]
                                                  ↓
-Creditor → [POST /api/debts/:id/confirm] → Update PaymentRequest
+Người cho nợ → [POST /api/debts/:id/confirm] → Cập nhật PaymentRequest
                                                  {status: CONFIRMED}
                                                  ↓
-                                      [Begin Transaction]
+                                      [Bắt đầu Transaction]
                                                  ↓
                               ┌──────────────────┴──────────────────┐
                               │                                     │
-                    [Update Debt.isPaid = true]        [Update Wallet Balances]
+                    [Cập nhật Debt.isPaid = true]   [Cập nhật số dư Ví]
                               │                                     │
                               └──────────────────┬──────────────────┘
                                                  ↓
                                       [Commit Transaction]
                                                  ↓
-                                   [Notify Both Users: Payment Confirmed]
+                                   [Thông báo cả 2 người: Thanh toán đã xác nhận]
 ```
 
-### 3️⃣ **Database Schema Design**
+### 3️⃣ **Thiết Kế Schema Cơ Sở Dữ Liệu**
 
 ```sql
--- Core Tables with Indexed Columns
+-- Các bảng chính với các chỉ mục
 
 users (
     id UUID PRIMARY KEY,
     email VARCHAR UNIQUE,
     full_name VARCHAR,
-    fcm_token TEXT,  -- For push notifications
+    fcm_token TEXT,  -- Dùng cho push notification
     INDEX(email)
 )
 
@@ -216,29 +217,29 @@ group_members (
     user_id UUID REFERENCES users(id),
     role VARCHAR,
     UNIQUE(group_id, user_id),
-    INDEX(group_id), INDEX(user_id)  -- ⚡ +75% query speed
+    INDEX(group_id), INDEX(user_id)  -- ⚡ +75% tốc độ truy vấn
 )
 
 expenses (
     id UUID PRIMARY KEY,
     group_id UUID REFERENCES groups(id),
-    payer_id UUID REFERENCES users(id),  -- Creditor
+    payer_id UUID REFERENCES users(id),  -- Người trả trước
     amount DECIMAL(12,2),
     description TEXT,
     created_at TIMESTAMP,
-    INDEX(group_id, created_at),  -- ⚡ Optimize history queries
+    INDEX(group_id, created_at),  -- ⚡ Tối ưu truy vấn lịch sử
     INDEX(payer_id)
 )
 
 debts (
     id UUID PRIMARY KEY,
     expense_id UUID REFERENCES expenses(id),
-    from_user_id UUID REFERENCES users(id),  -- Debtor
-    to_user_id UUID REFERENCES users(id),    -- Creditor
+    from_user_id UUID REFERENCES users(id),  -- Người nợ
+    to_user_id UUID REFERENCES users(id),    -- Người cho nợ
     amount DECIMAL(12,2),
     is_paid BOOLEAN DEFAULT false,
-    INDEX(from_user_id, is_paid),  -- ⚡ Fast "my debts" lookup
-    INDEX(to_user_id, is_paid)     -- ⚡ Fast "people owe me" lookup
+    INDEX(from_user_id, is_paid),  -- ⚡ Tra nhanh "nợ của tôi"
+    INDEX(to_user_id, is_paid)     -- ⚡ Tra nhanh "người nợ tôi"
 )
 
 debt_payment_requests (
@@ -257,43 +258,43 @@ debt_payment_requests (
 
 ---
 
-## 🎯 Backend Technical Highlights
+## 🎯 Điểm Nổi Bật Kỹ Thuật Backend
 
-### 1. **Optimized Expense Splitting Algorithm**
+### 1. **Thuật Toán Chia Chi Phí Được Tối Ưu**
 
-**Problem:** When N people split bills, what calculation minimizes transactions and ensures accuracy?
+**Vấn đề:** Khi N người chia hóa đơn, cần tính toán như thế nào để tối thiểu hóa giao dịch và đảm bảo chính xác?
 
-**Solution:** Direct Debt Tracking Algorithm
+**Giải pháp:** Thuật Toán Theo Dõi Nợ Trực Tiếp
 
-- Instead of creating debts between all N\*(N-1) pairs
-- Only create debts from **each person → payer**
-- Reduced debt records from O(N²) to **O(N)**
+- Thay vì tạo nợ giữa tất cả N\*(N-1) cặp
+- Chỉ tạo nợ từ **mỗi người → người trả trước**
+- Giảm bản ghi nợ từ O(N²) xuống **O(N)**
 
-**Impact:**
+**Tác động:**
 
-- ✅ Reduced **60% of records** in `debts` table
-- ✅ Reduced **40% API calls** when querying debt list
-- ✅ Simplified settlement: Each person only pays once to payer instead of multiple people
+- ✅ Giảm **60% bản ghi** trong bảng `debts`
+- ✅ Giảm **40% lời gọi API** khi truy vấn danh sách nợ
+- ✅ Đơn giản hóa thanh toán: Mỗi người chỉ trả một lần cho người trả trước thay vì nhiều người
 
-**Example:**
+**Ví dụ:**
 
 ```
-Scenario: 4 people dining, bill $400, A pays first
-Traditional approach:
-  B→A: $100, C→A: $100, D→A: $100           (3 debts) ✅
+Tình huống: 4 người đi ăn, hóa đơn 400.000đ, A trả trước
+Phương pháp trực tiếp (đang dùng):
+  B→A: 100.000đ, C→A: 100.000đ, D→A: 100.000đ     (3 khoản nợ) ✅
 
-Complex approach (not used):
-  B→A, B→C, B→D, C→A, C→D, D→A...          (12 debts) ❌
+Phương pháp phức tạp (không dùng):
+  B→A, B→C, B→D, C→A, C→D, D→A...                 (12 khoản nợ) ❌
 ```
 
-### 2. **Database Transaction Management**
+### 2. **Quản Lý Transaction Cơ Sở Dữ Liệu**
 
-**Challenge:** Ensure data integrity when creating expense and multiple debt records simultaneously
+**Thách thức:** Đảm bảo tính toàn vẹn dữ liệu khi tạo chi phí và nhiều bản ghi nợ đồng thời
 
-**Implementation:**
+**Triển khai:**
 
 ```go
-// Using GORM Transaction with ACID properties
+// Dùng GORM Transaction với thuộc tính ACID
 tx := db.Begin()
 defer func() {
     if r := recover(); r != nil {
@@ -301,287 +302,287 @@ defer func() {
     }
 }()
 
-// Atomic operations
+// Các thao tác nguyên tử
 tx.Create(&expense)
 for each member {
-    tx.Create(&debt)  // Rollback all if any fails
+    tx.Create(&debt)  // Rollback tất cả nếu có lỗi
 }
 tx.Commit()
 ```
 
-**Benefits:**
+**Lợi ích:**
 
-- ✅ **ACID Compliance**: No expense exists without corresponding debts
-- ✅ **Concurrency Safe**: Handles multiple users creating expenses simultaneously
-- ✅ **Data Integrity**: Foreign key constraints enforced
+- ✅ **Tuân thủ ACID**: Không có chi phí nào tồn tại mà không có các khoản nợ tương ứng
+- ✅ **An toàn đồng thời**: Xử lý nhiều người dùng tạo chi phí cùng lúc
+- ✅ **Toàn vẹn dữ liệu**: Ràng buộc khóa ngoại được thực thi
 
-### 3. **Async Notification System with Goroutines**
+### 3. **Hệ Thống Thông Báo Bất Đồng Bộ với Goroutines**
 
-**Challenge:** Send FCM notifications to N members without slowing API response
+**Thách thức:** Gửi thông báo FCM đến N thành viên mà không làm chậm phản hồi API
 
-**Before Optimization:**
+**Trước khi tối ưu:**
 
 ```go
-// Sequential - SLOW ❌
+// Tuần tự - CHẬM ❌
 for each member {
-    SendFCMNotification(member.fcmToken)  // ~100ms each
+    SendFCMNotification(member.fcmToken)  // ~100ms mỗi lần
 }
-return response  // Total: 100ms * N members
+return response  // Tổng cộng: 100ms * N thành viên
 ```
 
-**After Optimization:**
+**Sau khi tối ưu:**
 
 ```go
-// Async with Goroutine - FAST ✅
+// Bất đồng bộ với Goroutine - NHANH ✅
 go func() {
     for each member {
         SendFCMNotification(member.fcmToken)
     }
 }()
-return response  // Immediate: <50ms
+return response  // Ngay lập tức: <50ms
 ```
 
-**Performance Improvement:**
+**Cải thiện hiệu năng:**
 
-- ✅ API response time: **500ms → 45ms** (91% reduction)
-- ✅ Notifications still sent in background
-- ✅ Doesn't block main thread
+- ✅ Thời gian phản hồi API: **500ms → 45ms** (giảm 91%)
+- ✅ Thông báo vẫn được gửi trong nền
+- ✅ Không chặn luồng chính
 
-### 4. **Database Indexing Strategy**
+### 4. **Chiến Lược Đánh Chỉ Mục Cơ Sở Dữ Liệu**
 
-**Indexes Applied:**
+**Các chỉ mục được áp dụng:**
 
 ```sql
--- Most queried patterns
+-- Các mẫu truy vấn phổ biến nhất
 CREATE INDEX idx_debts_from_user ON debts(from_user_id, is_paid);
 CREATE INDEX idx_debts_to_user ON debts(to_user_id, is_paid);
 CREATE INDEX idx_expenses_group_time ON expenses(group_id, created_at DESC);
 CREATE INDEX idx_group_members_lookup ON group_members(group_id, user_id);
 ```
 
-**Query Performance:**
+**Hiệu năng truy vấn:**
 
-- ✅ "My debts" query: **230ms → 35ms** (85% faster)
-- ✅ Group expense history: **450ms → 60ms** (87% faster)
-- ✅ Member lookup: **O(1)** with composite index
+- ✅ Truy vấn "nợ của tôi": **230ms → 35ms** (nhanh hơn 85%)
+- ✅ Lịch sử chi phí nhóm: **450ms → 60ms** (nhanh hơn 87%)
+- ✅ Tra cứu thành viên: **O(1)** với chỉ mục tổng hợp
 
-### 5. **RESTful API Design Principles**
+### 5. **Nguyên Tắc Thiết Kế RESTful API**
 
-**Resource-Oriented URLs:**
+**URL Hướng Tài Nguyên:**
 
 ```
-POST   /api/groups                    # Create group
-GET    /api/groups/:id                # Get group details
-POST   /api/groups/:id/expenses       # Create expense in group
-GET    /api/groups/:id/debts/mine     # My debts in group
-POST   /api/debts/:id/pay             # Pay specific debt
-POST   /api/debts/:id/confirm         # Confirm payment received
+POST   /api/groups                    # Tạo nhóm
+GET    /api/groups/:id                # Lấy thông tin nhóm
+POST   /api/groups/:id/expenses       # Tạo chi phí trong nhóm
+GET    /api/groups/:id/debts/mine     # Nợ của tôi trong nhóm
+POST   /api/debts/:id/pay             # Thanh toán khoản nợ cụ thể
+POST   /api/debts/:id/confirm         # Xác nhận đã nhận thanh toán
 
-// Authentication: JWT token in Authorization header
+// Xác thực: JWT token trong header Authorization
 Authorization: Bearer <firebase-token>
 ```
 
-**Consistent Response Format:**
+**Định Dạng Phản Hồi Nhất Quán:**
 
 ```json
-// Success
+// Thành công
 {
   "data": {...},
-  "message": "Success"
+  "message": "Thành công"
 }
 
-// Error
+// Lỗi
 {
-  "error": "Invalid request",
+  "error": "Yêu cầu không hợp lệ",
   "details": "..."
 }
 ```
 
 ---
 
-## ✨ Key Features
+## ✨ Tính Năng Chính
 
-#### 💰 Personal Finance Management
+#### 💰 Quản Lý Tài Chính Cá Nhân
 
-- **Multi-Wallet Management**: Create and track multiple wallets (cash, bank, credit card)
-- **Income/Expense Recording**: Quick transaction logging with detailed categorization
-- **Visual Statistics**: Charts analyzing spending by category and time
-- **Savings Goals**: Set and track savings targets
+- **Quản Lý Đa Ví**: Tạo và theo dõi nhiều ví (tiền mặt, ngân hàng, thẻ tín dụng)
+- **Ghi Chép Thu/Chi**: Nhập giao dịch nhanh với phân loại chi tiết
+- **Thống Kê Trực Quan**: Biểu đồ phân tích chi tiêu theo danh mục và thời gian
+- **Mục Tiêu Tiết Kiệm**: Đặt và theo dõi mục tiêu tiết kiệm
 
-#### 👥 Group Expenses
+#### 👥 Chi Phí Nhóm
 
-- **Create Expense Groups**: Manage shared costs with friends and family
-- **Automatic Expense Split**: Calculate each member's share
-- **Smart Debt Ledger**: Track who owes whom and how much
-- **Online Payment**: Confirm payments with proof images
+- **Tạo Nhóm Chi Phí**: Quản lý chi phí chung với bạn bè và gia đình
+- **Chia Chi Phí Tự Động**: Tính toán phần đóng góp của từng thành viên
+- **Sổ Nợ Thông Minh**: Theo dõi ai nợ ai và bao nhiêu
+- **Thanh Toán Trực Tuyến**: Xác nhận thanh toán kèm ảnh chứng minh
 
-#### 🔔 Notifications & Reminders
+#### 🔔 Thông Báo & Nhắc Nhở
 
-- **Push Notifications**: Receive alerts for new expenses and debt reminders
-- **Transaction History**: Review complete group expense history
-- **Performance Optimization**: Minimize notification spam, batch processing
+- **Push Notification**: Nhận cảnh báo về chi phí mới và nhắc nhở nợ
+- **Lịch Sử Giao Dịch**: Xem lại toàn bộ lịch sử chi phí nhóm
+- **Tối Ưu Hiệu Năng**: Tối thiểu hóa spam thông báo, xử lý theo lô
 
-#### 🎤 Voice Assistant
+#### 🎤 Trợ Lý Giọng Nói
 
-- **Voice Expense Recording**: Speak to log transactions quickly
-- **Context Analysis**: AI understands and auto-categorizes expenses
-- **Multi-language**: Supports Vietnamese and English
+- **Ghi Chi Phí Bằng Giọng Nói**: Nói để nhập giao dịch nhanh chóng
+- **Phân Tích Ngữ Cảnh**: AI hiểu và tự động phân loại chi phí
+- **Đa Ngôn Ngữ**: Hỗ trợ tiếng Việt và tiếng Anh
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Kiến Trúc Hệ Thống
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Flutter Mobile App                      │
+│                    Ứng Dụng Mobile Flutter                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Screens    │  │     BLoC     │  │  Repositories │      │
-│  │   (UI/UX)    │◄─┤ (State Mgmt) │◄─┤   (Data)     │      │
+│  │   Màn hình   │  │     BLoC     │  │  Repository  │      │
+│  │   (UI/UX)    │◄─┤ (Quản lý TT) │◄─┤   (Dữ liệu)  │      │
 │  └──────────────┘  └──────────────┘  └──────┬───────┘      │
 └────────────────────────────────────────────────┼────────────┘
                                                  │ HTTP/REST
 ┌────────────────────────────────────────────────┼────────────┐
-│                    Go Backend Server            │            │
+│                  Go Backend Server              │            │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────▼───────┐    │
 │  │   Handlers   │  │   Services   │  │  Repositories  │    │
-│  │  (REST API)  │─►│  (Business)  │─►│   (Data)       │    │
+│  │  (REST API)  │─►│  (Nghiệp vụ) │─►│   (Dữ liệu)   │    │
 │  └──────────────┘  └──────┬───────┘  └────────┬───────┘    │
 │                            │                   │             │
 │                    ┌───────▼───────┐  ┌────────▼────────┐   │
 │                    │  Firebase FCM │  │   PostgreSQL    │   │
-│                    │ (Push Notif)  │  │   (Database)    │   │
+│                    │  (Push Notif) │  │   (Database)    │   │
 │                    └───────────────┘  └─────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Công Nghệ Sử Dụng
 
-### Backend (Go Server) - **Primary Focus**
+### Backend (Go Server) - **Trọng Tâm Chính**
 
-| Component              | Technology               | Purpose                                         |
-| ---------------------- | ------------------------ | ----------------------------------------------- |
-| **Language**           | Go 1.21+                 | High-performance, concurrent backend            |
-| **Web Framework**      | Gin                      | Lightweight HTTP router with middleware support |
-| **Database**           | PostgreSQL 14+           | ACID-compliant relational database              |
-| **ORM**                | GORM                     | Type-safe database operations                   |
-| **Authentication**     | Firebase Admin SDK       | Token verification, user management             |
-| **Push Notifications** | Firebase Cloud Messaging | Realtime push notifications                     |
-| **Architecture**       | Clean Architecture       | Handler → Service → Repository pattern          |
-| **Concurrency**        | Goroutines               | Async notification processing                   |
-| **API Design**         | RESTful                  | Resource-oriented endpoints                     |
+| Thành Phần             | Công Nghệ                | Mục Đích                                              |
+| ---------------------- | ------------------------ | ----------------------------------------------------- |
+| **Ngôn ngữ**           | Go 1.21+                 | Backend hiệu năng cao, xử lý đồng thời               |
+| **Web Framework**      | Gin                      | HTTP router nhẹ với hỗ trợ middleware                 |
+| **Cơ sở dữ liệu**      | PostgreSQL 14+           | Cơ sở dữ liệu quan hệ tuân thủ ACID                  |
+| **ORM**                | GORM                     | Thao tác database an toàn kiểu                        |
+| **Xác thực**           | Firebase Admin SDK       | Xác minh token, quản lý người dùng                   |
+| **Push Notification**  | Firebase Cloud Messaging | Thông báo đẩy thời gian thực                          |
+| **Kiến trúc**          | Clean Architecture       | Mô hình Handler → Service → Repository                |
+| **Xử lý đồng thời**    | Goroutines               | Xử lý thông báo bất đồng bộ                           |
+| **Thiết kế API**       | RESTful                  | Endpoint hướng tài nguyên                             |
 
 ### Frontend (Flutter Mobile)
 
-| Component            | Technology             |
+| Thành Phần           | Công Nghệ              |
 | -------------------- | ---------------------- |
 | **Framework**        | Flutter 3.x (Dart)     |
-| **State Management** | BLoC Pattern           |
-| **Routing**          | go_router              |
+| **Quản lý trạng thái** | BLoC Pattern         |
+| **Điều hướng**       | go_router              |
 | **HTTP Client**      | dio                    |
-| **Charts**           | fl_chart               |
-| **Voice**            | speech_to_text         |
-| **Secure Storage**   | flutter_secure_storage |
+| **Biểu đồ**          | fl_chart               |
+| **Giọng nói**        | speech_to_text         |
+| **Lưu trữ bảo mật**  | flutter_secure_storage |
 
-### DevOps & Tools
+### DevOps & Công Cụ
 
-- **Version Control**: Git/GitHub
+- **Quản lý phiên bản**: Git/GitHub
 - **Container**: Docker + docker-compose
-- **API Testing**: Postman, curl
-- **Database Tool**: pgAdmin, TablePlus
+- **Kiểm thử API**: Postman, curl
+- **Công cụ Database**: pgAdmin, TablePlus
 
 ---
 
-## 📂 Backend Code Structure (Clean Architecture)
+## 📂 Cấu Trúc Mã Nguồn Backend (Clean Architecture)
 
 ```
 server/
 ├── cmd/
 │   └── server/
-│       └── main.go                    # 🚀 Entry point: Initialize server
+│       └── main.go                    # 🚀 Điểm khởi đầu: Khởi tạo server
 │
-├── internal/                           # Private application code
+├── internal/                           # Code ứng dụng nội bộ
 │   ├── config/
-│   │   └── config.go                  # Environment configuration
+│   │   └── config.go                  # Cấu hình môi trường
 │   │
-│   ├── handlers/                      # 🌐 HTTP Request Handlers (Controller Layer)
-│   │   ├── auth_handler.go           # Login, Register, Verify Token
-│   │   ├── group_handler.go          # Groups CRUD, Members management
-│   │   ├── expense_handler.go        # Create expense, List history
-│   │   ├── debt_handler.go           # Payment flow, Confirmation
-│   │   ├── wallet_handler.go         # Wallet operations
-│   │   └── notification_handler.go   # FCM token registration
+│   ├── handlers/                      # 🌐 Xử lý HTTP Request (Tầng Controller)
+│   │   ├── auth_handler.go           # Đăng nhập, Đăng ký, Xác minh Token
+│   │   ├── group_handler.go          # CRUD nhóm, Quản lý thành viên
+│   │   ├── expense_handler.go        # Tạo chi phí, Danh sách lịch sử
+│   │   ├── debt_handler.go           # Luồng thanh toán, Xác nhận
+│   │   ├── wallet_handler.go         # Thao tác ví
+│   │   └── notification_handler.go   # Đăng ký token FCM
 │   │
-│   ├── services/                      # 💼 Business Logic Layer
-│   │   ├── group_service.go          # ⭐ Core: Expense splitting algorithm
-│   │   ├── debt_service.go           # Debt calculation, Payment workflow
-│   │   ├── notification_service.go   # ⭐ Async notification with goroutine
-│   │   ├── wallet_service.go         # Balance updates, Transactions
-│   │   └── auth_service.go           # Firebase token verification
+│   ├── services/                      # 💼 Tầng Nghiệp Vụ
+│   │   ├── group_service.go          # ⭐ Cốt lõi: Thuật toán chia chi phí
+│   │   ├── debt_service.go           # Tính toán nợ, Luồng thanh toán
+│   │   ├── notification_service.go   # ⭐ Thông báo bất đồng bộ với goroutine
+│   │   ├── wallet_service.go         # Cập nhật số dư, Giao dịch
+│   │   └── auth_service.go           # Xác minh token Firebase
 │   │
-│   ├── repositories/                  # 💾 Data Access Layer
-│   │   ├── group_repository.go       # Database queries for groups
-│   │   ├── expense_repository.go     # CRUD operations for expenses
-│   │   ├── debt_repository.go        # ⭐ Optimized debt queries with indexes
-│   │   ├── wallet_repository.go      # Wallet data access
-│   │   └── user_repository.go        # User profile operations
+│   ├── repositories/                  # 💾 Tầng Truy Cập Dữ Liệu
+│   │   ├── group_repository.go       # Truy vấn database cho nhóm
+│   │   ├── expense_repository.go     # Thao tác CRUD cho chi phí
+│   │   ├── debt_repository.go        # ⭐ Truy vấn nợ được tối ưu với chỉ mục
+│   │   ├── wallet_repository.go      # Truy cập dữ liệu ví
+│   │   └── user_repository.go        # Thao tác hồ sơ người dùng
 │   │
-│   ├── models/                        # 📊 Data Models (GORM)
-│   │   ├── user.go                   # User entity
+│   ├── models/                        # 📊 Mô Hình Dữ Liệu (GORM)
+│   │   ├── user.go                   # Thực thể người dùng
 │   │   ├── groups.go                 # Group, GroupMember
-│   │   ├── expense.go                # ⭐ Expense, Debt models
+│   │   ├── expense.go                # ⭐ Mô hình Expense, Debt
 │   │   ├── debt_payment.go           # DebtPaymentRequest (state machine)
 │   │   ├── wallet.go                 # Wallet, Transaction
-│   │   └── base_model.go             # Common fields: ID, Timestamps
+│   │   └── base_model.go             # Các trường chung: ID, Timestamps
 │   │
 │   ├── middleware/                    # 🔒 HTTP Middleware
-│   │   ├── auth_middleware.go        # JWT token verification
-│   │   ├── cors_middleware.go        # CORS configuration
-│   │   └── logger_middleware.go      # Request/Response logging
+│   │   ├── auth_middleware.go        # Xác minh JWT token
+│   │   ├── cors_middleware.go        # Cấu hình CORS
+│   │   └── logger_middleware.go      # Ghi log Request/Response
 │   │
 │   ├── routes/
-│   │   └── router.go                 # ⭐ API endpoints definition
+│   │   └── router.go                 # ⭐ Định nghĩa API endpoints
 │   │
 │   └── utils/
-│       ├── response.go               # Standardized API responses
-│       └── validator.go              # Input validation helpers
+│       ├── response.go               # Chuẩn hóa phản hồi API
+│       └── validator.go              # Hàm trợ giúp xác thực đầu vào
 │
-├── pkg/                               # Public shared packages
+├── pkg/                               # Các gói dùng chung công khai
 │   ├── db/
-│   │   └── postgres.go               # ⭐ Database connection setup
+│   │   └── postgres.go               # ⭐ Thiết lập kết nối database
 │   ├── constants/
-│   │   └── constants.go              # App-wide constants
+│   │   └── constants.go              # Hằng số toàn ứng dụng
 │   └── utils/
-│       └── helpers.go                # Utility functions
+│       └── helpers.go                # Hàm tiện ích
 │
-├── migrations/                        # SQL migration scripts
+├── migrations/                        # Script migration SQL
 │   ├── 001_init.sql
-│   └── 002_add_indexes.sql           # ⭐ Performance indexes
+│   └── 002_add_indexes.sql           # ⭐ Chỉ mục hiệu năng
 │
 ├── docker-compose.yml                 # Docker services (postgres, server)
-├── Dockerfile                         # Container build instructions
-├── go.mod                             # Go dependencies
-└── go.sum                             # Dependency checksums
+├── Dockerfile                         # Hướng dẫn build container
+├── go.mod                             # Dependencies Go
+└── go.sum                             # Checksum dependencies
 ```
 
-### Key Files Explained
+### Giải Thích Các File Quan Trọng
 
-#### `group_service.go` - **Core Algorithm**
+#### `group_service.go` - **Thuật Toán Cốt Lõi**
 
-Contains expense splitting algorithm and debt record creation:
+Chứa thuật toán chia chi phí và tạo bản ghi nợ:
 
-- `CreateExpense()`: Main logic with transaction management
-- Equal Split vs Custom Split mode
-- Async notification triggering
+- `CreateExpense()`: Logic chính với quản lý transaction
+- Chế độ Chia Đều vs Chia Tùy Chỉnh
+- Kích hoạt thông báo bất đồng bộ
 
-#### `debt_repository.go` - **Optimized Queries**
+#### `debt_repository.go` - **Truy Vấn Được Tối Ưu**
 
 ```go
-// Query "my debts" with index
+// Truy vấn "nợ của tôi" với chỉ mục
 func (r *DebtRepository) GetMyDebts(userID uuid.UUID) ([]Debt, error) {
     var debts []Debt
-    // Uses INDEX idx_debts_from_user(from_user_id, is_paid)
+    // Sử dụng INDEX idx_debts_from_user(from_user_id, is_paid)
     err := r.db.Where("from_user_id = ? AND is_paid = ?", userID, false).
               Preload("Expense").
               Find(&debts).Error
@@ -589,12 +590,12 @@ func (r *DebtRepository) GetMyDebts(userID uuid.UUID) ([]Debt, error) {
 }
 ```
 
-#### `notification_service.go` - **Async Processing**
+#### `notification_service.go` - **Xử Lý Bất Đồng Bộ**
 
 ```go
-// Non-blocking notification
+// Thông báo không chặn
 func (s *NotificationService) SendBatchNotifications(...) {
-    go func() {  // ⚡ Goroutine for async execution
+    go func() {  // ⚡ Goroutine để thực thi bất đồng bộ
         for _, member := range members {
             s.SendFCM(member.FCMToken, payload)
         }
@@ -604,67 +605,67 @@ func (s *NotificationService) SendBatchNotifications(...) {
 
 ---
 
-## 🚀 API Endpoints Documentation
+## 🚀 Tài Liệu API Endpoints
 
-### Authentication
-
-```http
-POST   /api/auth/register          # Register new account
-POST   /api/auth/login             # Login (email/password)
-POST   /api/auth/verify            # Verify Firebase token
-```
-
-### Groups Management
+### Xác Thực
 
 ```http
-GET    /api/groups                 # List user's groups
-POST   /api/groups                 # Create new group
-GET    /api/groups/:id             # Get group details
-PUT    /api/groups/:id             # Update group info
-DELETE /api/groups/:id             # Delete group
-POST   /api/groups/:id/join        # Join group with invite code
-POST   /api/groups/:id/leave       # Leave group
-DELETE /api/groups/:id/members/:userId  # Kick member (owner only)
+POST   /api/auth/register          # Đăng ký tài khoản mới
+POST   /api/auth/login             # Đăng nhập (email/mật khẩu)
+POST   /api/auth/verify            # Xác minh token Firebase
 ```
 
-### Expenses & Debts ⭐
+### Quản Lý Nhóm
 
 ```http
-# Expense Operations
-POST   /api/groups/:id/expenses                # ⭐ Create expense + auto calculate debt
-GET    /api/groups/:id/expenses                # Group expense history
-GET    /api/expenses/:id                       # Get single expense details
-
-# Debt Queries
-GET    /api/groups/:id/debts/mine              # ⭐ Debts I owe others
-GET    /api/groups/:id/debts/to-me             # ⭐ Debts others owe me
-GET    /api/groups/:id/debts/summary           # Debt overview in group
-
-# Payment Flow
-POST   /api/debts/:id/pay                      # ⭐ Submit payment request (Debtor)
-POST   /api/debts/:id/confirm                  # ⭐ Confirm payment received (Creditor)
-POST   /api/debts/:id/reject                   # Reject payment
+GET    /api/groups                 # Danh sách nhóm của người dùng
+POST   /api/groups                 # Tạo nhóm mới
+GET    /api/groups/:id             # Lấy thông tin nhóm
+PUT    /api/groups/:id             # Cập nhật thông tin nhóm
+DELETE /api/groups/:id             # Xóa nhóm
+POST   /api/groups/:id/join        # Tham gia nhóm bằng mã mời
+POST   /api/groups/:id/leave       # Rời nhóm
+DELETE /api/groups/:id/members/:userId  # Đuổi thành viên (chỉ chủ nhóm)
 ```
 
-### Wallets
+### Chi Phí & Nợ ⭐
 
 ```http
-GET    /api/wallets                # List user's wallets
-POST   /api/wallets                # Create new wallet
-PUT    /api/wallets/:id            # Update wallet
-DELETE /api/wallets/:id            # Delete wallet
+# Thao tác Chi phí
+POST   /api/groups/:id/expenses                # ⭐ Tạo chi phí + tự động tính nợ
+GET    /api/groups/:id/expenses                # Lịch sử chi phí nhóm
+GET    /api/expenses/:id                       # Lấy thông tin chi phí cụ thể
+
+# Truy vấn Nợ
+GET    /api/groups/:id/debts/mine              # ⭐ Nợ tôi đang nợ người khác
+GET    /api/groups/:id/debts/to-me             # ⭐ Nợ người khác đang nợ tôi
+GET    /api/groups/:id/debts/summary           # Tổng quan nợ trong nhóm
+
+# Luồng Thanh Toán
+POST   /api/debts/:id/pay                      # ⭐ Gửi yêu cầu thanh toán (Người nợ)
+POST   /api/debts/:id/confirm                  # ⭐ Xác nhận đã nhận thanh toán (Người cho nợ)
+POST   /api/debts/:id/reject                   # Từ chối thanh toán
 ```
 
-### Notifications
+### Ví
 
 ```http
-POST   /api/fcm/register           # Register FCM token
-GET    /api/notifications          # Notification history
+GET    /api/wallets                # Danh sách ví của người dùng
+POST   /api/wallets                # Tạo ví mới
+PUT    /api/wallets/:id            # Cập nhật ví
+DELETE /api/wallets/:id            # Xóa ví
 ```
 
-### Example Request/Response
+### Thông Báo
 
-**Create Expense with Custom Split:**
+```http
+POST   /api/fcm/register           # Đăng ký token FCM
+GET    /api/notifications          # Lịch sử thông báo
+```
+
+### Ví Dụ Request/Response
+
+**Tạo Chi Phí với Chia Tùy Chỉnh:**
 
 ```http
 POST /api/groups/123e4567-e89b-12d3-a456-426614174000/expenses
@@ -688,7 +689,7 @@ Content-Type: application/json
 
 ```json
 {
-  "message": "Expense created and debts calculated successfully!",
+  "message": "Tạo chi phí và tính nợ thành công!",
   "data": {
     "expense_id": "expense-uuid-1",
     "debts_created": 3,
@@ -697,14 +698,14 @@ Content-Type: application/json
 }
 ```
 
-**Query My Debts:**
+**Truy vấn nợ của tôi:**
 
 ```http
 GET /api/groups/123e4567-e89b-12d3-a456-426614174000/debts/mine
 Authorization: Bearer <firebase-token>
 ```
 
-**Response:**
+**Phản hồi:**
 
 ```json
 {
@@ -713,7 +714,7 @@ Authorization: Bearer <firebase-token>
       "id": "debt-uuid-1",
       "expense": {
         "description": "King BBQ Buffet",
-        "payer_name": "John Doe"
+        "payer_name": "Nguyen Van A"
       },
       "amount": 150000,
       "is_paid": false,
@@ -725,68 +726,68 @@ Authorization: Bearer <firebase-token>
 
 ---
 
-## 🚀 Installation & Setup
+## 🚀 Cài Đặt & Khởi Chạy
 
-### Prerequisites
+### Yêu Cầu
 
-#### Backend Requirements
+#### Yêu Cầu Backend
 
-- **Go**: 1.21 or higher
-- **PostgreSQL**: 14 or higher
-- **Firebase Project**: with Admin SDK credentials
-- **Git**: Version control
+- **Go**: 1.21 trở lên
+- **PostgreSQL**: 14 trở lên
+- **Firebase Project**: với thông tin xác thực Admin SDK
+- **Git**: Quản lý phiên bản
 
-#### Frontend Requirements
+#### Yêu Cầu Frontend
 
 - **Flutter SDK**: 3.0.0+
 - **Dart SDK**: 3.0.0+
 
-### Backend Setup (Detailed)
+### Cài Đặt Backend (Chi Tiết)
 
-#### Step 1: Clone Repository
+#### Bước 1: Clone Repository
 
 ```bash
 git clone https://github.com/your-username/moneypod_app.git
 cd moneypod_app/server
 ```
 
-#### Step 2: Install Go Dependencies
+#### Bước 2: Cài Đặt Dependencies Go
 
 ```bash
 go mod download
 go mod verify
 ```
 
-#### Step 3: Setup PostgreSQL Database
+#### Bước 3: Cài Đặt PostgreSQL Database
 
 ```bash
-# Create database
+# Tạo database
 createdb moneypod
 
-# Or using psql
+# Hoặc dùng psql
 psql -U postgres
 CREATE DATABASE moneypod;
 \q
 
-# Run migrations
+# Chạy migration
 psql -U postgres -d moneypod -f migrations/001_init.sql
 psql -U postgres -d moneypod -f migrations/002_add_indexes.sql
 ```
 
-#### Step 4: Configure Firebase Admin SDK
+#### Bước 4: Cấu Hình Firebase Admin SDK
 
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Select project → Project Settings → Service Accounts
-3. Generate new private key
-4. Save file as `serviceAccountKey.json`
-5. Move to `server/` directory
+1. Truy cập [Firebase Console](https://console.firebase.google.com)
+2. Chọn dự án → Project Settings → Service Accounts
+3. Tạo khóa riêng tư mới
+4. Lưu file với tên `serviceAccountKey.json`
+5. Di chuyển vào thư mục `server/`
 
-#### Step 5: Environment Configuration
+#### Bước 5: Cấu Hình Môi Trường
 
-Create `.env` file in `server/`:
+Tạo file `.env` trong thư mục `server/`:
 
 ```env
-# Database Configuration
+# Cấu hình Database
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
@@ -794,7 +795,7 @@ DB_PASSWORD=your_secure_password
 DB_NAME=moneypod
 DB_SSLMODE=disable
 
-# Server Configuration
+# Cấu hình Server
 PORT=8080
 GIN_MODE=release           # development/release
 ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
@@ -806,45 +807,45 @@ FIREBASE_CREDENTIALS_PATH=./serviceAccountKey.json
 LOG_LEVEL=info             # debug/info/warn/error
 ```
 
-#### Step 6: Run Server
+#### Bước 6: Chạy Server
 
-**Development Mode:**
+**Chế độ Phát Triển:**
 
 ```bash
-# Hot reload with air (recommended)
+# Hot reload với air (khuyến nghị)
 go install github.com/cosmtrek/air@latest
 air
 
-# Or run directly
+# Hoặc chạy trực tiếp
 go run cmd/server/main.go
 ```
 
-**Production Build:**
+**Build Production:**
 
 ```bash
 # Build binary
 go build -o bin/moneypod-server cmd/server/main.go
 
-# Run
+# Chạy
 ./bin/moneypod-server
 ```
 
-**Using Docker:**
+**Dùng Docker:**
 
 ```bash
-# Build and run with docker-compose
+# Build và chạy với docker-compose
 docker-compose up -d
 
-# View logs
+# Xem logs
 docker-compose logs -f server
 
-# Stop services
+# Dừng dịch vụ
 docker-compose down
 ```
 
-Server will run at: **http://localhost:8080**
+Server sẽ chạy tại: **http://localhost:8080**
 
-#### Step 7: Verify Installation
+#### Bước 7: Kiểm Tra Cài Đặt
 
 ```bash
 # Health check
@@ -854,254 +855,254 @@ curl http://localhost:8080/health
 curl http://localhost:8080/api/ping
 ```
 
-### Frontend Setup (Flutter)
+### Cài Đặt Frontend (Flutter)
 
-#### Step 1: Install Dependencies
+#### Bước 1: Cài Đặt Dependencies
 
 ```bash
 cd ../app
 flutter pub get
 ```
 
-#### Step 2: Configure API Endpoint
+#### Bước 2: Cấu Hình API Endpoint
 
-Update `app/lib/config/api_config.dart`:
+Cập nhật `app/lib/config/api_config.dart`:
 
 ```dart
 class ApiConfig {
-  static const String baseUrl = 'http://localhost:8080'; // Development
+  static const String baseUrl = 'http://localhost:8080'; // Phát triển
   // static const String baseUrl = 'https://api.moneypod.app'; // Production
 }
 ```
 
-#### Step 3: Firebase Configuration
+#### Bước 3: Cấu Hình Firebase
 
-- Download `google-services.json` (Android) and `GoogleService-Info.plist` (iOS)
-- Place in respective directories
-- Ensure SHA-1/SHA-256 fingerprints are added to Firebase Console
+- Tải xuống `google-services.json` (Android) và `GoogleService-Info.plist` (iOS)
+- Đặt vào các thư mục tương ứng
+- Đảm bảo SHA-1/SHA-256 fingerprints đã được thêm vào Firebase Console
 
-#### Step 4: Run App
+#### Bước 4: Chạy App
 
 ```bash
 flutter run
 
-# Or select specific device
+# Hoặc chọn thiết bị cụ thể
 flutter devices
 flutter run -d <device-id>
 ```
 
 ---
 
-## 🧪 Testing
+## 🧪 Kiểm Thử
 
-### Backend Testing
+### Kiểm Thử Backend
 
 ```bash
 cd server
 
-# Run all tests
+# Chạy tất cả tests
 go test ./...
 
-# Test with coverage
+# Test với coverage
 go test -cover ./...
 
-# Detailed coverage report
+# Báo cáo coverage chi tiết
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 
-# Test specific package
+# Test gói cụ thể
 go test ./internal/services/...
 
-# Verbose output
+# Xem output chi tiết
 go test -v ./...
 ```
 
-### API Testing with Postman
+### Kiểm Thử API với Postman
 
 Import collection: `server/docs/postman_collection.json`
 
-**Test Scenarios:**
+**Các kịch bản kiểm thử:**
 
-1. Create user account
-2. Create group
-3. Add expense with equal split
-4. Add expense with custom split
-5. Query my debts
-6. Pay debt workflow
-7. Confirm payment
-
----
-
-## 📊 Performance Benchmarks & Optimizations
-
-### Database Query Performance
-
-| Query                               | Before Indexing | After Indexing | Improvement    |
-| ----------------------------------- | --------------- | -------------- | -------------- |
-| Get My Debts (100 records)          | 230ms           | 35ms           | **85% faster** |
-| Group Expense History (500 records) | 450ms           | 60ms           | **87% faster** |
-| Member Lookup                       | 120ms           | 8ms            | **93% faster** |
-
-### API Response Times (P95)
-
-| Endpoint                      | Sync Processing | Async Processing | Improvement    |
-| ----------------------------- | --------------- | ---------------- | -------------- |
-| `POST /expenses` (5 members)  | 520ms           | 48ms             | **91% faster** |
-| `POST /expenses` (20 members) | 1850ms          | 52ms             | **97% faster** |
-| `GET /debts/mine`             | 230ms           | 35ms             | **85% faster** |
-
-### Debt Record Efficiency
-
-| Scenario         | Traditional Approach | Direct Tracking | Reduction    |
-| ---------------- | -------------------- | --------------- | ------------ |
-| 5 members split  | 20 debt records (N²) | 4 records (N-1) | **80% less** |
-| 10 members split | 90 debt records      | 9 records       | **90% less** |
-| 20 members split | 380 debt records     | 19 records      | **95% less** |
-
-### Memory Usage & Scalability
-
-- **Concurrent Users**: Tested with 500 concurrent requests → **0% error rate**
-- **Database Connections**: Pool size 25 → **sufficient for 1000+ active sessions**
-- **Memory Footprint**: Server ~45MB idle, ~120MB under load
-- **Goroutine Overhead**: ~2KB per notification task (negligible)
+1. Tạo tài khoản người dùng
+2. Tạo nhóm
+3. Thêm chi phí chia đều
+4. Thêm chi phí chia tùy chỉnh
+5. Truy vấn nợ của tôi
+6. Luồng thanh toán nợ
+7. Xác nhận thanh toán
 
 ---
 
-## 🎯 Key Learnings & Challenges
+## 📊 Đo Lường Hiệu Năng & Tối Ưu Hóa
 
-### Challenges Encountered
+### Hiệu Năng Truy Vấn Database
 
-#### 1. **Race Condition in Notification Sending**
+| Truy vấn                                      | Trước khi đánh chỉ mục | Sau khi đánh chỉ mục | Cải thiện       |
+| --------------------------------------------- | ----------------------- | -------------------- | --------------- |
+| Lấy nợ của tôi (100 bản ghi)                  | 230ms                   | 35ms                 | **Nhanh hơn 85%** |
+| Lịch sử chi phí nhóm (500 bản ghi)            | 450ms                   | 60ms                 | **Nhanh hơn 87%** |
+| Tra cứu thành viên                             | 120ms                   | 8ms                  | **Nhanh hơn 93%** |
 
-**Problem**: When multiple expenses are created simultaneously, FCM can be rate limited
+### Thời Gian Phản Hồi API (P95)
 
-**Solution**:
+| Endpoint                        | Xử lý đồng bộ | Xử lý bất đồng bộ | Cải thiện       |
+| ------------------------------- | ------------- | ------------------ | --------------- |
+| `POST /expenses` (5 thành viên)  | 520ms         | 48ms               | **Nhanh hơn 91%** |
+| `POST /expenses` (20 thành viên) | 1850ms        | 52ms               | **Nhanh hơn 97%** |
+| `GET /debts/mine`                | 230ms         | 35ms               | **Nhanh hơn 85%** |
 
-- Implemented notification queue with buffer channel
-- Batch sending with 100ms delay between requests
-- Retry logic with exponential backoff
+### Hiệu Quả Bản Ghi Nợ
+
+| Kịch bản           | Phương pháp truyền thống | Theo dõi trực tiếp | Giảm thiểu    |
+| ------------------ | ------------------------ | ------------------- | ------------- |
+| 5 thành viên chia  | 20 bản ghi nợ (N²)       | 4 bản ghi (N-1)     | **Ít hơn 80%** |
+| 10 thành viên chia | 90 bản ghi nợ            | 9 bản ghi           | **Ít hơn 90%** |
+| 20 thành viên chia | 380 bản ghi nợ           | 19 bản ghi          | **Ít hơn 95%** |
+
+### Sử Dụng Bộ Nhớ & Khả Năng Mở Rộng
+
+- **Người dùng đồng thời**: Kiểm thử với 500 request đồng thời → **Tỷ lệ lỗi 0%**
+- **Kết nối Database**: Pool size 25 → **Đủ cho 1000+ phiên hoạt động**
+- **Bộ nhớ sử dụng**: Server ~45MB khi rảnh, ~120MB khi tải cao
+- **Chi phí Goroutine**: ~2KB mỗi tác vụ thông báo (không đáng kể)
+
+---
+
+## 🎯 Bài Học & Thách Thức
+
+### Các Thách Thức Gặp Phải
+
+#### 1. **Race Condition khi Gửi Thông Báo**
+
+**Vấn đề**: Khi nhiều chi phí được tạo đồng thời, FCM có thể bị giới hạn tốc độ
+
+**Giải pháp**:
+
+- Triển khai hàng đợi thông báo với buffer channel
+- Gửi hàng loạt với độ trễ 100ms giữa các request
+- Logic thử lại với exponential backoff
 
 ```go
 notifChan := make(chan NotificationPayload, 100)
-go NotificationWorker(notifChan)  // Background worker
+go NotificationWorker(notifChan)  // Worker nền
 ```
 
-#### 2. **Database Transaction Deadlock**
+#### 2. **Deadlock Transaction Database**
 
-**Problem**: Concurrent expense creation in same group causes deadlock
+**Vấn đề**: Tạo chi phí đồng thời trong cùng nhóm gây deadlock
 
-**Solution**:
+**Giải pháp**:
 
-- Acquire locks in consistent order (group_id → user_id)
-- Reduced transaction scope to include only critical operations
-- Set appropriate transaction isolation level
+- Khóa theo thứ tự nhất quán (group_id → user_id)
+- Thu hẹp phạm vi transaction chỉ bao gồm các thao tác quan trọng
+- Đặt mức cô lập transaction phù hợp
 
-#### 3. **Float Precision in Currency Calculation**
+#### 3. **Độ Chính Xác Float trong Tính Toán Tiền Tệ**
 
-**Problem**: `float64` causes rounding errors (0.1 + 0.2 ≠ 0.3)
+**Vấn đề**: `float64` gây lỗi làm tròn (0.1 + 0.2 ≠ 0.3)
 
-**Solution**:
+**Giải pháp**:
 
-- Store amounts as integers (cents): $100.50 → 10050
-- Use `decimal` package for calculations
-- Format only when displaying
+- Lưu số tiền dưới dạng số nguyên (đơn vị nhỏ nhất): 100.500đ → 10050
+- Dùng gói `decimal` để tính toán
+- Chỉ định dạng khi hiển thị
 
 ```go
-// Store: $100.50
-amount := 10050  // int64 (cents)
+// Lưu: 100.500đ
+amount := 10050  // int64 (đơn vị đồng)
 
-// Display
-fmt.Printf("$%.2f", float64(amount)/100)
+// Hiển thị
+fmt.Printf("%.0fđ", float64(amount))
 ```
 
-### Technical Decisions
+### Quyết Định Kỹ Thuật
 
-#### 1. **Why Go over Node.js/Python?**
+#### 1. **Tại Sao Chọn Go Thay Vì Node.js/Python?**
 
-- ✅ **Performance**: 2-3x faster with concurrency
-- ✅ **Built-in Concurrency**: Goroutines more efficient than async/await
-- ✅ **Type Safety**: Compile-time error detection
-- ✅ **Memory Efficiency**: Better garbage collection
-- ✅ **Deployment**: Single binary, no runtime needed
+- ✅ **Hiệu năng**: Nhanh hơn 2-3x với xử lý đồng thời
+- ✅ **Đồng thời tích hợp sẵn**: Goroutines hiệu quả hơn async/await
+- ✅ **An toàn kiểu**: Phát hiện lỗi lúc biên dịch
+- ✅ **Hiệu quả bộ nhớ**: Garbage collection tốt hơn
+- ✅ **Triển khai**: Binary đơn, không cần runtime
 
-#### 2. **Why PostgreSQL over MongoDB?**
+#### 2. **Tại Sao Chọn PostgreSQL Thay Vì MongoDB?**
 
-- ✅ **ACID Transactions**: Critical for financial data
-- ✅ **Complex Joins**: Query debts/expenses/users efficiently
-- ✅ **Data Integrity**: Foreign key constraints + indexes
-- ✅ **Proven Scalability**: Handles millions of transactions
+- ✅ **ACID Transaction**: Quan trọng với dữ liệu tài chính
+- ✅ **Join phức tạp**: Truy vấn nợ/chi phí/người dùng hiệu quả
+- ✅ **Toàn vẹn dữ liệu**: Ràng buộc khóa ngoại + chỉ mục
+- ✅ **Khả năng mở rộng đã chứng minh**: Xử lý hàng triệu giao dịch
 
-#### 3. **Why RESTful over GraphQL?**
+#### 3. **Tại Sao Chọn RESTful Thay Vì GraphQL?**
 
-- ✅ **Simplicity**: Easier mobile client integration
-- ✅ **Caching**: Standard HTTP caching mechanisms
-- ✅ **Predictable**: Fixed endpoints, clear responsibilities
-- ✅ **Tooling**: Better support on mobile platforms
-
----
-
-## 📈 Future Improvements
-
-### Short-term (Next Sprint)
-
-- [ ] Implement debt simplification algorithm (reduce cross-debts)
-- [ ] Add pagination for expense history (currently load all)
-- [ ] Dashboard analytics (spending by category, time-series)
-- [ ] Export expense report as PDF/Excel
-
-### Medium-term
-
-- [ ] WebSocket for real-time updates (instead of polling)
-- [ ] Redis caching layer for frequently accessed data
-- [ ] Implement settlement suggestion algorithm (minimize transactions)
-- [ ] Multi-currency support with exchange rates
-
-### Long-term
-
-- [ ] Microservices architecture (separate Notification Service)
-- [ ] Event-driven architecture with Kafka/RabbitMQ
-- [ ] Machine Learning for expense categorization
-- [ ] Horizontal scaling with load balancer
+- ✅ **Đơn giản**: Tích hợp dễ dàng hơn với mobile client
+- ✅ **Caching**: Cơ chế caching HTTP tiêu chuẩn
+- ✅ **Dễ dự đoán**: Endpoint cố định, trách nhiệm rõ ràng
+- ✅ **Công cụ hỗ trợ**: Hỗ trợ tốt hơn trên các nền tảng di động
 
 ---
 
-## 🐛 Troubleshooting
+## 📈 Cải Tiến Trong Tương Lai
 
-### Backend Issues
+### Ngắn Hạn (Sprint Tiếp Theo)
 
-**Error: "Database connection failed"**
+- [ ] Triển khai thuật toán đơn giản hóa nợ (giảm nợ chéo)
+- [ ] Thêm phân trang cho lịch sử chi phí (hiện tải tất cả)
+- [ ] Phân tích dashboard (chi tiêu theo danh mục, chuỗi thời gian)
+- [ ] Xuất báo cáo chi phí dưới dạng PDF/Excel
+
+### Trung Hạn
+
+- [ ] WebSocket để cập nhật thời gian thực (thay thế polling)
+- [ ] Tầng caching Redis cho dữ liệu truy cập thường xuyên
+- [ ] Triển khai thuật toán gợi ý thanh toán (tối thiểu hóa giao dịch)
+- [ ] Hỗ trợ đa tiền tệ với tỷ giá hối đoái
+
+### Dài Hạn
+
+- [ ] Kiến trúc microservices (tách riêng Notification Service)
+- [ ] Kiến trúc hướng sự kiện với Kafka/RabbitMQ
+- [ ] Machine Learning để phân loại chi phí
+- [ ] Mở rộng ngang với load balancer
+
+---
+
+## 🐛 Xử Lý Sự Cố
+
+### Vấn Đề Backend
+
+**Lỗi: "Database connection failed"**
 
 ```bash
-# Check PostgreSQL is running
+# Kiểm tra PostgreSQL đang chạy
 psql -U postgres -l
 
-# Test connection
+# Kiểm tra kết nối
 psql -U postgres -d moneypod -c "SELECT 1;"
 
-# Check .env file
+# Kiểm tra file .env
 cat .env | grep DB_
 ```
 
-**Error: "Firebase token verification failed"**
+**Lỗi: "Firebase token verification failed"**
 
-- Verify `serviceAccountKey.json` is from correct project
-- Check file permissions: `chmod 600 serviceAccountKey.json`
-- Ensure Firebase project has Authentication enabled
+- Kiểm tra `serviceAccountKey.json` từ đúng dự án
+- Kiểm tra quyền file: `chmod 600 serviceAccountKey.json`
+- Đảm bảo dự án Firebase đã bật Authentication
 
-**Error: "Port already in use"**
+**Lỗi: "Port already in use"**
 
 ```bash
-# Find process using port 8080
+# Tìm tiến trình đang dùng cổng 8080
 lsof -i :8080  # macOS/Linux
 netstat -ano | findstr :8080  # Windows
 
-# Kill process
+# Dừng tiến trình
 kill -9 <PID>
 ```
 
-### Frontend Issues
+### Vấn Đề Frontend
 
-**Flutter Build Error**
+**Lỗi Build Flutter**
 
 ```bash
 flutter clean
@@ -1109,53 +1110,53 @@ flutter pub get
 flutter run
 ```
 
-**Error: "API connection refused"**
+**Lỗi: "API connection refused"**
 
-- Check backend server is running
-- Verify base URL in config
-- Check network permissions in `AndroidManifest.xml`
+- Kiểm tra server backend đang chạy
+- Xác minh base URL trong cấu hình
+- Kiểm tra quyền mạng trong `AndroidManifest.xml`
 
 ---
 
-## 🤝 Contributing
+## 🤝 Đóng Góp
 
-Contributions are welcome! Please follow these guidelines:
+Chúng tôi hoan nghênh mọi đóng góp! Vui lòng tuân theo các hướng dẫn sau:
 
-### Development Workflow
+### Quy Trình Phát Triển
 
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
-3. **Commit** your changes: `git commit -m 'Add amazing feature'`
-4. **Push** to branch: `git push origin feature/amazing-feature`
-5. **Open** a Pull Request
+1. **Fork** repository
+2. **Tạo** nhánh tính năng: `git checkout -b feature/amazing-feature`
+3. **Commit** các thay đổi: `git commit -m 'Add amazing feature'`
+4. **Push** lên nhánh: `git push origin feature/amazing-feature`
+5. **Mở** Pull Request
 
-### Coding Standards
+### Tiêu Chuẩn Code
 
 **Go Backend:**
 
-- Follow [Effective Go](https://golang.org/doc/effective_go.html)
-- Run `gofmt` before committing
-- Write unit tests for business logic
-- Document exported functions
+- Tuân theo [Effective Go](https://golang.org/doc/effective_go.html)
+- Chạy `gofmt` trước khi commit
+- Viết unit test cho nghiệp vụ
+- Tài liệu hóa các hàm được xuất
 
 **Flutter Frontend:**
 
-- Follow [Effective Dart](https://dart.dev/guides/language/effective-dart)
-- Run `flutter analyze` before pushing
-- Use BLoC pattern consistently
-- Comment complex widgets
+- Tuân theo [Effective Dart](https://dart.dev/guides/language/effective-dart)
+- Chạy `flutter analyze` trước khi push
+- Sử dụng mô hình BLoC nhất quán
+- Comment các widget phức tạp
 
 ---
 
-## 📄 License
+## 📄 Giấy Phép
 
-This project is developed for educational purposes at **HUTECH University**.
+Dự án này được phát triển cho mục đích học thuật tại **Trường Đại học Công nghệ TP.HCM (HUTECH)**.
 
-© 2026 HUTECH Development Team. All rights reserved.
+© 2026 HUTECH Development Team. Bảo lưu mọi quyền.
 
 ---
 
-## 👨‍💻 Author & Contact
+## 👨‍💻 Tác Giả & Liên Hệ
 
 **NgocBao** - Backend Developer
 
@@ -1163,41 +1164,41 @@ This project is developed for educational purposes at **HUTECH University**.
 - 💼 LinkedIn: [linkedin.com/in/2impaoo/](https://www.linkedin.com/in/2impaoo/)
 - 🐙 GitHub: [@2impaoo-it](https://github.com/2impaoo-it)
 
-**HUTECH University** - Software Engineering Program
+**Trường Đại học Công nghệ TP.HCM (HUTECH)** - Chương trình Kỹ thuật Phần mềm
 
 - 🌐 Website: [hutech.edu.vn](https://hutech.edu.vn)
-- 📍 Location: Ho Chi Minh City, Vietnam
+- 📍 Địa chỉ: Thành phố Hồ Chí Minh, Việt Nam
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 Lời Cảm Ơn
 
-- **Go Community** - For excellent documentation and libraries
-- **GORM Team** - Powerful and easy-to-use ORM
-- **Firebase Team** - Robust authentication and messaging services
-- **PostgreSQL** - Reliable and performant database system
-- **Flutter Team** - Amazing cross-platform framework
-- **HUTECH University** - Educational support and resources
-- **Mentor [Mentor Name]** - Technical guidance and code review
+- **Cộng đồng Go** - Tài liệu và thư viện xuất sắc
+- **Nhóm GORM** - ORM mạnh mẽ và dễ sử dụng
+- **Nhóm Firebase** - Dịch vụ xác thực và nhắn tin tin cậy
+- **PostgreSQL** - Hệ thống cơ sở dữ liệu đáng tin cậy và hiệu suất cao
+- **Nhóm Flutter** - Framework đa nền tảng tuyệt vời
+- **Trường HUTECH** - Hỗ trợ giáo dục và tài nguyên
+- **Giảng viên hướng dẫn** - Hướng dẫn kỹ thuật và review code
 
 ---
 
-## 📚 Related Documentation
+## 📚 Tài Liệu Liên Quan
 
-- [API Documentation](./docs/API.md) - Detailed REST API reference
-- [Database Schema](./docs/DATABASE.md) - ER diagrams and table structures
-- [Architecture Decision Records](./docs/ADR.md) - Technical decisions explained
-- [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment steps
-- [Voice Assistant](./VOICE_ASSISTANT_INTEGRATION.md) - AI voice feature details
+- [Tài liệu API](./docs/API.md) - Tài liệu tham khảo REST API chi tiết
+- [Schema Database](./docs/DATABASE.md) - Sơ đồ ER và cấu trúc bảng
+- [Hồ Sơ Quyết Định Kiến Trúc](./docs/ADR.md) - Các quyết định kỹ thuật được giải thích
+- [Hướng Dẫn Triển Khai](./docs/DEPLOYMENT.md) - Các bước triển khai production
+- [Trợ Lý Giọng Nói](./VOICE_ASSISTANT_INTEGRATION.md) - Chi tiết tính năng AI giọng nói
 
 ---
 
 <div align="center">
   
-### 🌟 If you find this project helpful, please give it a star! 🌟
+### 🌟 Nếu dự án này hữu ích với bạn, hãy cho chúng tôi một ngôi sao! 🌟
 
-**Built with ❤️ by NgocBaoTeam**
+**Xây dựng với ❤️ bởi NgocBaoTeam**
 
-_Keywords: Golang, PostgreSQL, REST API, Clean Architecture, Flutter, Firebase, Backend Development, Expense Splitting Algorithm, Database Optimization, Async Processing_
+_Từ khóa: Golang, PostgreSQL, REST API, Clean Architecture, Flutter, Firebase, Phát triển Backend, Thuật toán chia chi phí, Tối ưu hóa Database, Xử lý bất đồng bộ_
 
 </div>
